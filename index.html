@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microfluidic Designer</title>
+    <!-- Link to Google Font (Montserrat) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Include Konva.js library -->
+    <script src="https://unpkg.com/konva@9.3.6/konva.min.js"></script>
+    <!-- Include Math.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.min.js"></script>
+</head>
+<body>
+    <header>
+        <!-- Wrap logo and title for easier alignment -->
+        <div class="header-content">
+            <!-- Placeholder for the logo -->
+            <img id="logo" src="Logo.svg" alt="Company Logo" /> 
+        </div>
+    </header>
+
+    <!-- Updated Introduction -->
+    <p class="introduction-text">Welcome to the Microfluidic System Designer! Build virtual microfluidic circuits using standardized components, connect them, and simulate fluid dynamics to test your designs before fabrication. This tool helps you predict flow rates, pressure drops, and optimize your system based on a hydrodynamic resistance network model.</p>
+
+    <!-- New How-to-Use Section -->
+    <!-- MOVED TO PALETTE -->
+    <!-- <div id="how-to-use-guide" class="how-to-use-section"> ... </div> -->
+
+    <div class="app-container">
+        <aside id="palette">
+            <div class="palette-section">
+                <h2>Microfluidic Chips</h2>
+                <div class="palette-row">
+                    <div id="palette-straight-chip" class="palette-chip" draggable="true" data-chip-type="straight"
+                         title="Straight Channel: Simple fluid path.">
+                         <p>Straight</p>
+                    </div>
+                    <div id="palette-x-chip" class="palette-chip" draggable="true" data-chip-type="x-type"
+                         title="X-Type Junction: 4-way intersection for mixing or splitting.">
+                         <p>X-Type</p>
+                    </div>
+                    <div id="palette-t-chip" class="palette-chip" draggable="true" data-chip-type="t-type"
+                         title="T-Type Junction: Split 1 stream to 2, or merge 2 to 1.">
+                         <p>T-Type</p>
+                    </div>
+                    <div id="palette-meander-chip" class="palette-chip" draggable="true" data-chip-type="meander"
+                         title="Meander Structure: Increases path length for mixing/reactions.">
+                         <p>Meander</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="palette-section">
+                <h2>Instrumentation</h2>
+                <div class="palette-row">
+                    <div id="palette-pump" class="palette-chip" draggable="true" data-chip-type="pump"
+                         title="Fluid Pump: Provides pressure source (configure ports).">
+                        <p>Pump</p>
+                        <!-- JS adds canvas here -->
+                    </div>
+                    <!-- Outlet will go here later -->
+                    <div id="palette-outlet" class="palette-chip" draggable="true" data-chip-type="outlet"
+                         title="Flow Outlet: Represents exit at atmospheric pressure (0 Pa).">
+                        <p>Outlet</p>
+                        <!-- JS adds canvas here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Moved How-to-Use Section Here -->
+            <div id="how-to-use-guide" class="sidebar-box how-to-use-section"> <!-- Added sidebar-box class -->
+                <h2 class="collapsible-heading">How to Use <span class="toggle-arrow">▶</span></h2>
+                <div class="collapsible-content">
+                    <ul>
+                        <li><strong>Add Components:</strong> Drag components from the Palette (left) onto the Canvas (center).</li>
+                        <li><strong>Connect Ports:</strong> Right-click a port (grey circle) on one component, then right-click a port on another to create tubing.</li>
+                        <li><strong>Delete Connections:</strong> Right-click an existing tube to remove it.</li>
+                        <li><strong>Configure:</strong> Click a component on the canvas to view/edit its properties (e.g., pump pressures) in the right sidebar.</li>
+                        <li><strong>Simulate:</strong> Click 'Run Simulation' to calculate pressures (mbar) and flow rates (µL/min).</li>
+                        <li><strong>View Results:</strong> Observe tube/channel colors (see Legend). Hover over ports (orange dots after simulation) for specific values.</li>
+                        <li><strong>Clear:</strong> Use the 'Clear Canvas' button to start over.</li>
+                        <li><strong>Deselect/Cancel:</strong> Click the canvas background to deselect. Right-click background to cancel a connection attempt.</li>
+                    </ul>
+                    <p class="simulation-notes">
+                        <strong>Simulation Basis:</strong> Calculates pressure and flow using a hydrodynamic resistance model (analogous to Ohm's law), assuming laminar flow. Tubing resistance uses Poiseuille's law (0.02" ID standard). Chip resistances are based on typical 100x100µm channel dimensions. Assumes constant fluid viscosity (water).
+                    </p>
+                </div>
+            </div>
+        </aside>
+        <main id="main-content">
+            <div id="canvas-container">
+                <!-- New: Watermark Text -->
+                <div class="canvas-watermark">Microfluidic System Designer</div>
+                <div id="konva-stage"></div> <!-- Konva stage will attach here -->
+                 <!-- Button will be positioned here via CSS -->
+                 <button id="clear-canvas-btn">Clear Canvas</button>
+                 <button id="run-simulation-btn">Run Simulation</button>
+            </div>
+        </main>
+
+        <!-- Component List on the Right -->
+        <aside id="component-list">
+            <!-- Box 1: Details & Actions (moved to top) -->
+            <div class="sidebar-box details-actions-box">
+                <div id="selected-component-properties" class="properties-panel-content">
+                    <!-- Component properties will be loaded here -->
+                    <p>Select a component or palette item for details.</p> <!-- Default message -->
+                </div>
+
+                <!-- Simulation Control -->
+                <div id="simulation-control">
+                    <!-- Button removed from here -->
+                </div>
+            </div>
+
+            <!-- Box 2: Components & Tubing (moved to bottom) -->
+            <div class="sidebar-box components-box">
+                <h2>Components Used</h2>
+                <div class="component-table">
+                    <div class="component-header">
+                        <div class="component-name">Component</div>
+                        <div class="component-quantity">Qty</div>
+                    </div>
+                    <div id="component-list-content">
+                        <!-- List will be dynamically populated by JS -->
+                        <p class="empty-state">No components added yet.</p>
+                    </div>
+                    <!-- Moved Tubing Info Inside table structure -->
+                    <div id="tubing-info" class="tubing-row">
+                        <div class="component-name">Estimated Tubing</div>
+                        <div class="tubing-length">0 cm</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Box 3: Simulation Summary -->
+            <div id="simulation-summary-box" class="sidebar-box simulation-summary-box" style="display: none;">
+                <h2>Simulation Results</h2>
+                <div id="simulation-summary-content">
+                    <!-- Summary will be populated by JS -->
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html> 

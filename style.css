@@ -1,0 +1,640 @@
+html, body {
+    height: 100%; /* Ensure body can take full height */
+    margin: 0; /* Remove default body margin */
+    overflow: hidden; /* Prevent body scrolling */
+}
+
+body {
+    font-family: 'Roboto', sans-serif; /* UPDATED FONT */
+    /* margin: 20px; */ /* Removed */
+    display: flex;
+    flex-direction: column; /* Stack header and app-container */
+    background-color: #F2F4F8; /* Branding: Light Cool Grey */
+}
+
+header {
+    background-color: #FFFFFF; /* Branding: White Background */
+    color: #003366; /* Branding: Midnight Blue Text */
+    padding: 12px 24px; /* Slightly increased padding */
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); /* Lighter shadow for white bg */
+    z-index: 10; /* Ensure header is above other content */
+    flex-shrink: 0; /* Prevent header from shrinking */
+    /* box-sizing: border-box; No longer needed */
+}
+
+/* New: Style the header content container */
+.header-content {
+    display: flex;
+    align-items: center; /* Vertically align items */
+    gap: 15px; /* Space between logo and title */
+}
+
+/* New: Basic styles for the logo */
+#logo {
+    height: 40px; /* Example height - adjust as needed */
+    width: auto; /* Maintain aspect ratio */
+    /* background-color: #FFFFFF; Removed white background */
+    /* padding: 3px; Removed padding */
+    /* border-radius: 4px; Removed border-radius */
+    /* box-sizing: border-box; No longer needed */
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1.4em; /* Reduced font size */
+    font-weight: 700; /* Use Bold for Roboto title */
+    /* Color now inherited from header */
+}
+
+.app-container {
+    display: flex; /* Keep as flex for columns */
+    gap: 20px; /* Slightly reduced gap for tighter layout */
+    flex-grow: 1; /* Allow container to fill remaining space */
+    padding: 20px; /* Reduced padding slightly */
+    overflow: hidden; /* Prevent app-container scrolling */
+    /* Align items at the start (top) of the container */
+    align-items: flex-start;
+}
+
+#palette { /* Changed from div to aside */
+    border: none; /* Remove old border */
+    padding: 0; /* Remove padding, apply to sections */
+    width: 200px; /* Slightly narrower palette */
+    min-width: 200px; /* Ensure it doesn't shrink too much */
+    /* Set max-height to prevent stretching with content */
+    max-height: calc(100vh - 60px - 40px); /* Viewport - header - padding */
+    /* background-color: #ffffff; Removed, apply to sections */
+    /* border-radius: 8px; Removed */
+    /* box-shadow: 0 2px 4px rgba(0,0,0,0.08); Removed */
+    overflow-y: auto; /* Allow palette scrolling if needed */
+    flex-shrink: 0; /* Prevent palette from shrinking */
+    display: flex; /* Use flex column for sections */
+    flex-direction: column;
+    gap: 16px; /* Space between sections */
+}
+
+/* Style for individual sections in the palette */
+.palette-section {
+    background-color: #ffffff;
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+
+#main-content {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Allow main content to take up remaining space */
+    overflow: hidden; /* Prevent main area scrolling */
+    align-items: center; /* Center canvas container horizontally */
+    justify-content: center; /* Center canvas container vertically */
+    /* Ensure it takes up height */
+    height: 100%;
+    max-height: calc(100vh - 60px - 48px); /* Match palette/list height */
+}
+
+#canvas-container {
+    border: none; /* Remove old border */
+    padding: 0;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    /* flex-grow: 1; Removed - using max width/height */
+    display: flex;
+    overflow: hidden;
+    position: relative; /* Needed for absolute positioning of button */
+    /* Make width/height relative to parent (#main-content) */
+    width: 100%;
+    height: 100%;
+    /* Remove max-width/height, let #main-content control size */
+    /* max-width: 1000px; */
+    /* max-height: 700px; */
+}
+
+#konva-stage {
+    /* width: 600px; */ /* Remove fixed width */
+    /* height: 400px; */ /* Remove fixed height */
+    border: 1px solid #D9E1E8; /* Branding: Lighter Cool Grey border */
+    background-color: #ffffff; /* White background for stage */
+    flex-grow: 1; /* Allow stage to grow */
+}
+
+h2 {
+    margin-top: 0;
+    margin-bottom: 12px; /* Added bottom margin */
+    font-size: 1.15em; /* Slightly larger */
+    font-weight: 700; /* Montserrat bold */
+    color: #003366; /* Branding: Midnight Blue for headings */
+}
+
+.palette-chip {
+    width: 64px;
+    height: 64px;
+    border: 1px solid transparent; /* Remove default border, use transparent for layout */
+    margin-bottom: 12px;
+    cursor: grab;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    text-align: center;
+    padding-bottom: 4px;
+    border-radius: 6px; /* Slightly more rounded */
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    background-color: #FFFFFF; /* Branding: White background */
+}
+
+.palette-chip:hover {
+    background-color: #FFFFFF; /* Keep background white */
+    transform: scale(1.03);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border: 1px solid #003366; /* Add primary blue border on hover */
+}
+
+.palette-chip p {
+    margin: 0;
+    font-size: 0.75em;
+    color: #333333; /* Darker grey for better contrast/professionalism */
+    font-weight: 400; /* Montserrat regular */
+    line-height: 1.1;
+}
+
+.palette-row {
+    display: flex;
+    flex-wrap: wrap; /* Allow chips to wrap if needed */
+    gap: 12px; /* Add spacing between chips */
+}
+
+/* Ensure Konva stages within palette chips don't interfere with layout */
+.palette-chip .konvajs-content {
+    position: absolute; /* Take out of flow for centering text */
+    top: 0;
+    left: 0;
+}
+
+#clear-canvas-btn {
+    position: absolute; /* Position on top of canvas container */
+    bottom: 10px; /* Position at bottom */
+    right: 10px;
+    z-index: 5; /* Ensure it's above the Konva stage */
+    padding: 6px 12px; /* Adjusted padding */
+    font-size: 0.85em;
+    background-color: transparent; /* Outline style: Transparent background */
+    color: #003366; /* Outline style: Primary blue text */
+    border: 1px solid #003366; /* Outline style: Primary blue border */
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease, border-color 0.2s ease;
+    box-shadow: none; /* Remove shadow for outline button */
+}
+
+#clear-canvas-btn:hover {
+    background-color: rgba(0, 51, 102, 0.05); /* Subtle primary blue bg on hover */
+    border-color: #003366;
+    color: #003366;
+    transform: translateY(-1px);
+}
+
+#clear-canvas-btn:active {
+    transform: translateY(0px);
+    background-color: rgba(0, 51, 102, 0.1); /* Slightly stronger bg on active */
+    box-shadow: none;
+}
+
+/* --- New Styles for Component List --- */
+#component-list {
+    border: none; /* Remove parent border */
+    padding: 0; /* Remove parent padding */
+    width: 240px; /* Slightly wider to accommodate properties better */
+    min-width: 240px;
+    /* Match palette height constraint */
+    max-height: calc(100vh - 60px - 40px);
+    /* background-color: #ffffff; Remove */
+    /* border-radius: 8px; Remove */
+    /* box-shadow: 0 2px 4px rgba(0,0,0,0.08); Remove */
+    overflow-y: auto;
+    flex-shrink: 0;
+    /* Add internal flex layout */
+    display: flex;
+    flex-direction: column;
+    gap: 16px; /* Space between boxes */
+}
+
+/* Styles for the boxes within the component list */
+.sidebar-box {
+    background-color: #ffffff;
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    display: flex; /* Use flex for internal layout */
+    flex-direction: column;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+/* Specific adjustments for the details/actions box */
+.details-actions-box {
+    flex-grow: 1; /* Allow this box to grow and push simulation down */
+}
+
+#component-list-content {
+    margin-bottom: 8px; /* Reduced Space below list */
+    padding-bottom: 0; /* Remove padding */
+    border-bottom: none; /* Remove Separator, box provides it */
+}
+
+#component-list-content ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#component-list-content li {
+    padding: 6px 0;
+    font-size: 0.9em;
+    color: #333333; /* Darker text */
+    border-bottom: 1px solid #D9E1E8; /* Branding: Lighter Cool Grey border */
+}
+
+#component-list-content li:last-child {
+    border-bottom: none;
+}
+
+#component-list-content p {
+    font-style: italic;
+    color: #757575; /* Keep italic slightly lighter */
+    font-size: 0.9em;
+    margin-bottom: 8px; /* Add margin below placeholder */
+}
+
+/* --- New Styles for Selected Component Properties --- */
+#selected-component-properties {
+    margin-top: 0;
+    padding-top: 16px;
+    border-top: 1px solid #D9E1E8;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+}
+
+#selected-component-properties h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 0.95em;
+    font-weight: 600;
+    color: #003366;
+}
+
+#selected-component-properties .property-item {
+    margin-bottom: 8px;
+    font-size: 0.85em;
+}
+
+#selected-component-properties label {
+    display: inline-block;
+    width: 80px;
+    margin-right: 5px;
+}
+
+#selected-component-properties input[type="number"] {
+    width: 60px; /* Adjust as needed */
+    padding: 4px;
+    font-size: 0.85em;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+
+
+/* Position the Run Simulation button on the canvas */
+#run-simulation-btn {
+    position: absolute;
+    bottom: 10px;
+    /* Position it to the left of the clear button (adjust right value as needed) */
+    right: 120px; /* Example: Adjust this based on clear button width and desired spacing */
+    z-index: 5;
+    /* Reuse styles from the old simulation-control button */
+    padding: 8px 16px;
+    font-size: 0.9em;
+    background-color: #003366;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    font-family: inherit;
+}
+
+#run-simulation-btn:hover {
+    background-color: #002244;
+    transform: translateY(-1px);
+}
+
+#run-simulation-btn:active {
+    transform: translateY(0px);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+    background-color: #001a33;
+}
+
+/* --- New Styles for Tubing Info --- */
+#tubing-info {
+    margin-top: 8px; /* Reduced Space above the separator */
+    padding-top: 8px; /* Reduced Space below the separator */
+    border-top: 1px solid #D9E1E8; /* Keep separator */
+    /* Tubing info should not grow */
+    flex-shrink: 0;
+}
+
+#tubing-info p {
+    margin: 0; /* Remove default paragraph margin */
+    font-size: 0.85em; /* Smaller font size */
+    font-weight: 400; /* Regular weight */
+    color: #555555; /* Lighter text color */
+}
+
+/* New: Style for Introduction Text */
+.introduction-text {
+    padding: 10px 24px;
+    font-size: 0.85em;
+    color: #333333;
+    background-color: #FFFFFF;
+    margin: 0;
+    border-bottom: 1px solid #D9E1E8;
+}
+
+/* New: Style for Canvas Watermark */
+.canvas-watermark {
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    font-size: 1.1em;
+    font-weight: 300; /* Lighter weight */
+    color: rgba(0, 0, 0, 0.1); /* Very faint grey */
+    z-index: 1; /* Behind Konva stage but above background */
+    pointer-events: none; /* Allow clicks to pass through */
+}
+
+/* Update heading sizes */
+.sidebar-box h2 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 1em; /* Reduced from 1.15em */
+    font-weight: 600;
+    color: #003366;
+}
+
+/* New table-like structure styles */
+.component-table {
+    width: 100%;
+    font-size: 0.85em; /* Smaller base font size */
+}
+
+.component-header {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #D9E1E8;
+    font-weight: 500;
+    color: #666;
+}
+
+.component-name {
+    flex: 1;
+    padding-right: 10px;
+}
+
+.component-quantity {
+    width: 40px;
+    text-align: right;
+}
+
+#component-list-content {
+    margin: 0;
+    padding: 0;
+}
+
+#component-list-content li {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid #D9E1E8;
+    font-size: 0.85em; /* Smaller text */
+    color: #333333;
+}
+
+.empty-state {
+    color: #888;
+    font-style: italic;
+    padding: 8px 0;
+    margin: 0;
+    font-size: 0.85em;
+}
+
+.tubing-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-top: 1px solid #D9E1E8;
+    color: #333333;
+    font-size: 0.85em; /* Match component row font size */
+}
+
+.tubing-length {
+    width: 40px;
+    text-align: right;
+}
+
+/* Remove old tubing info styles */
+#tubing-info {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    flex-shrink: 0;
+}
+
+#tubing-info p {
+    margin: 0;
+}
+
+.component-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid #D9E1E8;
+    font-size: 0.85em;
+    color: #333333;
+}
+
+.component-name {
+    flex: 1;
+    padding-right: 10px;
+}
+
+.component-quantity {
+    width: 40px;
+    text-align: right;
+}
+
+/* Update empty state styling */
+.empty-state {
+    color: #888;
+    font-style: italic;
+    padding: 8px 0;
+    margin: 0;
+    font-size: 0.85em;
+}
+
+/* Remove old list styles */
+#component-list-content {
+    margin: 0;
+    padding: 0;
+}
+
+#component-list-content ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#component-list-content li {
+    padding: 6px 0;
+    font-size: 0.9em;
+    color: #333333;
+    border-bottom: 1px solid #D9E1E8;
+}
+
+/* Update properties panel text */
+#selected-component-properties ul {
+    margin: 0;
+    padding-left: 15px;
+}
+
+#selected-component-properties li {
+    font-size: 0.85em;
+    margin-bottom: 4px;
+}
+
+#selected-component-properties p {
+    font-size: 0.85em;
+    margin: 8px 0;
+}
+
+/* Update any additional property descriptions */
+.property-description {
+    font-size: 0.85em;
+    color: #666666;
+    margin: 4px 0;
+}
+
+/* --- New Styles for Simulation Summary Box --- */
+.simulation-summary-box {
+    margin-top: 16px;
+    display: none; /* Hidden by default */
+}
+
+#simulation-summary-content {
+    font-size: 0.9em;
+    color: #333333;
+    padding-top: 8px;
+}
+
+#simulation-summary-content .summary-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #D9E1E8;
+}
+
+#simulation-summary-content .summary-item:last-child {
+    border-bottom: none;
+}
+
+#simulation-summary-content .summary-label {
+    color: #666666;
+}
+
+#simulation-summary-content .summary-value {
+    font-weight: 500;
+    color: #003366;
+}
+
+/* New: Style for How-to-Use Section */
+.how-to-use-section { /* This will now be styled primarily by .sidebar-box */
+    /* background-color: #e8f0f8; */ /* REMOVE - Use sidebar-box background */
+    /* padding: 15px 24px; */ /* REMOVE - Use sidebar-box padding */
+    /* margin: 0 0 0 0; */ /* REMOVE */
+    /* border-bottom: 1px solid #D9E1E8; */ /* REMOVE */
+    font-size: 0.8em; /* REDUCED from 0.88em */
+    color: #333333; /* Keep specific text color if desired */
+}
+
+.how-to-use-section h2 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1em; /* REDUCED from 1.1em */
+    color: #003366;
+    font-weight: 600;
+}
+
+.how-to-use-section ul {
+    margin: 0;
+    padding-left: 20px; /* Indent list */
+    list-style: disc; /* Use standard bullets */
+}
+
+.how-to-use-section li {
+    margin-bottom: 5px;
+    line-height: 1.4;
+}
+
+/* Style for Simulation Notes paragraph */
+.simulation-notes {
+    margin-top: 10px; /* Space above the notes */
+    margin-bottom: 0; /* No extra space below */
+    font-size: 0.75em; /* REDUCED from 0.8em */
+    color: #555555; /* Lighter grey */
+    line-height: 1.3;
+}
+
+.simulation-notes strong {
+    color: #333333; /* Make the heading slightly darker */
+}
+
+/* Collapsible Section Specific Styles */
+.collapsible-heading {
+    cursor: pointer;
+    display: flex; /* Align heading text and arrow */
+    justify-content: space-between; /* Push arrow to the right */
+    align-items: center;
+}
+
+.toggle-arrow {
+    display: inline-block;
+    transition: transform 0.3s ease;
+    font-size: 0.8em; /* Make arrow slightly smaller */
+    margin-left: 10px;
+}
+
+.collapsible-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-out;
+    /* Add padding-top when expanded for spacing */
+    padding-top: 0;
+    /* Ensure margins inside don't collapse when height is 0 */
+    border-top: 1px solid transparent; /* Invisible border trick */
+    margin-top: -1px; /* Counteract the border */
+}
+
+/* Styles specific to the expanded state within the how-to-use section */
+/* Use the ID selector for specificity */
+#how-to-use-guide.expanded .collapsible-content {
+    max-height: 700px; /* INCREASED from 500px */
+    transition: max-height 0.5s ease-in;
+    padding-top: 10px; /* Add space below heading when expanded */
+    border-top-color: #D9E1E8; /* Show separator line */
+    margin-top: 10px; /* Space for the border */
+}
+
+#how-to-use-guide.expanded .toggle-arrow {
+    transform: rotate(90deg);
+} 
