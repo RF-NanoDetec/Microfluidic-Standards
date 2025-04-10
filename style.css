@@ -398,9 +398,26 @@ h2 {
 #selected-component-properties h3 {
     margin-top: 0;
     margin-bottom: 10px;
-    font-size: 0.95em;
-    font-weight: 600;
+    font-size: 1.1em; /* Slightly larger main heading */
+    font-weight: 700; /* Bolder main heading */
     color: #003366;
+}
+
+/* NEW: Styling for the purpose paragraph */
+#selected-component-properties .component-purpose {
+    font-size: 0.88em; /* Slightly smaller than property items */
+    color: #555;
+    margin-bottom: 15px;
+    line-height: 1.4;
+}
+
+/* NEW: Styling for subheadings like 'Port Pressures' */
+#selected-component-properties .subheading {
+    font-size: 1em; /* Smaller than main heading */
+    font-weight: 600; /* Less bold than main */
+    color: #003366;
+    margin-top: 0; /* Remove default margin */
+    margin-bottom: 12px; /* Space below */
 }
 
 #selected-component-properties .property-item {
@@ -975,4 +992,37 @@ h2 {
     /* fill: currentColor; */ /* REMOVED - Doesn't work on img tag */
     /* background-color: red !important; */ /* REMOVED DEBUG */
 }
-/* --- END: Sidebar Toggle Styles --- */ 
+/* --- END: Sidebar Toggle Styles --- */
+
+/* NEW: Styles for the properties grid */
+.properties-grid {
+    display: grid;
+    grid-template-columns: auto 1fr; /* Label column auto-width, value column takes rest */
+    gap: 6px 10px; /* Row gap, Column gap */
+    margin-bottom: 15px; /* Space below grid */
+}
+
+.prop-row {
+    display: contents; /* Makes children direct grid items */
+}
+
+.prop-label {
+    font-weight: 600;
+    color: #333;
+    text-align: right;
+    font-size: 0.9em;
+}
+
+.prop-value {
+    font-size: 0.9em;
+    color: #555;
+    /* Allow wrapping */
+    word-break: break-word;
+}
+
+.prop-sub-value {
+    display: block; /* Put on new line */
+    font-size: 0.8em;
+    color: #777;
+    margin-top: 2px;
+} 

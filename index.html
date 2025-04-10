@@ -165,17 +165,32 @@
     <div id="howto-modal-overlay">
         <div id="how-to-use-guide" class="how-to-use-modal">
             <button id="close-howto-modal" class="close-button" title="Close">&times;</button>
-            <h2>How to Use</h2>
+            <h2>Quick Start Guide</h2>
+            <p>Welcome! Easily design and test complex systems using standardized, modular components from <strong>Microfluidic Standards</strong>. Build your virtual circuit by dragging, dropping, and connecting our parts, then simulate fluid dynamics to predict performance. Verify your design works as expected <strong>before ordering components</strong>, saving time and avoiding costly custom fabrication.</p>
+
+            <h4>Building Your Circuit:</h4>
             <ul>
-                <li><strong>Add Components:</strong> Drag components from the Palette (left) onto the Canvas (center).</li>
-                <li><strong>Connect Ports:</strong> Right-click a port (grey circle) on one component, then right-click a port on another to create tubing.</li>
+                <li><strong>Add Components:</strong> Drag components from the Palette (left sidebar) onto the Canvas (center). <em>On smaller screens, use the <img src="palette.svg" alt="Palette" style="height:1em; vertical-align:middle;"/> button to show/hide the Palette.</em></li>
+                <li><strong>Connect Ports:</strong> Right-click a grey port circle on one component, then right-click a port on another to create tubing. A dashed line will guide you.</li>
+                <li><strong>Move Components:</strong> Click and drag components on the canvas to reposition them.</li>
                 <li><strong>Delete Connections:</strong> Right-click an existing tube to remove it.</li>
-                <li><strong>Configure:</strong> Click a component on the canvas to view/edit its properties (e.g., pump pressures) in the right sidebar.</li>
-                <li><strong>Simulate:</strong> Click 'Run Simulation' to calculate pressures (mbar) and flow rates (µL/min).</li>
-                <li><strong>View Results:</strong> Observe tube/channel colors (see Legend). Hover over ports (orange dots after simulation) for specific values.</li>
-                <li><strong>Clear:</strong> Use the 'Clear Canvas' button to start over.</li>
-                <li><strong>Deselect/Cancel:</strong> Click the canvas background to deselect. Right-click background to cancel a connection attempt.</li>
+                <li><strong>Delete Components:</strong> Select a component on the canvas (it will highlight blue) and press the <code>Delete</code> or <code>Backspace</code> key.</li>
             </ul>
+
+            <h4>Configuring & Simulating:</h4>
+            <ul>
+                <li><strong>View/Edit Properties:</strong> Click a component on the canvas to view its details and edit properties (like Pump pressures) in the right sidebar. <em>On smaller screens, use the <img src="details.svg" alt="Details" style="height:1em; vertical-align:middle;"/> button to show/hide the Details sidebar.</em></li>
+                <li><strong>Run Simulation:</strong> Click the 'Run Simulation' button to calculate pressures (mbar) and flow rates (µL/min).</li>
+                <li><strong>View Results:</strong> Observe tube colors indicating flow rate (see Legend). Hover over the orange dots on ports for specific pressure and throughput values. The 'Simulation Results' box in the sidebar provides a summary.</li>
+                <li><strong>Reset Simulation:</strong> Click the 'Reset Simulation' button (<img src="restart.svg" alt="Reset" style="height:1em; vertical-align:middle;"/>) to clear simulation results and colors, restoring the view to the initial connectivity state.</li>
+                <li><strong>Clear Canvas:</strong> Click the 'Clear Canvas' button (<img src="trash.svg" alt="Clear" style="height:1em; vertical-align:middle;"/>) to remove all components and connections.</li>
+            </ul>
+
+            <h4>Other Tips:</h4>
+            <ul>
+                 <li><strong>Deselect/Cancel:</strong> Click the canvas background to deselect a component. Right-click the background to cancel a connection attempt.</li>
+            </ul>
+
             <p class="simulation-notes">
                 <strong>Simulation Basis:</strong> Calculates pressure and flow using a hydrodynamic resistance model (analogous to Ohm's law), assuming laminar flow. Tubing resistance uses Poiseuille's law (0.02" ID standard). Chip resistances are based on typical 100x100µm channel dimensions. Assumes constant fluid viscosity (water).
             </p>

@@ -1468,27 +1468,47 @@ function updatePropertiesPanel() {
             resistanceText = 'N/A';
     }
 
-    propertiesHtml += `<p><strong>Purpose:</strong> ${purpose}</p>`;
+    // propertiesHtml += `<p><strong>Purpose:</strong> ${purpose}</p>`; // REMOVED Strong tag
+    propertiesHtml += `<p class="component-purpose">${purpose}</p>`; // ADDED class for styling
+
+    // --- NEW: Use structured divs for properties --- //
+    propertiesHtml += '<div class="properties-grid">'; // Start grid container
+
     if (material !== 'N/A') {
-        propertiesHtml += `<p><strong>Material:</strong> ${material}</p>`;
+        // propertiesHtml += `<p><strong>Material:</strong> ${material}</p>`; // OLD
+        propertiesHtml += `<div class="prop-row"><span class="prop-label">Material:</span><span class="prop-value">${material}</span></div>`; // NEW
     }
     // --- MODIFICATION: Only show dimensions if not pump or outlet ---
     if (componentType !== 'pump' && componentType !== 'outlet') {
-        // Add <br> after the label
-        propertiesHtml += `<p><strong>Chip Dimensions:</strong><br>${dimensions}</p>`;
+        // propertiesHtml += `<p><strong>Chip Dimensions:</strong><br>${dimensions}</p>`; // OLD
+        propertiesHtml += `<div class="prop-row"><span class="prop-label">Chip Dim.:</span><span class="prop-value">${dimensions}</span></div>`; // NEW, shorter label
+
         // <<< NEW: Display Channel Dimensions if available >>>
         if (channelDimensionsText) {
-            // Add <br> after the label and format the '(per segment)' part
-            const formattedChannelDim = channelDimensionsText.replace(' (per segment)', '<br>(per segment)');
-            propertiesHtml += `<p><strong>Channel Dimensions:</strong><br>${formattedChannelDim}</p>`;
+            let valueHtml = channelDimensionsText;
+            let subValueHtml = '';
+            if (valueHtml.includes('(per segment)')) {
+                valueHtml = valueHtml.replace('(per segment)', '').trim();
+                subValueHtml = '<span class="prop-sub-value">(per segment)</span>';
+            }
+            // propertiesHtml += `<p><strong>Channel Dimensions:</strong><br>${formattedChannelDim}</p>`; // OLD
+            propertiesHtml += `<div class="prop-row"><span class="prop-label">Channel Dim.:</span><span class="prop-value">${valueHtml}${subValueHtml}</span></div>`; // NEW, shorter label
         }
     }
     // --- END MODIFICATION ---
     if (resistanceText !== 'N/A (Source)' && resistanceText !== 'N/A (Sink)') {
-         // Add <br> after the label and format the '(per segment)' part
-         const formattedResistance = resistanceText.replace(' (per segment)', '<br>(per segment)');
-         propertiesHtml += `<p><strong>Hydrodynamic Resistance:</strong><br>${formattedResistance}</p>`;
+         let valueHtml = resistanceText;
+         let subValueHtml = '';
+         if (valueHtml.includes('(per segment)')) {
+             valueHtml = valueHtml.replace('(per segment)', '').trim();
+             subValueHtml = '<span class="prop-sub-value">(per segment)</span>';
+         }
+         // propertiesHtml += `<p><strong>Hydrodynamic Resistance:</strong><br>${formattedResistance}</p>`; // OLD
+         propertiesHtml += `<div class="prop-row"><span class="prop-label">Resistance:</span><span class="prop-value">${valueHtml}${subValueHtml}</span></div>`; // NEW, shorter label
     }
+
+    propertiesHtml += '</div>'; // End grid container
+    // --- END NEW --- //
 
     propertiesHtml += '</div>'; // End component-details
     // propertiesHtml += '<hr style="margin: 15px 0;">'; // Separator before specific controls/data
@@ -1500,7 +1520,8 @@ function updatePropertiesPanel() {
     // --- MODIFIED: Guard this block with !isPalette --- //
     if (!isPalette && componentType === 'pump') {
         propertiesHtml += '<hr style="margin: 15px 0;">'; // Add separator here for pumps
-        propertiesHtml += '<h4>Port Pressures (mbar):</h4>';
+        // propertiesHtml += '<h4>Port Pressures (mbar):</h4>'; // OLD heading
+        propertiesHtml += '<h4 class="subheading">Port Pressures (mbar)</h4>'; // ADDED class for styling
         const portPressuresPa = selectedComponent.getAttr('portPressures') || {}; // Get pressures in Pascals
         const ports = selectedComponent.find('.connectionPort');
 
@@ -1516,7 +1537,7 @@ function updatePropertiesPanel() {
                     <div class="property-item">
                         <label for="pressure_${portId}">Port ${index + 1}:</label>
                         <input type="number" id="pressure_${portId}" data-port-id="${portId}" value="${currentPressureMbar}" step="1">
-                        <span class="unit-label">(mbar)</span> <!-- ADDED UNIT -->
+                        <!-- <span class="unit-label">(mbar)</span> --> <!-- REMOVED UNIT -->
                     </div>
                 `;
             });
