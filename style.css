@@ -844,9 +844,9 @@ h2 {
         /* --- NEW: Styles for visible sidebars on small screens --- */
         position: absolute;
         /* --- MODIFIED: Start below the header --- */
-        top: 60px; /* Approximate header height */
-        /* --- MODIFIED: Adjust height to fill below header --- */
-        height: calc(100% - 60px); /* Adjust height to fill space BELOW header */
+        /* top: 60px; */ /* Approximate header height - REMOVED (JS handles dynamic top) */
+        /* --- MODIFIED: Adjust height to fill below header AND match main content height --- */
+        /* height: calc(100vh - 60px - 20px); */ /* Use same calc as #main-content: Viewport - header - app-padding - REMOVED (JS handles dynamic height) */
         /* --- END MODIFICATIONS --- */
         max-height: none; /* Override max-height */
         background-color: #F2F4F8; /* Match body background */
@@ -856,6 +856,8 @@ h2 {
         padding: 10px; /* Add some internal padding */
         box-sizing: border-box;
         transition: transform 0.3s ease-in-out;
+        /* NEW: Override padding for small screens */
+        padding: 5px;
     }
 
     #palette {
@@ -904,6 +906,11 @@ h2 {
         /* Example: ensure buttons fit */
         justify-content: space-between; 
         gap: 0; /* Remove gap to rely on space-between */
+    }
+
+    /* NEW: Override section padding for small screens */
+    .palette-section {
+        padding: 5px;
     }
 }
 

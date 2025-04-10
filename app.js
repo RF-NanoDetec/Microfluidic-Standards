@@ -1890,6 +1890,70 @@ window.addEventListener('DOMContentLoaded', (event) => {
     }
     // --- END Sidebar Toggle Logic --- //
 
+    // --- NEW: Dynamic Height Adjustment for Small Screens --- //
+    const header = document.querySelector('header');
+    const introText = document.querySelector('.introduction-text');
+    // const palette = document.getElementById('palette'); // Already defined above
+    // const componentList = document.getElementById('component-list'); // Already defined above
+    const mainContent = document.getElementById('main-content');
+    const appContainerPaddingSmall = 20; // 10px top + 10px bottom in @media
+
+    function adjustLayoutHeights() {
+        // Check if elements exist before proceeding
+        if (!header || !introText || !palette || !componentList || !mainContent) {
+            console.error("Height Adjust: Missing one or more layout elements.");
+            return;
+        }
+
+        // Check if we are in the small screen view based on CSS media query
+        if (window.matchMedia('(max-width: 992px)').matches) {
+            const headerHeight = header.offsetHeight;
+            const introTextHeight = introText.offsetHeight;
+            const viewportHeight = window.innerHeight;
+            const correctTop = headerHeight + introTextHeight; // Calculate correct top position
+
+            // Calculate available height below header and intro text, minus app padding
+            const availableHeight = viewportHeight - correctTop - appContainerPaddingSmall;
+
+            // Apply calculated height AND TOP POSITION as inline style
+            if (availableHeight > 0) {
+                palette.style.top = `${correctTop}px`; // Set dynamic top
+                componentList.style.top = `${correctTop}px`; // Set dynamic top
+                palette.style.height = `${availableHeight}px`;
+                componentList.style.height = `${availableHeight}px`;
+                mainContent.style.maxHeight = `${availableHeight}px`;
+                const canvasContainer = document.getElementById('canvas-container');
+                if(canvasContainer) canvasContainer.style.height = `${availableHeight}px`;
+            } else {
+                 // Fallback or reset if calculation is invalid
+                 palette.style.top = ''; // Reset top
+                 componentList.style.top = ''; // Reset top
+                 palette.style.height = '';
+                 componentList.style.height = '';
+                 mainContent.style.maxHeight = '';
+                 const canvasContainer = document.getElementById('canvas-container');
+                 if(canvasContainer) canvasContainer.style.height = '';
+            }
+        } else {
+            // Reset styles if screen is large (let CSS handle it)
+            palette.style.top = ''; // Reset top
+            componentList.style.top = ''; // Reset top
+            palette.style.height = '';
+            componentList.style.height = '';
+            mainContent.style.maxHeight = '';
+            const canvasContainer = document.getElementById('canvas-container');
+            if(canvasContainer) canvasContainer.style.height = ''; // Reset canvas container height
+        }
+    }
+
+    // Initial adjustment on load
+    adjustLayoutHeights();
+
+    // Adjust heights on window resize
+    window.addEventListener('resize', adjustLayoutHeights);
+    // --- END Dynamic Height Adjustment --- //
+
+
     // --- REMOVED: Collapsible How-to-Use Section Logic ---
     // const howToUseSection = document.getElementById('how-to-use-guide');
     // const howToUseHeading = howToUseSection?.querySelector('.collapsible-heading');
