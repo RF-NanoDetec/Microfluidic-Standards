@@ -32,8 +32,8 @@ const outletWidth = 35; // Specific width for outlet icon
 const outletHeight = 50; // Specific height for outlet icon
 // Define the Pump SVG as a Data URI
 const pumpSvgDataUri = 'data:image/svg+xml;charset=utf-8,%3Csvg%20width%3D%2250%22%20height%3D%2250%22%20viewBox%3D%220%200%2050%2050%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2225%22%20cy%3D%2225%22%20r%3D%2222%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20fill%3D%22lightgrey%22/%3E%3Cpolygon%20points%3D%2225%2C10%2015%2C25%2035%2C25%22%20fill%3D%22darkgrey%22%20stroke%3D%22black%22%20stroke-width%3D%221%22/%3E%3C/svg%3E';
-// Define the Outlet SVG as a Data URI
-const outletSvgDataUri = 'data:image/svg+xml;charset=utf-8,%3Csvg%20width%3D%2235%22%20height%3D%2250%22%20viewBox%3D%220%200%2035%2050%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cline%20x1%3D%225%22%20y1%3D%225%22%20x2%3D%2230%22%20y2%3D%225%22%20stroke%3D%22black%22%20stroke-width%3D%221%22/%3E%3Cpolygon%20points%3D%225%2C8%2030%2C8%2025%2C45%2010%2C45%22%20stroke%3D%22black%22%20stroke-width%3D%221%22%20fill%3D%22lightgrey%22/%3E%3C/svg%3E';
+// Define the Outlet SVG as a Data URI - Refined shape: narrower and pointier bottom
+const outletSvgDataUri = 'data:image/svg+xml;charset=utf-8,%3Csvg%20width%3D%2235%22%20height%3D%2250%22%20viewBox%3D%220%200%2035%2050%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20x%3D%222.5%22%20y%3D%220%22%20width%3D%2230%22%20height%3D%225%22%20fill%3D%22lightgrey%22%20stroke%3D%22black%22%20stroke-width%3D%221%22%20/%3E%3Cpath%20d%3D%22M6%205%20L6%2031%20Q6%2045%2017.5%2050%20Q29%2045%2029%2031%20L29%205%22%20fill%3D%22lightgrey%22%20stroke%3D%22black%22%20stroke-width%3D%221%22/%3E%3C/svg%3E';
 const portRadius = 3;
 // const portColor = 'red'; // Old color
 const portColor = '#888888'; // New default: Medium Grey
@@ -2745,6 +2745,7 @@ function runFluidSimulation() {
     const solvedPressures = solvePressures(graph);
     if (!solvedPressures) {
         console.error("Failed to solve for pressures.");
+        // Alert already shown in solvePressures if it fails
         return;
     }
 
@@ -2765,7 +2766,26 @@ function runFluidSimulation() {
 
     visualizeSimulationResults(); // Visualize the results
 
-    alert("Simulation complete! Visualization updated. Check console for detailed results.");
+    // --- NEW: Button Feedback --- //
+    const simButton = document.getElementById('run-simulation-btn');
+    if (simButton) {
+        const originalText = simButton.textContent;
+        const originalBgColor = simButton.style.backgroundColor; // Get original inline style if any
+        const originalCssBgColor = window.getComputedStyle(simButton).backgroundColor; // Get computed style
+
+        simButton.textContent = '✓ Complete';
+        simButton.style.backgroundColor = '#28a745'; // Success green
+
+        setTimeout(() => {
+            simButton.textContent = originalText;
+            // Restore original background color more robustly
+            simButton.style.backgroundColor = originalBgColor || ''; // Reset inline style or set to original inline
+            // If there was no inline style, CSS rule will take over. If there was, restore it.
+        }, 1500); // Revert after 1.5 seconds
+    }
+    // --- END NEW --- //
+
+    // REMOVED: alert("Simulation complete! Visualization updated. Check console for detailed results.");
 }
 
 // --- Visualization Functions --- //
