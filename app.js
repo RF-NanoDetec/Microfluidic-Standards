@@ -75,6 +75,8 @@ const LENGTH_MEANDER_MM = 150;
 // --- State Variables for Connections ---
 let startPort = null; // Keep track of the first selected port
 let selectedComponent = null; // Keep track of the selected component for properties
+let tempConnectionLine = null; // <<< NEW: Line following cursor during connection
+let dropIndicatorShape = null; // <<< NEW: Shape indicating drop location
 
 // --- Storage for permanent connections ---
 const connections = []; // Array of { fromChip, fromPort, toChip, toPort, lineId }
@@ -738,6 +740,20 @@ function setupPortVisualsAndLogic(config) {
             startPort.setAttr('originalFill', startPort.fill());
             startPort.fill(portSelectedColor); // Use selected color
             console.log("Selected start port:", startPort.id());
+
+            // <<< NEW: Set cursor and create temporary line >>>
+            stage.container().style.cursor = 'crosshair';
+            const startPos = startPort.getAbsolutePosition();
+            tempConnectionLine = new Konva.Line({
+                points: [startPos.x, startPos.y, startPos.x, startPos.y],
+                stroke: portSelectedColor, // Use same green as port
+                strokeWidth: 2,
+                dash: [4, 2], // Dashed line
+                listening: false, // Prevent interaction with the line
+            });
+            layer.add(tempConnectionLine);
+            // <<< END NEW >>>
+
             layer.draw();
         } else {
             // --- Select second port ---
@@ -747,6 +763,15 @@ function setupPortVisualsAndLogic(config) {
                     alert("The target port is already connected.");
                     startPort.fill(startPort.getAttr('originalFill')); // Reset to original grey
                     startPort = null;
+
+                    // <<< NEW: Reset cursor and remove temporary line >>>
+                    stage.container().style.cursor = 'default';
+                    if (tempConnectionLine) {
+                        tempConnectionLine.destroy();
+                        tempConnectionLine = null;
+                    }
+                    // <<< END NEW >>>
+
                     layer.draw();
                     return;
                 }
@@ -759,6 +784,15 @@ function setupPortVisualsAndLogic(config) {
                     console.error("Could not retrieve main group IDs from port attributes!", startPort, endPort);
                     startPort.fill(startPort.getAttr('originalFill')); // Reset to original grey
                     startPort = null;
+
+                    // <<< NEW: Reset cursor and remove temporary line >>>
+                    stage.container().style.cursor = 'default';
+                    if (tempConnectionLine) {
+                        tempConnectionLine.destroy();
+                        tempConnectionLine = null;
+                    }
+                    // <<< END NEW >>>
+
                     layer.draw();
                     return;
                 }
@@ -816,12 +850,30 @@ function setupPortVisualsAndLogic(config) {
 
                 startPort.fill(startPort.getAttr('originalFill'));
                 startPort = null;
+
+                // <<< NEW: Reset cursor and remove temporary line (after successful connection) >>>
+                stage.container().style.cursor = 'default';
+                if (tempConnectionLine) {
+                    tempConnectionLine.destroy();
+                    tempConnectionLine = null;
+                }
+                // <<< END NEW >>>
+
                 // Final draw renders boundary changes AND flow highlights
                 layer.draw();
             } else {
                 console.log("Connection cancelled (clicked same port or invalid target).");
                 startPort.fill(startPort.getAttr('originalFill')); // Reset to original grey
                 startPort = null;
+
+                // <<< NEW: Reset cursor and remove temporary line >>>
+                stage.container().style.cursor = 'default';
+                if (tempConnectionLine) {
+                    tempConnectionLine.destroy();
+                    tempConnectionLine = null;
+                }
+                // <<< END NEW >>>
+
                 layer.draw();
             }
         }
@@ -1247,6 +1299,15 @@ stage.on('contextmenu', (e) => {
         console.log("Connection cancelled (clicked stage).");
         startPort.fill(startPort.getAttr('originalFill')); // Reset color
         startPort = null; // Reset selection
+
+        // <<< NEW: Reset cursor and remove temporary line >>>
+        stage.container().style.cursor = 'default';
+        if (tempConnectionLine) {
+            tempConnectionLine.destroy();
+            tempConnectionLine = null;
+        }
+        // <<< END NEW >>>
+
         layer.draw();
     }
 });
@@ -1455,6 +1516,7 @@ function updatePropertiesPanel() {
                     <div class="property-item">
                         <label for="pressure_${portId}">Port ${index + 1}:</label>
                         <input type="number" id="pressure_${portId}" data-port-id="${portId}" value="${currentPressureMbar}" step="1">
+                        <span class="unit-label">(mbar)</span> <!-- ADDED UNIT -->
                     </div>
                 `;
             });
@@ -1643,6 +1705,10 @@ window.addEventListener('DOMContentLoaded', (event) => {
             // Get the type from the konva div's data attribute
             dragChipType = konvaDiv.getAttribute('data-chip-type');
             console.log('Dragging:', dragChipType);
+
+            // <<< NEW: Change cursor >>>
+            if(e.target.style) e.target.style.cursor = 'grabbing';
+
             // Optional: You might want to customize the drag image here
             // e.dataTransfer.setData('text/plain', dragChipType);
             // if (e.dataTransfer.setDragImage) {
@@ -1652,6 +1718,15 @@ window.addEventListener('DOMContentLoaded', (event) => {
         });
         konvaDiv.addEventListener('dragend', (e) => {
             console.log('Drag ended');
+
+            // <<< NEW: Reset cursor and remove indicator >>>
+            if(e.target.style) e.target.style.cursor = 'grab';
+            if (dropIndicatorShape) {
+                dropIndicatorShape.destroy();
+                dropIndicatorShape = null;
+                layer.batchDraw();
+            }
+
             // Important: Reset dragChipType in a timeout to avoid race conditions
             setTimeout(() => { dragChipType = null; }, 0);
         });
@@ -1665,10 +1740,72 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
     stageContainer.addEventListener('dragover', (e) => {
         e.preventDefault();
+
+        // <<< NEW: Show/Update drop indicator >>>
+        if (dragChipType) {
+            stage.setPointersPositions(e);
+            const pos = stage.getPointerPosition();
+            let indicatorWidth, indicatorHeight;
+
+            // Determine size based on the type being dragged
+            if (dragChipType === 'pump') {
+                indicatorWidth = itemWidth;
+                indicatorHeight = itemHeight;
+            } else if (dragChipType === 'outlet') {
+                indicatorWidth = outletWidth;
+                indicatorHeight = outletHeight;
+            } else {
+                indicatorWidth = chipWidth;
+                indicatorHeight = chipHeight;
+            }
+
+            const dropX = pos.x - indicatorWidth / 2;
+            const dropY = pos.y - indicatorHeight / 2;
+
+            if (!dropIndicatorShape) {
+                dropIndicatorShape = new Konva.Rect({
+                    fill: 'rgba(0, 51, 102, 0.1)', // Semi-transparent blue
+                    stroke: '#003366', // Solid blue border
+                    strokeWidth: 1,
+                    dash: [4, 2],
+                    listening: false, // Non-interactive
+                });
+                layer.add(dropIndicatorShape);
+            }
+
+            // Update size and position
+            dropIndicatorShape.setAttrs({
+                x: dropX,
+                y: dropY,
+                width: indicatorWidth,
+                height: indicatorHeight
+            });
+
+            layer.batchDraw();
+        }
+        // <<< END NEW >>>
     });
+
+    // <<< NEW: Remove indicator if dragging leaves the stage >>>
+    stageContainer.addEventListener('dragleave', (e) => {
+        if (dropIndicatorShape) {
+            dropIndicatorShape.destroy();
+            dropIndicatorShape = null;
+            layer.batchDraw();
+        }
+    });
+    // <<< END NEW >>>
 
     stageContainer.addEventListener('drop', (e) => {
         e.preventDefault();
+
+        // <<< NEW: Destroy indicator before dropping >>>
+        if (dropIndicatorShape) {
+            dropIndicatorShape.destroy();
+            dropIndicatorShape = null;
+        }
+        // <<< END NEW >>>
+
         if (dragChipType) {
             stage.setPointersPositions(e);
             const pos = stage.getPointerPosition();
@@ -3419,3 +3556,14 @@ document.addEventListener('keydown', (e) => {
         }
     }
 });
+
+// <<< NEW: Stage MouseMove Listener for Temporary Line >>>
+stage.on('mousemove', (e) => {
+    if (startPort !== null && tempConnectionLine !== null) {
+        const startPos = startPort.getAbsolutePosition();
+        const pointerPos = stage.getPointerPosition();
+        tempConnectionLine.points([startPos.x, startPos.y, pointerPos.x, pointerPos.y]);
+        layer.batchDraw(); // Use batchDraw for efficiency
+    }
+});
+// <<< END NEW >>>

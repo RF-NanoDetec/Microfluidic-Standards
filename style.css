@@ -152,14 +152,24 @@ header h1 {
 
 .getting-started-overlay img {
     margin-bottom: 10px;
-    opacity: 0.6;
-    width: 60px; /* Increased size */
-    height: 60px; /* Increased size */
+    opacity: 0.7; /* Slightly less transparent */
+    width: 65px; /* Increased size */
+    height: 65px; /* Increased size */
 }
 
 .getting-started-overlay p {
     margin: 0;
-    font-size: 0.9em;
+    font-size: 1em; /* Increase font size */
+    color: #666; /* Medium grey, more readable */
+}
+
+/* NEW: Style for overlay heading */
+.getting-started-overlay h4 {
+    margin-bottom: 8px; /* Space below heading */
+    margin-top: 0;
+    font-size: 1.1em;
+    font-weight: 600; /* Slightly bolder */
+    color: #555; /* Slightly darker than the paragraph */
 }
 /* --- END: Getting Started Overlay Styles --- */
 
@@ -394,22 +404,33 @@ h2 {
 }
 
 #selected-component-properties .property-item {
-    margin-bottom: 8px;
-    font-size: 0.85em;
+    display: flex; /* Use flexbox */
+    align-items: center; /* Vertically align items */
+    gap: 6px; /* Add gap between items */
+    margin-bottom: 10px; /* Increased bottom margin */
+    font-size: 0.9em; /* Slightly larger font */
 }
 
 #selected-component-properties label {
     display: inline-block;
-    width: 80px;
-    margin-right: 5px;
+    width: 65px; /* Slightly reduced width */
+    margin-right: 0; /* Remove margin, use gap */
+    flex-shrink: 0; /* Prevent label from shrinking */
 }
 
 #selected-component-properties input[type="number"] {
-    width: 60px; /* Adjust as needed */
-    padding: 4px;
+    width: 65px; /* Slightly wider */
+    padding: 5px; /* Slightly more padding */
+    font-size: 0.9em; /* Match item font size */
+    border: 1px solid #C5CED6; /* Slightly darker border */
+    border-radius: 4px; /* Slightly more rounded */
+    text-align: right;
+}
+
+/* NEW: Style for the unit span */
+#selected-component-properties .unit-label {
     font-size: 0.85em;
-    border: 1px solid #ccc;
-    border-radius: 3px;
+    color: #666;
 }
 
 /* --- New Styles for Tubing Info --- */
@@ -429,6 +450,7 @@ h2 {
 }
 
 /* New: Style for Introduction Text */
+/*
 .introduction-text {
     padding: 10px 24px;
     font-size: 0.85em;
@@ -437,6 +459,7 @@ h2 {
     margin: 0;
     border-bottom: 1px solid #D9E1E8;
 }
+*/
 
 /* New: Style for Canvas Watermark */
 .canvas-watermark {
