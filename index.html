@@ -117,6 +117,27 @@
 
         <!-- Component List on the Right -->
         <aside id="component-list">
+            <!-- Box 3: Simulation Summary (MOVED TO TOP) -->
+            <div id="simulation-summary-box" class="sidebar-box simulation-summary-box" style="display: none;">
+                <h2>Simulation Results</h2>
+                <div id="simulation-summary-content">
+                    <!-- Summary items will be populated by JS -->
+                    <!-- NEW: Flow Legend -->
+                    <div class="flow-legend-container">
+                        <span class="legend-title">Flow Rate (µL/min)</span>
+                        <div class="legend-content">
+                            <div class="gradient-bar"></div>
+                            <div class="legend-labels">
+                                <span class="legend-label max-label">Max</span>
+                                <span class="legend-label mid-label">Mid</span>
+                                <span class="legend-label zero-label">0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- End Flow Legend -->
+                </div>
+            </div>
+
             <!-- Box 1: Selected Component Details -->
             <div class="sidebar-box selected-component-box">
                 <h2>Selected Component</h2>
@@ -148,14 +169,6 @@
                         <div class="component-name">Estimated Tubing</div>
                         <div class="tubing-length">0 cm</div>
                     </div>
-                </div>
-            </div>
-
-            <!-- Box 3: Simulation Summary -->
-            <div id="simulation-summary-box" class="sidebar-box simulation-summary-box" style="display: none;">
-                <h2>Simulation Results</h2>
-                <div id="simulation-summary-content">
-                    <!-- Summary will be populated by JS -->
                 </div>
             </div>
         </aside>

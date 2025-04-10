@@ -655,6 +655,65 @@ h2 {
     color: #003366;
 }
 
+/* --- NEW: Flow Legend Styles --- */
+.flow-legend-container {
+    margin-top: 15px; /* Space above the legend */
+    padding-top: 15px;
+    border-top: 1px solid #D9E1E8; /* Separator */
+}
+
+.flow-legend-container .legend-title {
+    display: block;
+    font-size: 0.8em; /* Smaller title */
+    font-weight: 600;
+    color: #666666;
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.legend-content {
+    display: flex;
+    align-items: stretch; /* Make labels align with bar height */
+    gap: 8px;
+    height: 100px; /* Fixed height for the gradient bar */
+}
+
+.gradient-bar {
+    width: 20px;
+    height: 100%; /* Fill the container height */
+    border: 1px solid #ccc;
+    background: linear-gradient(to bottom, /* Colors will be set by JS */ #003366 0%, #1864ab 30%, #4dabf7 50%, #a0d8ef 70%, #e0e0e0 100%); /* Default gradient */
+}
+
+.legend-labels {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-size: 0.8em;
+    color: #333;
+    padding-top: 2px; /* Align text slightly better */
+    padding-bottom: 2px;
+}
+
+.legend-labels .legend-label {
+    position: relative;
+    line-height: 1;
+}
+
+/* Position labels - they will be updated via JS */
+.legend-labels .max-label { /* Top */
+    /* position: absolute; top: 0; */
+}
+
+.legend-labels .mid-label { /* Middle */
+    /* position: absolute; top: 50%; transform: translateY(-50%); */
+}
+
+.legend-labels .zero-label { /* Bottom */
+     /* position: absolute; bottom: 0; */
+}
+/* --- END: Flow Legend Styles --- */
+
 /* New: Style for How-to-Use Section */
 .how-to-use-section { /* This will now be styled primarily by .sidebar-box */
     /* background-color: #e8f0f8; */ /* REMOVE - Use sidebar-box background */

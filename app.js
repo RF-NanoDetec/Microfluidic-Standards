@@ -3077,8 +3077,12 @@ function visualizeSimulationResults() {
         // Show the summary box
         summaryBox.style.display = 'block';
 
-        // Update content
-        summaryContent.innerHTML = `
+        // Update numerical summary content (clear existing numerical items first)
+        // Find existing summary items and remove them if they exist
+        summaryContent.querySelectorAll('.summary-item').forEach(item => item.remove());
+
+        // Prepend the new summary items
+        const summaryHtml = `
             <div class="summary-item">
                 <span class="summary-label">Active Segments:</span>
                 <span class="summary-value">${activeSegments}</span>
@@ -3092,91 +3096,47 @@ function visualizeSimulationResults() {
                 <span class="summary-value">${(minPressure / mbarToPascal).toFixed(1)} to ${(maxPressure / mbarToPascal).toFixed(1)} mbar</span>
             </div>
         `;
+        summaryContent.insertAdjacentHTML('afterbegin', summaryHtml);
+
+        // --- NEW: Update HTML Flow Legend --- //
+        const gradientBar = summaryContent.querySelector('.gradient-bar');
+        const maxLabel = summaryContent.querySelector('.max-label');
+        const midLabel = summaryContent.querySelector('.mid-label');
+
+        if (gradientBar && maxLabel && midLabel) {
+            // Update Gradient Bar Background
+            const colorStop0 = getRelativeFlowColor(maxFlowUlMin * 1.0, maxFlowUlMin);
+            const colorStop1 = getRelativeFlowColor(maxFlowUlMin * 0.9, maxFlowUlMin);
+            const colorStop3 = getRelativeFlowColor(maxFlowUlMin * 0.7, maxFlowUlMin);
+            const colorStop5 = getRelativeFlowColor(maxFlowUlMin * 0.5, maxFlowUlMin);
+            const colorStop7 = getRelativeFlowColor(maxFlowUlMin * 0.3, maxFlowUlMin);
+            const colorStop9 = getRelativeFlowColor(maxFlowUlMin * 0.1, maxFlowUlMin);
+            const colorStop10 = getRelativeFlowColor(0, maxFlowUlMin);
+            gradientBar.style.background = `linear-gradient(to bottom, 
+                ${colorStop0} 0%, 
+                ${colorStop1} 10%, 
+                ${colorStop3} 30%, 
+                ${colorStop5} 50%, 
+                ${colorStop7} 70%, 
+                ${colorStop9} 90%, 
+                ${colorStop10} 100%)`;
+
+            // Update Labels
+            const maxFlowText = maxFlowUlMin.toFixed(maxFlowUlMin >= 1 ? 1 : 2);
+            const midFlowText = (maxFlowUlMin / 2).toFixed(maxFlowUlMin >= 2 ? 1 : 2);
+            maxLabel.textContent = maxFlowText;
+            midLabel.textContent = midFlowText;
+            // Zero label is already set in HTML
+        } else {
+            console.error("Could not find all HTML legend elements to update.");
+        }
+        // --- END NEW: Update HTML Flow Legend --- //
+
     } else {
         console.error("Simulation summary box or content container not found!");
     }
 
-    // 4. Create Flow Legend Panel (keep this on canvas)
-    const legendWidth = 80;
-    const legendHeight = 180;
-    const legendPadding = 10;
-    const gradientHeight = legendHeight - 2 * legendPadding - 30;
-    const legendX = stage.width() - legendWidth - legendPadding;
-    const legendY = legendPadding;
-
-    const legendGroup = new Konva.Group({
-        x: legendX,
-        y: legendY,
-        name: 'simulation-label simulation-legend'
-    });
-
-    // Legend Background
-    const legendBg = new Konva.Rect({
-        x: 0, y: 0,
-        width: legendWidth, height: legendHeight,
-        fill: 'rgba(255, 255, 255, 0.95)',
-        stroke: '#cccccc', strokeWidth: 1,
-        cornerRadius: 3,
-        shadowColor: 'rgba(0,0,0,0.1)', shadowBlur: 3, shadowOffsetX: 1, shadowOffsetY: 1, shadowOpacity: 0.3
-    });
-    legendGroup.add(legendBg);
-
-    // Legend Title
-    const legendTitle = new Konva.Text({
-        x: 0, y: legendPadding,
-        width: legendWidth,
-        text: 'Flow Rate\n(µL/min)',
-        fontSize: 10, fontFamily: 'Roboto', fill: '#333',
-        align: 'center'
-    });
-    legendGroup.add(legendTitle);
-
-    // Legend Gradient Rectangle
-    const gradientRect = new Konva.Rect({
-        x: legendPadding,
-        y: legendPadding + 25, // Position below title
-        width: 20, // Width of the color bar
-        height: gradientHeight,
-        fillLinearGradientStartPoint: { x: 0, y: 0 },
-        fillLinearGradientEndPoint: { x: 0, y: gradientHeight },
-        fillLinearGradientColorStops: [
-            0, getRelativeFlowColor(maxFlowUlMin, maxFlowUlMin),           // Max flow at top
-            0.1, getRelativeFlowColor(maxFlowUlMin * 0.9, maxFlowUlMin),
-            0.3, getRelativeFlowColor(maxFlowUlMin * 0.7, maxFlowUlMin),
-            0.5, getRelativeFlowColor(maxFlowUlMin * 0.5, maxFlowUlMin),
-            0.7, getRelativeFlowColor(maxFlowUlMin * 0.3, maxFlowUlMin),
-            0.9, getRelativeFlowColor(maxFlowUlMin * 0.1, maxFlowUlMin),
-            1, getRelativeFlowColor(0, maxFlowUlMin)                       // No flow at bottom
-        ],
-        stroke: '#888',
-        strokeWidth: 0.5
-    });
-    legendGroup.add(gradientRect);
-
-    // Legend Labels with more points for better readability
-    const labelValues = [1.0, 0.9, 0.7, 0.5, 0.3, 0.1, 0]; // Reversed order to match gradient
-    labelValues.forEach(normValue => {
-        const flowValue = maxFlowUlMin * normValue;
-        const labelY = (legendPadding + 25 + gradientHeight) - (gradientHeight * normValue);
-
-        // Add tick mark
-        const tick = new Konva.Line({
-            points: [legendPadding + 20, labelY, legendPadding + 23, labelY],
-            stroke: '#555', strokeWidth: 1
-        });
-        legendGroup.add(tick);
-
-        // Add label text
-        const labelText = new Konva.Text({
-            x: legendPadding + 25,
-            y: labelY - 5,
-            text: flowValue.toFixed(maxFlowUlMin > 1 ? 1 : 2),
-            fontSize: 9, fontFamily: 'Arial', fill: '#333'
-        });
-        legendGroup.add(labelText);
-    });
-
-    // 5. Add/Update the dots
+    // 4. Add/Update the dots
     layer.find('.connectionPort').forEach(port => {
         const portGroup = port.getParent();
         if (!portGroup) return;
@@ -3246,13 +3206,9 @@ function visualizeSimulationResults() {
         // --- END NEW HIDE LOGIC ---
     });
 
-    // 6. Add summary and legend panels last and move them to the very top
-    layer.add(legendGroup); // Removed summaryGroup
-    legendGroup.moveToTop(); // Removed summaryGroup
-
-    // 7. Final draw
+    // 5. Final draw (Konva layer)
     layer.draw();
-    console.log("Visualization updated with relative colors and legend.");
+    console.log("Visualization updated with relative colors. Legend updated in sidebar.");
 }
 
 // --- NEW: Function to Reset Simulation State --- //
