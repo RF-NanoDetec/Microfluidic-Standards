@@ -126,7 +126,7 @@ function calculatePathData(port1, port2) {
 
     // Calculate Control Points: Extend the stub lines symmetrically
     let cp1 = { ...stub1End };
-    let cp2 = { ...stub2End }; 
+    let cp2 = { ...stub2End };
 
     // Calculate distance between stub ends
     const dx = Math.abs(stub1End.x - stub2End.x);
@@ -235,21 +235,21 @@ function addXChannel(group, chipId) { // <<< Added chipId parameter
         let endX = cx;
         let endY = cy;
         // Extend endpoint slightly past center if distance is not zero
-        if (dist > 1e-6) { 
+        if (dist > 1e-6) {
             endX += (dx / dist) * fillExtension;
             endY += (dy / dist) * fillExtension;
         }
-        
+
         const points = [port.x, port.y, endX, endY]; // Use extended endpoint
         const segmentId = getSegmentId(port.id, internalNodeId);
-        
+
         group.add(new Konva.Line({
             points: points,
             stroke: channelFillColor,
             strokeWidth: channelFillWidth,
             lineCap: 'butt', // Use butt cap for precise end at extended point
             listening: false,
-            id: segmentId, 
+            id: segmentId,
             name: 'internalSegmentFill'
         }));
     });
@@ -260,7 +260,7 @@ function addXChannel(group, chipId) { // <<< Added chipId parameter
     group.add(new Konva.Circle({
          x: cx,
          y: cy,
-         radius: channelFillWidth / 2, 
+         radius: channelFillWidth / 2,
          fill: channelFillColor,
          listening: false
      }));
@@ -344,7 +344,7 @@ function addTChannel(group, chipId) { // <<< Added chipId parameter
      group.add(new Konva.Circle({
          x: cx,
          y: cy,
-         radius: channelFillWidth / 2, 
+         radius: channelFillWidth / 2,
          fill: channelFillColor,
          listening: false
      }));
@@ -460,94 +460,94 @@ function addMeanderChannel(group) {
     const y_top = h / 4; // Top extent of the meander
     const y_bottom = h * 3 / 4; // Bottom extent of the meander
     const y_mid = h / 2; // Start and end y-coordinate
-    
+
     // Create a points array for the meander path - each pair is an x,y coordinate
     const points = [
         0, y_mid, // Start at left edge
         w_seg - r, y_mid, // Horizontal segment to first corner
-        
+
         // We'll directly draw the rounded corners with line segments
         // Corner 1 (Up) - approximate curve with line segments
         w_seg - r/2, y_mid,
         w_seg, y_mid - r/2,
         w_seg, y_mid - r,
-        
+
         // Vertical segment to second corner
         w_seg, y_top + r,
-        
+
         // Corner 2 (Right) - approximate curve with line segments
         w_seg, y_top + r/2,
         w_seg + r/2, y_top,
         w_seg + r, y_top,
-        
+
         // Horizontal segment to third corner
         w_seg * 2 - r, y_top,
-        
+
         // Corner 3 (Down) - approximate curve with line segments
         w_seg * 2 - r/2, y_top,
         w_seg * 2, y_top + r/2,
         w_seg * 2, y_top + r,
-        
+
         // Vertical segment to fourth corner
         w_seg * 2, y_bottom - r,
-        
+
         // Corner 4 (Right) - approximate curve with line segments
         w_seg * 2, y_bottom - r/2,
         w_seg * 2 + r/2, y_bottom,
         w_seg * 2 + r, y_bottom,
-        
+
         // Horizontal segment to fifth corner
         w_seg * 3 - r, y_bottom,
-        
+
         // Corner 5 (Up) - approximate curve with line segments
         w_seg * 3 - r/2, y_bottom,
         w_seg * 3, y_bottom - r/2,
         w_seg * 3, y_bottom - r,
-        
+
         // Vertical segment to sixth corner
         w_seg * 3, y_top + r,
-        
+
         // Corner 6 (Right) - approximate curve with line segments
         w_seg * 3, y_top + r/2,
         w_seg * 3 + r/2, y_top,
         w_seg * 3 + r, y_top,
-        
+
         // Horizontal segment to seventh corner
         w_seg * 4 - r, y_top,
-        
+
         // Corner 7 (Down) - approximate curve with line segments
         w_seg * 4 - r/2, y_top,
         w_seg * 4, y_top + r/2,
         w_seg * 4, y_top + r,
-        
+
         // Vertical segment to eighth corner
         w_seg * 4, y_bottom - r,
-        
+
         // Corner 8 (Right) - approximate curve with line segments
         w_seg * 4, y_bottom - r/2,
         w_seg * 4 + r/2, y_bottom,
         w_seg * 4 + r, y_bottom,
-        
+
         // Horizontal segment to ninth corner
         w_seg * 5 - r, y_bottom,
-        
+
         // Corner 9 (Up to Middle) - approximate curve with line segments
         w_seg * 5 - r/2, y_bottom,
         w_seg * 5, y_bottom - r/2,
         w_seg * 5, y_bottom - r,
-        
+
         // Vertical segment to final section
         w_seg * 5, y_mid + r,
-        
+
         // Corner 10 (Right) - approximate curve with line segments
         w_seg * 5, y_mid + r/2,
         w_seg * 5 + r/2, y_mid,
         w_seg * 5 + r, y_mid,
-        
+
         // Final horizontal segment to right edge
         w, y_mid
     ];
-    
+
     // Draw the outline FIRST (will be at bottom)
     const outline = new Konva.Line({
         points: points,
@@ -559,7 +559,7 @@ function addMeanderChannel(group) {
         listening: false
     });
     group.add(outline);
-    
+
     // Draw the fill line ON TOP
     const fill = new Konva.Line({
         points: points,
@@ -577,14 +577,14 @@ function addMeanderChannel(group) {
 function createMeanderChipPreview(x, y) {
     const group = new Konva.Group({ x: x, y: y, draggable: false, chipType: 'meander' });
     group.add(new Konva.Rect({ width: chipWidth, height: chipHeight, fill: chipColor, stroke: chipStroke, strokeWidth: 1 }));
-    
+
     // Draw meander channel FIRST
     addMeanderChannel(group);
-    
+
     // Add port indicators LAST so they appear on top
     group.add(new Konva.Circle({ x: 0, y: chipHeight / 2, radius: portRadius, fill: portColor }));
     group.add(new Konva.Circle({ x: chipWidth, y: chipHeight / 2, radius: portRadius, fill: portColor }));
-    
+
     return group;
 }
 
@@ -648,26 +648,20 @@ function deleteConnection(clickedTubePath) {
 
         if (port1) {
             const boundary1 = port1.getParent()?.findOne('.portBoundary');
-            const group1 = stage.findOne('#' + port1.getAttr('mainGroupId'));
-            if (group1?.getAttr('chipType') !== 'outlet') {
-                // Make boundary visible if not outlet
-                if (boundary1) boundary1.visible(true);
-                // Make connection port visible ONLY if no other connections exist for it
-                if (!isPortConnected(connData.fromPort)) {
-                    port1.visible(true);
-                }
+            // Make boundary visible
+            if (boundary1) boundary1.visible(true);
+            // Make connection port visible ONLY if no other connections exist for it
+            if (!isPortConnected(connData.fromPort)) {
+                port1.visible(true);
             }
         }
         if (port2) {
             const boundary2 = port2.getParent()?.findOne('.portBoundary');
-            const group2 = stage.findOne('#' + port2.getAttr('mainGroupId'));
-            if (group2?.getAttr('chipType') !== 'outlet') {
-                 // Make boundary visible if not outlet
-                if (boundary2) boundary2.visible(true);
-                // Make connection port visible ONLY if no other connections exist for it
-                if (!isPortConnected(connData.toPort)) {
-                    port2.visible(true);
-                }
+            // Make boundary visible
+            if (boundary2) boundary2.visible(true);
+            // Make connection port visible ONLY if no other connections exist for it
+            if (!isPortConnected(connData.toPort)) {
+                port2.visible(true);
             }
         }
         // --- End boundary/port visibility update ---
@@ -1065,219 +1059,162 @@ function updateConnectionLines(movedChipGroup) {
 
 // --- Palette Setup (Use Preview functions) ---
 function setupPalette() {
+    // --- NEW: Define fixed size for palette chip Konva stages --- //
+    const chipPreviewSize = 64; // Match the CSS width/height for .palette-chip
+
     // Straight Chip Preview
-    const straightPaletteContainer = document.getElementById('palette-straight-chip');
-    if (!straightPaletteContainer) { console.error("Palette container 'palette-straight-chip' not found!"); }
+    // --- MODIFIED: Target the new inner div --- //
+    const straightPaletteContainer = document.getElementById('palette-straight-chip-konva'); // Target inner div
+    if (!straightPaletteContainer) { console.error("Palette container 'palette-straight-chip-konva' not found!"); } // Updated error message
     else {
         const straightPaletteStage = new Konva.Stage({
-            container: 'palette-straight-chip',
-            width: straightPaletteContainer.offsetWidth,
-            height: straightPaletteContainer.offsetHeight,
+            container: 'palette-straight-chip-konva', // Use inner div ID
+            width: chipPreviewSize, // Use fixed size
+            height: chipPreviewSize, // Use fixed size
         });
         const straightPaletteLayer = new Konva.Layer();
         straightPaletteStage.add(straightPaletteLayer);
-        const straightChipPreview = createStraightChipPreview(5, 5);
+        const straightChipPreview = createStraightChipPreview(5, 3); // ADJUSTED Y
         straightPaletteLayer.add(straightChipPreview);
 
-        // NEW: Add Text Label
-        const straightLabel = new Konva.Text({
-            x: 0, // Will be centered below
-            y: straightChipPreview.y() + chipHeight + 3, // Position below the chip preview + adjusted padding
-            text: getComponentDisplayName('straight'),
-            fontSize: 10,
-            fontFamily: 'Arial',
-            fill: 'black',
-            width: straightPaletteStage.width(),
-            align: 'center'
-        });
-        straightPaletteLayer.add(straightLabel);
-
         straightPaletteLayer.draw();
-        // straightPaletteContainer.setAttribute('data-chip-type', 'straight');
-        // // NEW: Add click listener for palette selection
-        // straightPaletteContainer.addEventListener('click', () => handlePaletteSelection('straight'));
-        // --- MODIFIED: Attach listener to the Konva Stage --- //
-        straightPaletteStage.on('click tap', () => handlePaletteSelection('straight'));
-        straightPaletteStage.listening(true); // Ensure stage listens for events
+        // Add listener to the outer .palette-chip div for selection
+        const outerStraightDiv = document.getElementById('palette-straight-chip');
+        if (outerStraightDiv) {
+            outerStraightDiv.addEventListener('click', () => handlePaletteSelection('straight'));
+        }
     }
 
     // X-Chip Preview
-    const xPaletteContainer = document.getElementById('palette-x-chip');
-    if (!xPaletteContainer) { console.error("Palette container 'palette-x-chip' not found!"); }
+    // --- MODIFIED: Target the new inner div --- //
+    const xPaletteContainer = document.getElementById('palette-x-chip-konva'); // Target inner div
+    if (!xPaletteContainer) { console.error("Palette container 'palette-x-chip-konva' not found!"); } // Updated error message
      else {
         const xPaletteStage = new Konva.Stage({
-            container: 'palette-x-chip',
-            width: xPaletteContainer.offsetWidth,
-            height: xPaletteContainer.offsetHeight,
+            container: 'palette-x-chip-konva', // Use inner div ID
+            width: chipPreviewSize, // Use fixed size
+            height: chipPreviewSize, // Use fixed size
         });
         const xPaletteLayer = new Konva.Layer();
         xPaletteStage.add(xPaletteLayer);
-        const xChipPreview = createXChipPreview(5, 5);
+        const xChipPreview = createXChipPreview(5, 3); // ADJUSTED Y
         xPaletteLayer.add(xChipPreview);
 
-        // NEW: Add Text Label
-        const xLabel = new Konva.Text({
-            x: 0,
-            y: xChipPreview.y() + chipHeight + 3, // Adjusted padding
-            text: getComponentDisplayName('x-type'),
-            fontSize: 10,
-            fontFamily: 'Arial',
-            fill: 'black',
-            width: xPaletteStage.width(),
-            align: 'center'
-        });
-        xPaletteLayer.add(xLabel);
-
         xPaletteLayer.draw();
-        // xPaletteContainer.setAttribute('data-chip-type', 'x-type');
-        // // NEW: Add click listener
-        // xPaletteContainer.addEventListener('click', () => handlePaletteSelection('x-type'));
-        // --- MODIFIED: Attach listener to the Konva Stage --- //
-        xPaletteStage.on('click tap', () => handlePaletteSelection('x-type'));
-        xPaletteStage.listening(true);
+        // Add listener to the outer .palette-chip div for selection
+        const outerXDiv = document.getElementById('palette-x-chip');
+        if (outerXDiv) {
+            outerXDiv.addEventListener('click', () => handlePaletteSelection('x-type'));
+        }
     }
 
     // T-Chip Preview
-    const tPaletteContainer = document.getElementById('palette-t-chip');
-    if (!tPaletteContainer) { console.error("Palette container 'palette-t-chip' not found!"); }
+    // --- MODIFIED: Target the new inner div --- //
+    const tPaletteContainer = document.getElementById('palette-t-chip-konva'); // Target inner div
+    if (!tPaletteContainer) { console.error("Palette container 'palette-t-chip-konva' not found!"); } // Updated error message
     else {
         const tPaletteStage = new Konva.Stage({
-            container: 'palette-t-chip',
-            width: tPaletteContainer.offsetWidth,
-            height: tPaletteContainer.offsetHeight,
+            container: 'palette-t-chip-konva', // Use inner div ID
+            width: chipPreviewSize, // Use fixed size
+            height: chipPreviewSize, // Use fixed size
         });
         const tPaletteLayer = new Konva.Layer();
         tPaletteStage.add(tPaletteLayer);
-        const tChipPreview = createTChipPreview(5, 5);
+        const tChipPreview = createTChipPreview(5, 3); // ADJUSTED Y
         tPaletteLayer.add(tChipPreview);
 
-        // NEW: Add Text Label
-        const tLabel = new Konva.Text({
-            x: 0,
-            y: tChipPreview.y() + chipHeight + 3, // Adjusted padding
-            text: getComponentDisplayName('t-type'),
-            fontSize: 10,
-            fontFamily: 'Arial',
-            fill: 'black',
-            width: tPaletteStage.width(),
-            align: 'center'
-        });
-        tPaletteLayer.add(tLabel);
-
         tPaletteLayer.draw();
-        // tPaletteContainer.setAttribute('data-chip-type', 't-type');
-        // // NEW: Add click listener
-        // tPaletteContainer.addEventListener('click', () => handlePaletteSelection('t-type'));
-        // --- MODIFIED: Attach listener to the Konva Stage --- //
-        tPaletteStage.on('click tap', () => handlePaletteSelection('t-type'));
-        tPaletteStage.listening(true);
+        // Add listener to the outer .palette-chip div for selection
+        const outerTDiv = document.getElementById('palette-t-chip');
+        if (outerTDiv) {
+            outerTDiv.addEventListener('click', () => handlePaletteSelection('t-type'));
+        }
     }
 
     // NEW: Meander Chip Preview
-    const meanderPaletteContainer = document.getElementById('palette-meander-chip');
-    if (!meanderPaletteContainer) { console.error("Palette container 'palette-meander-chip' not found!"); }
+    // --- MODIFIED: Target the new inner div --- //
+    const meanderPaletteContainer = document.getElementById('palette-meander-chip-konva'); // Target inner div
+    if (!meanderPaletteContainer) { console.error("Palette container 'palette-meander-chip-konva' not found!"); } // Updated error message
     else {
         const meanderPaletteStage = new Konva.Stage({
-            container: 'palette-meander-chip',
-            width: meanderPaletteContainer.offsetWidth,
-            height: meanderPaletteContainer.offsetHeight,
+            container: 'palette-meander-chip-konva', // Use inner div ID
+            width: chipPreviewSize, // Use fixed size
+            height: chipPreviewSize, // Use fixed size
         });
         const meanderPaletteLayer = new Konva.Layer();
         meanderPaletteStage.add(meanderPaletteLayer);
-        const meanderChipPreview = createMeanderChipPreview(5, 5); // Use the new preview function
+        const meanderChipPreview = createMeanderChipPreview(5, 3); // ADJUSTED Y
         meanderPaletteLayer.add(meanderChipPreview);
 
-        // NEW: Add Text Label
-        const meanderLabel = new Konva.Text({
-            x: 0,
-            y: meanderChipPreview.y() + chipHeight + 3, // Adjusted padding
-            text: getComponentDisplayName('meander'),
-            fontSize: 10,
-            fontFamily: 'Arial',
-            fill: 'black',
-            width: meanderPaletteStage.width(),
-            align: 'center'
-        });
-        meanderPaletteLayer.add(meanderLabel);
-
         meanderPaletteLayer.draw();
-        // meanderPaletteContainer.setAttribute('data-chip-type', 'meander');
-        // // NEW: Add click listener
-        // meanderPaletteContainer.addEventListener('click', () => handlePaletteSelection('meander'));
-        // --- MODIFIED: Attach listener to the Konva Stage --- //
-        meanderPaletteStage.on('click tap', () => handlePaletteSelection('meander'));
-        meanderPaletteStage.listening(true);
+        // Add listener to the outer .palette-chip div for selection
+        const outerMeanderDiv = document.getElementById('palette-meander-chip');
+        if (outerMeanderDiv) {
+            outerMeanderDiv.addEventListener('click', () => handlePaletteSelection('meander'));
+        }
     }
 
     // Pump Preview - Setup using simple rectangle preview
-    const pumpPaletteContainer = document.getElementById('palette-pump');
-    if (!pumpPaletteContainer) { console.error("Palette container 'palette-pump' not found!"); }
+    // --- MODIFIED: Target the new inner div --- //
+    const pumpPaletteContainer = document.getElementById('palette-pump-konva'); // Target inner div
+    if (!pumpPaletteContainer) { console.error("Palette container 'palette-pump-konva' not found!"); } // Updated error message
     else { // Only setup if container exists
         const pumpPaletteStage = new Konva.Stage({
-            container: 'palette-pump',
-            width: pumpPaletteContainer.offsetWidth,
-            height: pumpPaletteContainer.offsetHeight,
+            container: 'palette-pump-konva', // Use inner div ID
+            width: chipPreviewSize, // Use fixed size
+            height: chipPreviewSize, // Use fixed size
         });
         const pumpPaletteLayer = new Konva.Layer();
         pumpPaletteStage.add(pumpPaletteLayer);
         // Use the updated preview function (no SVG URI needed)
-        const pumpPreview = createPumpPreview(5, 5, itemWidth, itemHeight); // Removed * 0.8 scaling
+        const pumpPreview = createPumpPreview(5, 3, itemWidth, itemHeight); // ADJUSTED Y
         pumpPaletteLayer.add(pumpPreview);
 
-        // NEW: Add Text Label
-        const pumpLabel = new Konva.Text({
-            x: 0,
-            // Use itemHeight for pump preview positioning
-            y: pumpPreview.y() + itemHeight + 3, // Adjusted padding
-            text: getComponentDisplayName('pump'),
-            fontSize: 10,
-            fontFamily: 'Arial',
-            fill: 'black',
-            width: pumpPaletteStage.width(),
-            align: 'center'
-        });
-        pumpPaletteLayer.add(pumpLabel);
-
         pumpPaletteLayer.draw(); // Draw the preview layer
-        // pumpPaletteContainer.setAttribute('data-chip-type', 'pump');
-        // // NEW: Add click listener
-        // pumpPaletteContainer.addEventListener('click', () => handlePaletteSelection('pump'));
-        // --- MODIFIED: Attach listener to the Konva Stage --- //
-        pumpPaletteStage.on('click tap', () => handlePaletteSelection('pump'));
-        pumpPaletteStage.listening(true);
+        // Add listener to the outer .palette-chip div for selection
+        const outerPumpDiv = document.getElementById('palette-pump');
+        if (outerPumpDiv) {
+            outerPumpDiv.addEventListener('click', () => handlePaletteSelection('pump'));
+        }
     }
 
     // Outlet Preview - Setup using SVG Data URI
-    const outletPaletteContainer = document.getElementById('palette-outlet');
-    if (!outletPaletteContainer) { console.error("Palette container 'palette-outlet' not found!"); }
+    // --- MODIFIED: Target the new inner div --- //
+    const outletPaletteContainer = document.getElementById('palette-outlet-konva'); // Target inner div
+    if (!outletPaletteContainer) { console.error("Palette container 'palette-outlet-konva' not found!"); } // Updated error message
     else { // Only setup if container exists
         const outletPaletteStage = new Konva.Stage({
-            container: 'palette-outlet',
-            width: outletPaletteContainer.offsetWidth,
-            height: outletPaletteContainer.offsetHeight,
+            container: 'palette-outlet-konva', // Use inner div ID
+            width: chipPreviewSize, // Use fixed size
+            height: chipPreviewSize, // Use fixed size
         });
         const outletPaletteLayer = new Konva.Layer();
         outletPaletteStage.add(outletPaletteLayer);
         // Use the SVG data URI, scale to fit palette dimensions
         // Adjust scaling factor as needed to look good
-        const previewScale = Math.min((outletPaletteContainer.offsetWidth - 10) / outletWidth, (outletPaletteContainer.offsetHeight - 10) / outletHeight) * 0.8;
+        // const previewScale = Math.min((outletPaletteContainer.offsetWidth - 10) / outletWidth, (outletPaletteContainer.offsetHeight - 10) / outletHeight) * 0.8;
+        // Use chipPreviewSize for calculations now
+        const padding = 10; // Padding inside the chip preview area
+        const availableWidth = chipPreviewSize - padding;
+        // REMOVED: -15 adjustment, as the <p> is now outside this container
+        const availableHeight = chipPreviewSize - padding; // Use full height within padding
+        const previewScale = Math.min(availableWidth / outletWidth, availableHeight / outletHeight);
         const previewWidth = outletWidth * previewScale;
         const previewHeight = outletHeight * previewScale;
-        const previewX = (outletPaletteContainer.offsetWidth - previewWidth) / 2;
-        const previewY = (outletPaletteContainer.offsetHeight - previewHeight) / 2;
+        // Center the preview within the chipPreviewSize area
+        const previewX = (chipPreviewSize - previewWidth) / 2;
+        const previewY = (chipPreviewSize - previewHeight) / 2; // Vertically center
 
         const outletPreview = createOutletPreview(previewX, previewY, previewWidth, previewHeight, outletSvgDataUri);
         outletPaletteLayer.add(outletPreview);
         // Drawing handled by image load callback
 
-        // Wait for the image in createOutletPreview to load before adding the label
-        // We can access the imageNode inside the callback used in createOutletPreview
-        // Let's modify createOutletPreview to accept a callback
-        // -- OR -- we can find the image later. Simpler: Add text after adding the group.
+        // REMOVED: Konva text label - we are using HTML <p> tags now
+        /*
         const outletLabel = new Konva.Text({
             x: 0,
-            // Use the calculated previewHeight for outlet positioning - adjust padding
-            y: previewY + previewHeight, // Adjusted: Moved up slightly
+            // Position label at the bottom of the 64px area
+            y: chipPreviewSize - 15, // Adjusted Y for bottom positioning
             text: getComponentDisplayName('outlet'),
             fontSize: 10,
             fontFamily: 'Arial',
@@ -1289,16 +1226,16 @@ function setupPalette() {
         // Redraw happens in the image load callback within createOutletPreview OR explicitly here if needed
         // Let's ensure it redraws after adding label
          outletPaletteLayer.batchDraw(); // Add redraw after adding label
+         */
 
-        // outletPaletteContainer.setAttribute('data-chip-type', 'outlet');
-        // // NEW: Add click listener
-        // outletPaletteContainer.addEventListener('click', () => handlePaletteSelection('outlet'));
-        // --- MODIFIED: Attach listener to the Konva Stage --- //
-        outletPaletteStage.on('click tap', () => handlePaletteSelection('outlet'));
-        outletPaletteStage.listening(true);
+        // Add listener to the outer .palette-chip div for selection
+        const outerOutletDiv = document.getElementById('palette-outlet');
+        if (outerOutletDiv) {
+            outerOutletDiv.addEventListener('click', () => handlePaletteSelection('outlet'));
+        }
     }
 
-    console.log('Palette initialized (including Pump and Outlet).'); // Updated log message
+    console.log('Palette initialized (including Pump and Outlet). Targeting inner divs.'); // Updated log message
 }
 
 // --- Add Stage Context Menu Listener for Cancellation ---
@@ -1699,14 +1636,23 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
     // --- Setup Drag and Drop Logic --- (Keep existing D&D logic)
     let dragChipType = null;
-    document.querySelectorAll('.palette-chip').forEach(chipElement => {
-        if (!chipElement) return;
-        chipElement.addEventListener('dragstart', (e) => {
-            dragChipType = chipElement.getAttribute('data-chip-type');
+    // Select the inner konva divs which are now draggable
+    document.querySelectorAll('[id$="-konva"][draggable="true"]').forEach(konvaDiv => {
+        if (!konvaDiv) return;
+        konvaDiv.addEventListener('dragstart', (e) => {
+            // Get the type from the konva div's data attribute
+            dragChipType = konvaDiv.getAttribute('data-chip-type');
             console.log('Dragging:', dragChipType);
+            // Optional: You might want to customize the drag image here
+            // e.dataTransfer.setData('text/plain', dragChipType);
+            // if (e.dataTransfer.setDragImage) {
+            //     const preview = konvaDiv.closest('.palette-chip'); // Or a custom drag image
+            //     e.dataTransfer.setDragImage(preview, 0, 0);
+            // }
         });
-        chipElement.addEventListener('dragend', (e) => {
+        konvaDiv.addEventListener('dragend', (e) => {
             console.log('Drag ended');
+            // Important: Reset dragChipType in a timeout to avoid race conditions
             setTimeout(() => { dragChipType = null; }, 0);
         });
     });
@@ -1756,6 +1702,12 @@ window.addEventListener('DOMContentLoaded', (event) => {
             if (newItem) {
                 layer.add(newItem);
                 console.log('Dropped', dragChipType, 'at', dropX, dropY);
+
+                // --- NEW: Hide getting started overlay --- //
+                const overlay = document.getElementById('getting-started-overlay');
+                if (overlay) overlay.classList.add('hidden');
+                // --- END NEW --- //
+
                 if (!isAsyncItem) {
                     findFlowPathAndHighlight();
                     updateComponentList(); // Update component list only
@@ -1776,10 +1728,10 @@ window.addEventListener('DOMContentLoaded', (event) => {
     if (clearButton) {
         clearButton.addEventListener('click', () => {
             console.log('Clear Canvas button clicked');
-            
+
             // Clear all simulation visuals first
             clearSimulationVisuals();
-            
+
             // Then clear all components and connections
             layer.find('Group').forEach(group => {
                 if (group.draggable()) {
@@ -1806,7 +1758,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
             // Clear remaining connections
             connections.length = 0;
-            
+
             // Reset port selection if active
             if (startPort) {
                 startPort.fill(startPort.getAttr('originalFill'));
@@ -1818,6 +1770,10 @@ window.addEventListener('DOMContentLoaded', (event) => {
                 pressures: {},
                 flows: {}
             };
+
+            // Reset selected component and properties panel
+            selectedComponent = null;
+            updatePropertiesPanel();
 
             // Redraw the layer
             layer.draw();
@@ -1841,21 +1797,105 @@ window.addEventListener('DOMContentLoaded', (event) => {
         console.error("Run Simulation button not found!");
     }
 
-    // --- NEW: Collapsible How-to-Use Section Logic ---
-    const howToUseSection = document.getElementById('how-to-use-guide');
-    const howToUseHeading = howToUseSection?.querySelector('.collapsible-heading');
-
-    if (howToUseSection && howToUseHeading) {
-        howToUseHeading.addEventListener('click', () => {
-            howToUseSection.classList.toggle('expanded');
-        });
-
-        // Optional: Start expanded by default
-        // howToUseSection.classList.add('expanded');
+    // --- NEW: Reset Simulation Button Listener ---
+    const resetButton = document.getElementById('reset-simulation-btn');
+    if (resetButton) {
+        resetButton.addEventListener('click', resetSimulationState);
     } else {
-        console.error("Could not find elements for collapsible How-to-Use section.");
+        console.error("Reset Simulation button not found!");
+    }
+
+    // --- NEW: How-to Modal Logic ---
+    const howtoIcon = document.getElementById('howto-icon');
+    const howtoModal = document.getElementById('how-to-use-guide'); // Content div
+    const howtoOverlay = document.getElementById('howto-modal-overlay'); // Overlay div
+    const closeHowtoBtn = document.getElementById('close-howto-modal');
+
+    // --- DEBUG: Log element references ---
+    console.log("Howto Elements Check:", {
+        icon: howtoIcon,
+        modal: howtoModal,
+        overlay: howtoOverlay,
+        closeBtn: closeHowtoBtn
+    });
+    // --- END DEBUG ---
+
+    function openHowtoModal() {
+        console.log("openHowtoModal called"); // DEBUG
+        if(howtoModal && howtoOverlay) {
+            console.log("Adding modal-visible class TO OVERLAY ONLY"); // DEBUG
+            howtoOverlay.classList.add('modal-visible');
+            // howtoModal.classList.add('modal-visible'); // REMOVED - Let overlay handle visibility
+        } else {
+            console.error("Cannot open modal: Modal or overlay element not found inside openHowtoModal."); // DEBUG
+        }
+    }
+
+    function closeHowtoModal() {
+        console.log("closeHowtoModal called"); // DEBUG
+         if(howtoModal && howtoOverlay) {
+            console.log("Removing modal-visible class FROM OVERLAY ONLY"); // DEBUG
+            howtoOverlay.classList.remove('modal-visible');
+            // howtoModal.classList.remove('modal-visible'); // REMOVED
+        } else {
+            console.error("Cannot close modal: Modal or overlay element not found inside closeHowtoModal."); // DEBUG
+        }
+    }
+
+    if (howtoIcon && howtoModal && howtoOverlay && closeHowtoBtn) {
+        console.log("Attaching Howto modal event listeners..."); // DEBUG
+        howtoIcon.addEventListener('click', () => {
+            console.log("Howto icon clicked!"); // DEBUG
+            // Restore original function call
+            // alert("Howto Icon Clicked! Test Successful."); // REMOVED
+            openHowtoModal();
+        });
+        closeHowtoBtn.addEventListener('click', closeHowtoModal);
+        howtoOverlay.addEventListener('click', closeHowtoModal); // Close on overlay click
+        console.log("Howto modal event listeners attached."); // DEBUG
+    } else {
+        console.error("Could not find all elements for How-to-Use modal functionality.", {
+            howtoIcon: !!howtoIcon,
+            howtoModal: !!howtoModal,
+            howtoOverlay: !!howtoOverlay,
+            closeHowtoBtn: !!closeHowtoBtn
+        });
     }
     // --- END NEW SECTION ---
+
+    // --- NEW: Sidebar Toggle Logic --- //
+    const palette = document.getElementById('palette');
+    const componentList = document.getElementById('component-list');
+    const togglePaletteBtn = document.getElementById('toggle-palette-btn');
+    const toggleComponentListBtn = document.getElementById('toggle-component-list-btn');
+
+    if (palette && togglePaletteBtn) {
+        togglePaletteBtn.addEventListener('click', () => {
+            palette.classList.toggle('sidebar-visible');
+            // Optional: Hide component list if palette is shown
+            if (componentList && palette.classList.contains('sidebar-visible')) {
+                componentList.classList.remove('sidebar-visible');
+            }
+        });
+    }
+
+    if (componentList && toggleComponentListBtn) {
+        toggleComponentListBtn.addEventListener('click', () => {
+            componentList.classList.toggle('sidebar-visible');
+            // Optional: Hide palette if component list is shown
+            if (palette && componentList.classList.contains('sidebar-visible')) {
+                palette.classList.remove('sidebar-visible');
+            }
+        });
+    }
+    // --- END Sidebar Toggle Logic --- //
+
+    // --- REMOVED: Collapsible How-to-Use Section Logic ---
+    // const howToUseSection = document.getElementById('how-to-use-guide');
+    // const howToUseHeading = howToUseSection?.querySelector('.collapsible-heading');
+
+    // if (howToUseSection && howToUseHeading) { ... }
+    // --- END REMOVED SECTION ---
 });
 
 // --- Flow Pathfinding and Highlighting ---
@@ -2087,6 +2127,12 @@ stage.on('click tap', function (e) {
         // Logically deselect (whether it was canvas or palette)
         selectedComponent = null;
         updatePropertiesPanel(); // Clear the properties panel
+
+        // --- NEW: Hide the selected component box --- //
+        const selectedBox = document.querySelector('.selected-component-box');
+        if (selectedBox) selectedBox.style.display = 'none';
+        // --- END NEW --- //
+
         layer.draw(); // Redraw the layer to show the visual deselection
         return; // Stop processing further
     }
@@ -2117,6 +2163,11 @@ stage.on('click tap', function (e) {
              // --- Select new (Canvas Component) --- //
              selectedComponent = componentGroup;
              updatePropertiesPanel();
+
+             // --- NEW: Show the selected component box --- //
+             const selectedBox = document.querySelector('.selected-component-box');
+             if (selectedBox) selectedBox.style.display = 'flex'; // Use flex as defined for .sidebar-box
+             // --- END NEW --- //
 
              const newBorder = selectedComponent.findOne('.component-border');
              if (newBorder) {
@@ -2502,19 +2553,19 @@ function clearSimulationVisuals() {
     layer.find('.simulation-label').forEach(label => {
         label.destroy();
     });
-    
+
     // Explicitly find and remove port dots
     layer.find('.port-dot').forEach(dot => {
         dot.destroy();
     });
-    
+
     // Reset tube colors
     layer.find('._tube').forEach(tube => {
         tube.stroke('lightgrey');
         const outline = layer.findOne('#' + tube.id().replace('_tube', '_outline'));
         if(outline) outline.stroke('#555555');
     });
-    
+
     // Reset internal channel colors
     layer.find('.internalChannelFill').forEach(channel => {
         const chipGroup = channel.findAncestor('Group');
@@ -2524,7 +2575,7 @@ function clearSimulationVisuals() {
             channel.fill(channelFillColor);
         }
     });
-    
+
     // Reset internal segment colors
     layer.find('.internalSegmentFill').forEach(segmentLine => {
         segmentLine.stroke(channelFillColor);
@@ -2535,7 +2586,7 @@ function clearSimulationVisuals() {
     if (summaryBox) {
         summaryBox.style.display = 'none';
     }
-    
+
     layer.draw();
 }
 
@@ -2558,7 +2609,7 @@ function getRelativeFlowColor(flowRateUlMin, maxFlowUlMin) {
 
     // Calculate normalized flow (0 to 1) with logarithmic scaling for better visualization
     const normalizedFlow = Math.min(1, Math.max(0, Math.abs(flowRateUlMin) / maxFlowUlMin));
-    
+
     // Find the two stops the normalized flow falls between
     for (let i = 0; i < colorStops.length - 1; i++) {
         if (normalizedFlow <= colorStops[i + 1].norm) {
@@ -2582,16 +2633,16 @@ function interpolateColor(color1, color2, factor) {
     const r1 = parseInt(color1.substring(1, 3), 16);
     const g1 = parseInt(color1.substring(3, 5), 16);
     const b1 = parseInt(color1.substring(5, 7), 16);
-    
+
     const r2 = parseInt(color2.substring(1, 3), 16);
     const g2 = parseInt(color2.substring(3, 5), 16);
     const b2 = parseInt(color2.substring(5, 7), 16);
-    
+
     // Interpolate
     const r = Math.round(r1 + (r2 - r1) * factor);
     const g = Math.round(g1 + (g2 - g1) * factor);
     const b = Math.round(b1 + (b2 - b1) * factor);
-    
+
     // Convert back to hex
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
@@ -2663,7 +2714,7 @@ function visualizeSimulationResults() {
                                 visualElement = chipGroup.findOne('.internalChannelFill');
                                 if (visualElement) {
                                     elementType = (chipType === 'straight') ? 'straight-channel' : 'meander-channel';
-                                    
+
                                     // Ensure outline exists, but DO NOT change its Z-order here
                                     const outlineElement = chipGroup.findOne('.channelOutline');
                                     // if (outlineElement) {
@@ -2779,11 +2830,11 @@ function visualizeSimulationResults() {
     // Update the simulation summary in the sidebar
     const summaryBox = document.getElementById('simulation-summary-box');
     const summaryContent = document.getElementById('simulation-summary-content');
-    
+
     if (summaryBox && summaryContent) {
         // Show the summary box
         summaryBox.style.display = 'block';
-        
+
         // Update content
         summaryContent.innerHTML = `
             <div class="summary-item">
@@ -2865,7 +2916,7 @@ function visualizeSimulationResults() {
     labelValues.forEach(normValue => {
         const flowValue = maxFlowUlMin * normValue;
         const labelY = (legendPadding + 25 + gradientHeight) - (gradientHeight * normValue);
-        
+
         // Add tick mark
         const tick = new Konva.Line({
             points: [legendPadding + 20, labelY, legendPadding + 23, labelY],
@@ -2960,6 +3011,52 @@ function visualizeSimulationResults() {
     // 7. Final draw
     layer.draw();
     console.log("Visualization updated with relative colors and legend.");
+}
+
+// --- NEW: Function to Reset Simulation State --- //
+function resetSimulationState() {
+    console.log("Resetting simulation state...");
+
+    // 1. Clear all simulation-specific visuals (colors, dots, legend, summary)
+    clearSimulationVisuals();
+
+    // 2. Reset the simulationResults object
+    simulationResults = {
+        pressures: {},
+        flows: {}
+    };
+
+    // 3. Restore the initial connectivity highlighting (Pump Reachability)
+    findFlowPathAndHighlight();
+
+    // 4. Re-enable boundary circles and ports for interaction (partly handled in findFlowPath)
+    // Ensure all connection ports are visible again
+    layer.find('.connectionPort').forEach(port => {
+        const group = port.getParent();
+        const mainGroup = stage.findOne('#' + port.getAttr('mainGroupId'));
+        const chipType = mainGroup?.getAttr('chipType');
+        if (chipType !== 'outlet') { // Don't show outlet connection point
+            port.visible(true);
+        }
+        // Show boundary if port is not connected
+        if (!isPortConnected(port.id())) {
+            const boundary = group?.findOne('.portBoundary');
+            if (boundary) {
+                boundary.visible(true);
+            }
+        }
+    });
+
+    // 5. Clear the properties panel if it's showing simulation data
+    // (Checking if selectedComponent exists and has simulation data might be complex,
+    // simpler to just clear it or re-render it without sim data)
+    if (selectedComponent) {
+        updatePropertiesPanel(); // Re-render properties without simulation data
+    }
+
+    // 6. Redraw the layer
+    layer.draw();
+    console.log("Simulation state reset.");
 }
 
 // Function to show details when a node is hovered
@@ -3156,6 +3253,10 @@ function handlePaletteSelection(chipType) {
     }
     // No need to visually deselect other palette items, only one can be logically selected
 
+    // --- NEW: Ensure the selected component box is VISIBLE --- //
+    const selectedBox = document.querySelector('.selected-component-box');
+    if (selectedBox) selectedBox.style.display = 'flex'; // Use flex as defined for .sidebar-box
+
     // --- 2. Create a dummy selection object for the palette item --- //
     let resistanceValue = null;
     switch(chipType) {
@@ -3182,3 +3283,75 @@ function handlePaletteSelection(chipType) {
     // --- 5. Redraw layer (optional, might be needed if deselecting a canvas item) ---
     layer.draw();
 }
+
+// --- Add Keyboard Event Listener for Delete/Backspace ---
+document.addEventListener('keydown', (e) => {
+    // Check if Delete or Backspace was pressed
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedComponent) {
+        // Only handle canvas components (not palette items)
+        if (selectedComponent instanceof Konva.Group) {
+            // Get all ports of the selected component
+            const groupPorts = selectedComponent.find('.connectionPort');
+            
+            // Store ports that need their boundary circles restored
+            const portsToRestore = new Set();
+            
+            // Remove all connections associated with this component's ports
+            groupPorts.forEach(port => {
+                const portId = port.id();
+                const connectionsToRemove = connections.filter(conn => 
+                    conn.fromPort === portId || conn.toPort === portId
+                );
+                
+                // Remove the visual connection lines and track connected ports
+                connectionsToRemove.forEach(conn => {
+                    const tubePath = layer.findOne('#' + conn.lineId + '_tube');
+                    const outlinePath = layer.findOne('#' + conn.lineId + '_outline');
+                    if (tubePath) tubePath.destroy();
+                    if (outlinePath) outlinePath.destroy();
+                    
+                    // Add the other port to the set of ports to restore
+                    const otherPortId = conn.fromPort === portId ? conn.toPort : conn.fromPort;
+                    portsToRestore.add(otherPortId);
+                    
+                    // Remove from connections array
+                    const index = connections.findIndex(c => c.lineId === conn.lineId);
+                    if (index > -1) {
+                        connections.splice(index, 1);
+                    }
+                });
+            });
+            
+            // Remove the component itself
+            selectedComponent.destroy();
+            
+            // Reset selection
+            selectedComponent = null;
+            updatePropertiesPanel();
+            
+            // Restore boundary circles and connection ports for ports that were connected to the deleted component
+            portsToRestore.forEach(portId => {
+                const port = stage.findOne('#' + portId);
+                if (port) {
+                    const group = port.getParent();
+                    const mainGroup = stage.findOne('#' + port.getAttr('mainGroupId'));
+                    const chipType = mainGroup?.getAttr('chipType');
+                    
+                    // Make the connection port visible
+                    port.visible(true);
+                    
+                    // Make the boundary circle visible
+                    const boundary = group?.findOne('.portBoundary');
+                    if (boundary) {
+                        boundary.visible(true);
+                    }
+                }
+            });
+            
+            // Update the canvas and component list
+            layer.draw();
+            updateComponentList();
+            calculateAndDisplayTubing();
+        }
+    }
+});

@@ -21,92 +21,104 @@
         <div class="header-content">
             <!-- Placeholder for the logo -->
             <img id="logo" src="Logo.svg" alt="Company Logo" /> 
+
+            <!-- NEW: Toggle Buttons (hidden by default via CSS) -->
+            <div class="sidebar-toggles">
+                <button id="toggle-palette-btn" title="Toggle Palette">
+                    <img src="palette.svg" alt="Palette" />
+                </button>
+                <button id="toggle-component-list-btn" title="Toggle Details">
+                    <img src="details.svg" alt="Details" />
+                </button>
+            </div>
         </div>
     </header>
 
     <!-- Updated Introduction -->
     <p class="introduction-text">Welcome to the Microfluidic System Designer! Build virtual microfluidic circuits using standardized components, connect them, and simulate fluid dynamics to test your designs before fabrication. This tool helps you predict flow rates, pressure drops, and optimize your system based on a hydrodynamic resistance network model.</p>
 
-    <!-- New How-to-Use Section -->
-    <!-- MOVED TO PALETTE -->
-    <!-- <div id="how-to-use-guide" class="how-to-use-section"> ... </div> -->
+    <!-- REMOVED How-to-Use Section from here -->
 
     <div class="app-container">
         <aside id="palette">
             <div class="palette-section">
                 <h2>Microfluidic Chips</h2>
                 <div class="palette-row">
-                    <div id="palette-straight-chip" class="palette-chip" draggable="true" data-chip-type="straight"
+                    <div id="palette-straight-chip" class="palette-chip"
                          title="Straight Channel: Simple fluid path.">
-                         <p>Straight</p>
+                         <div id="palette-straight-chip-konva" draggable="true" data-chip-type="straight"></div>
+                         <p>Straight Channel</p>
                     </div>
-                    <div id="palette-x-chip" class="palette-chip" draggable="true" data-chip-type="x-type"
+                    <div id="palette-x-chip" class="palette-chip"
                          title="X-Type Junction: 4-way intersection for mixing or splitting.">
-                         <p>X-Type</p>
+                         <div id="palette-x-chip-konva" draggable="true" data-chip-type="x-type"></div>
+                         <p>X-Type Junction</p>
                     </div>
-                    <div id="palette-t-chip" class="palette-chip" draggable="true" data-chip-type="t-type"
+                    <div id="palette-t-chip" class="palette-chip"
                          title="T-Type Junction: Split 1 stream to 2, or merge 2 to 1.">
-                         <p>T-Type</p>
+                         <div id="palette-t-chip-konva" draggable="true" data-chip-type="t-type"></div>
+                         <p>T-Type Junction</p>
                     </div>
-                    <div id="palette-meander-chip" class="palette-chip" draggable="true" data-chip-type="meander"
+                    <div id="palette-meander-chip" class="palette-chip"
                          title="Meander Structure: Increases path length for mixing/reactions.">
-                         <p>Meander</p>
+                         <div id="palette-meander-chip-konva" draggable="true" data-chip-type="meander"></div>
+                         <p>Meander Structure</p>
                     </div>
                 </div>
             </div>
 
             <div class="palette-section">
-                <h2>Instrumentation</h2>
+                <h2>Other</h2>
                 <div class="palette-row">
-                    <div id="palette-pump" class="palette-chip" draggable="true" data-chip-type="pump"
+                    <div id="palette-pump" class="palette-chip"
                          title="Fluid Pump: Provides pressure source (configure ports).">
+                         <div id="palette-pump-konva" draggable="true" data-chip-type="pump"></div>
                         <p>Pump</p>
                         <!-- JS adds canvas here -->
                     </div>
                     <!-- Outlet will go here later -->
-                    <div id="palette-outlet" class="palette-chip" draggable="true" data-chip-type="outlet"
+                    <div id="palette-outlet" class="palette-chip"
                          title="Flow Outlet: Represents exit at atmospheric pressure (0 Pa).">
+                         <div id="palette-outlet-konva" draggable="true" data-chip-type="outlet"></div>
                         <p>Outlet</p>
                         <!-- JS adds canvas here -->
                     </div>
                 </div>
             </div>
 
-            <!-- Moved How-to-Use Section Here -->
-            <div id="how-to-use-guide" class="sidebar-box how-to-use-section"> <!-- Added sidebar-box class -->
-                <h2 class="collapsible-heading">How to Use <span class="toggle-arrow">▶</span></h2>
-                <div class="collapsible-content">
-                    <ul>
-                        <li><strong>Add Components:</strong> Drag components from the Palette (left) onto the Canvas (center).</li>
-                        <li><strong>Connect Ports:</strong> Right-click a port (grey circle) on one component, then right-click a port on another to create tubing.</li>
-                        <li><strong>Delete Connections:</strong> Right-click an existing tube to remove it.</li>
-                        <li><strong>Configure:</strong> Click a component on the canvas to view/edit its properties (e.g., pump pressures) in the right sidebar.</li>
-                        <li><strong>Simulate:</strong> Click 'Run Simulation' to calculate pressures (mbar) and flow rates (µL/min).</li>
-                        <li><strong>View Results:</strong> Observe tube/channel colors (see Legend). Hover over ports (orange dots after simulation) for specific values.</li>
-                        <li><strong>Clear:</strong> Use the 'Clear Canvas' button to start over.</li>
-                        <li><strong>Deselect/Cancel:</strong> Click the canvas background to deselect. Right-click background to cancel a connection attempt.</li>
-                    </ul>
-                    <p class="simulation-notes">
-                        <strong>Simulation Basis:</strong> Calculates pressure and flow using a hydrodynamic resistance model (analogous to Ohm's law), assuming laminar flow. Tubing resistance uses Poiseuille's law (0.02" ID standard). Chip resistances are based on typical 100x100µm channel dimensions. Assumes constant fluid viscosity (water).
-                    </p>
-                </div>
-            </div>
+            <!-- REMOVED How-to-Use Section from palette sidebar -->
         </aside>
         <main id="main-content">
             <div id="canvas-container">
                 <!-- New: Watermark Text -->
                 <div class="canvas-watermark">Microfluidic System Designer</div>
+
+                <!-- NEW: Getting Started Overlay -->
+                <div id="getting-started-overlay" class="getting-started-overlay">
+                    <img src="drag-drop-icon.svg" alt="" width="40" height="40" /> <!-- Placeholder icon -->
+                    <p>Drag components from the palette here to start building.</p>
+                </div>
+
                 <div id="konva-stage"></div> <!-- Konva stage will attach here -->
                  <!-- Button will be positioned here via CSS -->
-                 <button id="clear-canvas-btn">Clear Canvas</button>
+                 <button id="clear-canvas-btn" title="Clear Canvas">
+                    <img src="trash.svg" alt="Clear Canvas" />
+                 </button>
                  <button id="run-simulation-btn">Run Simulation</button>
+                 <!-- NEW: Reset Simulation Button -->
+                 <button id="reset-simulation-btn" title="Reset Simulation State">
+                     <img src="restart.svg" alt="Reset Simulation" />
+                 </button>
+                 <!-- NEW: Howto Icon -->
+                 <img id="howto-icon" src="howto.svg" alt="How to Use" title="How to Use Guide" />
             </div>
         </main>
 
         <!-- Component List on the Right -->
         <aside id="component-list">
-            <!-- Box 1: Details & Actions (moved to top) -->
-            <div class="sidebar-box details-actions-box">
+            <!-- Box 1: Selected Component Details -->
+            <div class="sidebar-box selected-component-box">
+                <h2>Selected Component</h2>
                 <div id="selected-component-properties" class="properties-panel-content">
                     <!-- Component properties will be loaded here -->
                     <p>Select a component or palette item for details.</p> <!-- Default message -->
@@ -118,8 +130,8 @@
                 </div>
             </div>
 
-            <!-- Box 2: Components & Tubing (moved to bottom) -->
-            <div class="sidebar-box components-box">
+            <!-- Box 2: System Summary (Components & Tubing) -->
+            <div class="sidebar-box system-summary-box">
                 <h2>Components Used</h2>
                 <div class="component-table">
                     <div class="component-header">
@@ -146,6 +158,27 @@
                 </div>
             </div>
         </aside>
+    </div>
+
+    <!-- NEW: How-to-Use Modal (outside app-container) -->
+    <div id="howto-modal-overlay">
+        <div id="how-to-use-guide" class="how-to-use-modal">
+            <button id="close-howto-modal" class="close-button" title="Close">&times;</button>
+            <h2>How to Use</h2>
+            <ul>
+                <li><strong>Add Components:</strong> Drag components from the Palette (left) onto the Canvas (center).</li>
+                <li><strong>Connect Ports:</strong> Right-click a port (grey circle) on one component, then right-click a port on another to create tubing.</li>
+                <li><strong>Delete Connections:</strong> Right-click an existing tube to remove it.</li>
+                <li><strong>Configure:</strong> Click a component on the canvas to view/edit its properties (e.g., pump pressures) in the right sidebar.</li>
+                <li><strong>Simulate:</strong> Click 'Run Simulation' to calculate pressures (mbar) and flow rates (µL/min).</li>
+                <li><strong>View Results:</strong> Observe tube/channel colors (see Legend). Hover over ports (orange dots after simulation) for specific values.</li>
+                <li><strong>Clear:</strong> Use the 'Clear Canvas' button to start over.</li>
+                <li><strong>Deselect/Cancel:</strong> Click the canvas background to deselect. Right-click background to cancel a connection attempt.</li>
+            </ul>
+            <p class="simulation-notes">
+                <strong>Simulation Basis:</strong> Calculates pressure and flow using a hydrodynamic resistance model (analogous to Ohm's law), assuming laminar flow. Tubing resistance uses Poiseuille's law (0.02" ID standard). Chip resistances are based on typical 100x100µm channel dimensions. Assumes constant fluid viscosity (water).
+            </p>
+        </div>
     </div>
 
     <script src="app.js"></script>
