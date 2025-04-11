@@ -28,27 +28,29 @@ const chipHeight = 50; // 5mm * 10px/mm
 // Add constants for pump/outlet size if different, otherwise use chipWidth/Height
 const itemWidth = 50; // Generic width
 const itemHeight = 50; // Generic height
-const outletWidth = 35; // Specific width for outlet icon
-const outletHeight = 50; // Specific height for outlet icon
+const outletWidth = 28; // Specific width for outlet icon (Matching new SVG aspect ratio 35:52)
+const outletHeight = 42; // Specific height for outlet icon (Matching new SVG aspect ratio 35:52)
 // Define the Pump SVG as a Data URI
-const pumpSvgDataUri = 'data:image/svg+xml;charset=utf-8,%3Csvg%20width%3D%2250%22%20height%3D%2250%22%20viewBox%3D%220%200%2050%2050%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2225%22%20cy%3D%2225%22%20r%3D%2222%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20fill%3D%22lightgrey%22/%3E%3Cpolygon%20points%3D%2225%2C10%2015%2C25%2035%2C25%22%20fill%3D%22darkgrey%22%20stroke%3D%22black%22%20stroke-width%3D%221%22/%3E%3C/svg%3E';
-// Define the Outlet SVG as a Data URI - Refined shape: narrower and pointier bottom
-const outletSvgDataUri = 'data:image/svg+xml;charset=utf-8,%3Csvg%20width%3D%2235%22%20height%3D%2250%22%20viewBox%3D%220%200%2035%2050%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20x%3D%222.5%22%20y%3D%220%22%20width%3D%2230%22%20height%3D%225%22%20fill%3D%22lightgrey%22%20stroke%3D%22black%22%20stroke-width%3D%221%22%20/%3E%3Cpath%20d%3D%22M6%205%20L6%2031%20Q6%2045%2017.5%2050%20Q29%2045%2029%2031%20L29%205%22%20fill%3D%22lightgrey%22%20stroke%3D%22black%22%20stroke-width%3D%221%22/%3E%3C/svg%3E';
+const pumpSvgDataUri = 'data:image/svg+xml;charset=utf-8,%3Csvg%20width%3D%2250%22%20height%3D%2250%22%20viewBox%3D%220%200%2051%2050%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3C!--%20Pump%20Base%20(Bottom%20Layer)%20--%3E%3Cpath%20d%3D%22M11%2038%20L35%2038%20C37%2038%2038%2039%2038%2041%20L38%2048%20C38%2049%2037%2050%2035%2050%20L11%2050%20C9%2050%208%2049%208%2048%20L8%2041%20C8%2039%209%2038%2011%2038%22%20fill%3D%22%23d9e2ec%22%20stroke%3D%22%232c3e50%22%20stroke-width%3D%221%22%2F%3E%3Crect%20x%3D%2210%22%20y%3D%2240%22%20width%3D%2226%22%20height%3D%228%22%20fill%3D%22%23e3f2fd%22%2F%3E%3C!--%20First%20Connection%20(Top)%20--%3E%3Crect%20x%3D%2236%22%20y%3D%228%22%20width%3D%2215%22%20height%3D%224%22%20fill%3D%22%23d9e2ec%22%20stroke%3D%22%232c3e50%22%20stroke-width%3D%221%22%2F%3E%3Crect%20x%3D%2237%22%20y%3D%229%22%20width%3D%2213%22%20height%3D%222%22%20fill%3D%22%23e3f2fd%22%2F%3E%3C!--%20Second%20Connection%20--%3E%3Crect%20x%3D%2236%22%20y%3D%2218%22%20width%3D%2215%22%20height%3D%224%22%20fill%3D%22%23d9e2ec%22%20stroke%3D%22%232c3e50%22%20stroke-width%3D%221%22%2F%3E%3Crect%20x%3D%2237%22%20y%3D%2219%22%20width%3D%2213%22%20height%3D%222%22%20fill%3D%22%23e3f2fd%22%2F%3E%3C!--%20Third%20Connection%20--%3E%3Crect%20x%3D%2236%22%20y%3D%2228%22%20width%3D%2215%22%20height%3D%224%22%20fill%3D%22%23d9e2ec%22%20stroke%3D%22%232c3e50%22%20stroke-width%3D%221%22%2F%3E%3Crect%20x%3D%2237%22%20y%3D%2229%22%20width%3D%2213%22%20height%3D%222%22%20fill%3D%22%23e3f2fd%22%2F%3E%3C!--%20Fourth%20Connection%20--%3E%3Crect%20x%3D%2236%22%20y%3D%2238%22%20width%3D%2215%22%20height%3D%224%22%20fill%3D%22%23d9e2ec%22%20stroke%3D%22%232c3e50%22%20stroke-width%3D%221%22%2F%3E%3Crect%20x%3D%2237%22%20y%3D%2239%22%20width%3D%2213%22%20height%3D%222%22%20fill%3D%22%23e3f2fd%22%2F%3E%3C!--%20Pump%20Circles%20(Middle%20Layer)%20--%3E%3Ccircle%20cx%3D%2223%22%20cy%3D%2225%22%20r%3D%2222%22%20fill%3D%22%23d9e2ec%22%20stroke%3D%22%232c3e50%22%20stroke-width%3D%221%22%20opacity%3D%220.95%22%2F%3E%3Ccircle%20cx%3D%2223%22%20cy%3D%2225%22%20r%3D%2218%22%20fill%3D%22%23007bff%22%20opacity%3D%220.95%22%20stroke%3D%22%232c3e50%22%20stroke-width%3D%221%22%2F%3E%3Ccircle%20cx%3D%2223%22%20cy%3D%2225%22%20r%3D%224%22%20fill%3D%22%23e3f2fd%22%20stroke%3D%22%232c3e50%22%20stroke-width%3D%221%22%20opacity%3D%220.95%22%2F%3E%3C!--%20Flange%20Boxes%20(Top%20Layer)%20--%3E%3Crect%20x%3D%2248%22%20y%3D%227%22%20width%3D%223%22%20height%3D%226%22%20fill%3D%22%23d9e2ec%22%20stroke%3D%22%232c3e50%22%20stroke-width%3D%221%22%2F%3E%3Crect%20x%3D%2248%22%20y%3D%2217%22%20width%3D%223%22%20height%3D%226%22%20fill%3D%22%23d9e2ec%22%20stroke%3D%22%232c3e50%22%20stroke-width%3D%221%22%2F%3E%3Crect%20x%3D%2248%22%20y%3D%2227%22%20width%3D%223%22%20height%3D%226%22%20fill%3D%22%23d9e2ec%22%20stroke%3D%22%232c3e50%22%20stroke-width%3D%221%22%2F%3E%3Crect%20x%3D%2248%22%20y%3D%2237%22%20width%3D%223%22%20height%3D%226%22%20fill%3D%22%23d9e2ec%22%20stroke%3D%22%232c3e50%22%20stroke-width%3D%221%22%2F%3E%3C%2Fsvg%3E';
+// Define the Outlet SVG with Gradient Fill (NOW RED)
+// const outletSvgDataUri = 'data:image/svg+xml;charset=utf-8,%3Csvg%20width%3D%2235%22%20height%3D%2250%22%20viewBox%3D%220%200%2035%2050%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20x%3D%222.5%22%20y%3D%220%22%20width%3D%2230%22%20height%3D%225%22%20fill%3D%22%23c8a97e%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20vector-effect%3D%22non-scaling-stroke%22%20%2F%3E%3Cpath%20d%3D%22M6%205%20L6%2031%20Q6%2045%2017.5%2050%20Q29%2045%2029%2031%20L29%205%22%20fill%3D%22%23c8a97e%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20vector-effect%3D%22non-scaling-stroke%22%2F%3E%3C%2Fsvg%3E'; // Solid Light Brown
+const outletSvgDataUri = 'data:image/svg+xml;charset=utf-8,%3Csvg%20width%3D%2235%22%20height%3D%2252%22%20viewBox%3D%220%200%2035%2052%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20x%3D%222.5%22%20y%3D%220%22%20width%3D%2230%22%20height%3D%225%22%20fill%3D%22%23CD853F%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20vector-effect%3D%22non-scaling-stroke%22%20opacity%3D%220.85%22%20%2F%3E%3Cpath%20d%3D%22M6%205%20L6%2031%20Q6%2045%2017.5%2050%20Q29%2045%2029%2031%20L29%205%22%20fill%3D%22%23CD853F%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20vector-effect%3D%22non-scaling-stroke%22%20opacity%3D%220.85%22%2F%3E%3C%2Fsvg%3E'; // Orangey Brown + Opacity + Height 52
 const portRadius = 3;
-// const portColor = 'red'; // Old color
-const portColor = '#888888'; // New default: Medium Grey
+// const portColor = '#888888'; // Old color: Medium Grey
+const portColor = '#007bff'; // New color: Flow highlight blue
 const portSelectedColor = '#33CC33'; // Bright Green for selection
 const chipColor = 'lightgrey';
 const chipStroke = 'black';
 const connectionStubLength = 10; // How far the line goes straight from the port
 
 // Updated Channel Style Constants for consistency with tubing
-const channelFillColor = 'lightgrey';    // Match tubing fill
+// const channelFillColor = 'lightgrey';    // Match tubing fill
+const channelFillColor = '#e3f2fd';    // Light blue fill
 const channelOutlineColor = '#555555';   // Match tubing outline
 const channelFillWidth = 3; // Increased to match meander channel
 const channelOutlineWidth = 5; // Increased to match meander channel
-const channelCap = 'round';
-const channelJoin = 'round';
+const channelCap = 'butt';  // Changed from 'round' to 'butt' for straight edges
+const channelJoin = 'miter';  // Changed from 'round' to 'miter' for sharp corners
 const flowHighlightColor = '#007bff'; // Brighter/Stronger Blue
 
 // --- Physical/Simulation Constants ---
@@ -159,7 +161,6 @@ function calculatePathData(port1, port2) {
 // --- Channel Drawing Helper Functions ---
 
 // Updated to use a single Path with fill and stroke
-// NEW: Updated to draw lines for consistency with other channels
 function addStraightChannel(group) {
     const startX = 0;
     const endX = chipWidth;
@@ -243,7 +244,7 @@ function addXChannel(group, chipId) { // <<< Added chipId parameter
         }
 
         const points = [port.x, port.y, endX, endY]; // Use extended endpoint
-        const segmentId = getSegmentId(port.id, internalNodeId);
+        const segmentId = chipId ? getSegmentId(port.id, internalNodeId) : `preview_segment_${Konva.Util.getRandomColor()}`;
 
         group.add(new Konva.Line({
             points: points,
@@ -255,18 +256,6 @@ function addXChannel(group, chipId) { // <<< Added chipId parameter
             name: 'internalSegmentFill'
         }));
     });
-
-    // --- Draw fill circle LAST at the center junction ---
-    // REMOVED - Fill lines now overlap slightly due to extension
-    /*
-    group.add(new Konva.Circle({
-         x: cx,
-         y: cy,
-         radius: channelFillWidth / 2,
-         fill: channelFillColor,
-         listening: false
-     }));
-     */
 }
 
 // Updated to draw individual segments with IDs
@@ -276,15 +265,7 @@ function addTChannel(group, chipId) { // <<< Added chipId parameter
     const internalNodeId = getInternalNodeId(chipId); // Get the internal node ID
     const fillExtension = 1; // <<< Extend fill lines by 1 pixel past center
 
-    // Remove old Path
-    /*
-    const halfOutline = channelOutlineWidth / 2;
-    const pathData = [ ... ];
-    group.add(new Konva.Path({ ... name: 'internalChannelFill', ... }));
-    */
-
     // --- Define Port Coordinates and IDs ---
-    // IMPORTANT: Ensure these IDs match those created in createTChip
     const ports = [
         { x: cx, y: 0, id: chipId + '_port_top' },          // Top
         { x: cx, y: chipHeight, id: chipId + '_port_bottom' }, // Bottom
@@ -303,7 +284,7 @@ function addTChannel(group, chipId) { // <<< Added chipId parameter
         }));
     });
 
-     // --- Draw outline circle at the center junction ---
+    // --- Draw outline circle at the center junction ---
     group.add(new Konva.Circle({
         x: cx,
         y: cy,
@@ -357,40 +338,71 @@ function addTChannel(group, chipId) { // <<< Added chipId parameter
 
 function createStraightChipPreview(x, y) {
     const group = new Konva.Group({ x: x, y: y, draggable: false, chipType: 'straight' });
-    group.add(new Konva.Rect({ width: chipWidth, height: chipHeight, fill: chipColor, stroke: chipStroke, strokeWidth: 1 }));
+    // Apply the same glass style + shadow to the preview rectangle
+    group.add(new Konva.Rect({
+        width: chipWidth,
+        height: chipHeight,
+        fill: '#d9e2ec',    // Darker blue-grey for better contrast
+        opacity: 0.85,      // Semi-transparent
+        stroke: chipStroke,
+        strokeWidth: 1,
+        // NEW: Add subtle drop shadow to preview
+        shadowColor: 'black',
+        shadowBlur: 5,
+        shadowOffsetX: 1,
+        shadowOffsetY: 1,
+        shadowOpacity: 0.15,
+        shadowEnabled: true
+    }));
     addStraightChannel(group); // Use helper
-    // Ports (keep simple circles for preview)
-    group.add(new Konva.Circle({ x: 0, y: chipHeight / 2, radius: portRadius, fill: portColor }));
-    group.add(new Konva.Circle({ x: chipWidth, y: chipHeight / 2, radius: portRadius, fill: portColor }));
     return group;
 }
 
 function createXChipPreview(x, y) {
     const group = new Konva.Group({ x: x, y: y, draggable: false, chipType: 'x-type' });
-    group.add(new Konva.Rect({ width: chipWidth, height: chipHeight, fill: chipColor, stroke: chipStroke, strokeWidth: 1 }));
+    // Apply glass style + shadow
+    group.add(new Konva.Rect({
+        width: chipWidth,
+        height: chipHeight,
+        fill: '#d9e2ec',    // Darker blue-grey for better contrast
+        opacity: 0.85,      // Semi-transparent
+        stroke: chipStroke,
+        strokeWidth: 1,
+        // NEW: Add subtle drop shadow to preview
+        shadowColor: 'black',
+        shadowBlur: 5,
+        shadowOffsetX: 1,
+        shadowOffsetY: 1,
+        shadowOpacity: 0.15,
+        shadowEnabled: true
+    }));
     addXChannel(group); // Use helper
-    // Ports
-    const cx = chipWidth / 2, cy = chipHeight / 2;
-    group.add(new Konva.Circle({ x: cx, y: 0, radius: portRadius, fill: portColor }));
-    group.add(new Konva.Circle({ x: cx, y: chipHeight, radius: portRadius, fill: portColor }));
-    group.add(new Konva.Circle({ x: 0, y: cy, radius: portRadius, fill: portColor }));
-    group.add(new Konva.Circle({ x: chipWidth, y: cy, radius: portRadius, fill: portColor }));
     return group;
 }
 
 function createTChipPreview(x, y) {
     const group = new Konva.Group({ x: x, y: y, draggable: false, chipType: 't-type' });
-    group.add(new Konva.Rect({ width: chipWidth, height: chipHeight, fill: chipColor, stroke: chipStroke, strokeWidth: 1 }));
+    // Apply glass style + shadow
+    group.add(new Konva.Rect({
+        width: chipWidth,
+        height: chipHeight,
+        fill: '#d9e2ec',    // Darker blue-grey for better contrast
+        opacity: 0.85,      // Semi-transparent
+        stroke: chipStroke,
+        strokeWidth: 1,
+        // NEW: Add subtle drop shadow to preview
+        shadowColor: 'black',
+        shadowBlur: 5,
+        shadowOffsetX: 1,
+        shadowOffsetY: 1,
+        shadowOpacity: 0.15,
+        shadowEnabled: true
+    }));
     addTChannel(group); // Use helper
-    // Ports
-    const cx = chipWidth / 2, cy = chipHeight / 2;
-    group.add(new Konva.Circle({ x: cx, y: 0, radius: portRadius, fill: portColor }));
-    group.add(new Konva.Circle({ x: cx, y: chipHeight, radius: portRadius, fill: portColor }));
-    group.add(new Konva.Circle({ x: chipWidth, y: cy, radius: portRadius, fill: portColor }));
     return group;
 }
 
-// Updated to show a simple rectangle with a 'P'
+// Updated to use SVG image
 function createPumpPreview(x, y, width, height) {
     const group = new Konva.Group({
         x: x,
@@ -398,34 +410,24 @@ function createPumpPreview(x, y, width, height) {
         draggable: false,
         chipType: 'pump'
     });
-    // Draw a simple rectangle as preview
-    group.add(new Konva.Rect({
-        width: width,
-        height: height,
-        fill: chipColor,
-        stroke: chipStroke,
-        strokeWidth: 1
-    }));
 
-    // Add a 'P' text in the center
-    group.add(new Konva.Text({
-        text: 'P',
-        fontSize: height * 0.6, // Adjust size relative to height
-        fontFamily: 'Arial',
-        fontStyle: 'bold',
-        fill: 'black',
-        width: width,
-        height: height,
-        align: 'center',
-        verticalAlign: 'middle'
-    }));
-
-    // Optionally add simplified port indicators (e.g., small circles on the right)
-    const previewPortRadius = portRadius * 0.8;
-    group.add(new Konva.Circle({ x: width, y: height * 1 / 5, radius: previewPortRadius, fill: portColor }));
-    group.add(new Konva.Circle({ x: width, y: height * 2 / 5, radius: previewPortRadius, fill: portColor }));
-    group.add(new Konva.Circle({ x: width, y: height * 3 / 5, radius: previewPortRadius, fill: portColor }));
-    group.add(new Konva.Circle({ x: width, y: height * 4 / 5, radius: previewPortRadius, fill: portColor }));
+    // Load the SVG image
+    Konva.Image.fromURL(pumpSvgDataUri, (imageNode) => {
+        imageNode.setAttrs({
+            width: width,
+            height: height,
+            name: 'pumpImage component-border',
+            // NEW: Add shadow properties like the chips
+            shadowColor: 'black',
+            shadowBlur: 5,
+            shadowOffsetX: 1,
+            shadowOffsetY: 1,
+            shadowOpacity: 0.15,
+            shadowEnabled: true
+        });
+        group.add(imageNode);
+        group.getLayer()?.batchDraw();
+    });
 
     return group;
 }
@@ -442,18 +444,21 @@ function createOutletPreview(x, y, width, height, svgDataUri) {
         imageNode.setAttrs({
             width: width,
             height: height,
+            // NEW: Add shadow properties consistent with createOutlet
+            shadowColor: 'black',
+            shadowBlur: 5,
+            shadowOffsetX: 1,
+            shadowOffsetY: 1,
+            shadowOpacity: 0.15,
+            shadowEnabled: true
         });
         group.add(imageNode);
         group.getLayer()?.batchDraw();
     });
-    // Optionally add simplified port indicator at the top center
-    const previewPortRadius = portRadius * 0.8;
-    group.add(new Konva.Circle({ x: width / 2, y: 0, radius: previewPortRadius, fill: portColor }));
     return group;
 }
 
 // NEW: Helper to draw the meander path
-// Updated to have more turns and rounded corners
 function addMeanderChannel(group) {
     const w = chipWidth;
     const h = chipHeight;
@@ -554,22 +559,24 @@ function addMeanderChannel(group) {
     const outline = new Konva.Line({
         points: points,
         stroke: channelOutlineColor,
-        strokeWidth: 5,  // meanderOutlineWidth
-        lineCap: 'butt',
-        lineJoin: 'round',
+        strokeWidth: channelOutlineWidth,
+        lineCap: channelCap,  // Changed from 'butt' to channelCap (which is 'round')
+        lineJoin: channelJoin,  // Using channelJoin constant for consistency
         name: 'channelOutline',
         listening: false
     });
     group.add(outline);
 
     // Draw the fill line ON TOP
+    const chipId = group.id(); // Get the chip ID if it exists
     const fill = new Konva.Line({
         points: points,
         stroke: channelFillColor,
-        strokeWidth: 3,  // meanderFillWidth
-        lineCap: channelCap,
-        lineJoin: 'bevel',
+        strokeWidth: channelFillWidth,
+        lineCap: channelCap,  // Already using channelCap
+        lineJoin: channelJoin,  // Using channelJoin constant for consistency
         name: 'internalChannelFill',
+        id: chipId ? `${chipId}_internalChannelFill` : `preview_${Konva.Util.getRandomColor()}_internalFill`,
         listening: false
     });
     group.add(fill);
@@ -578,15 +585,25 @@ function addMeanderChannel(group) {
 // NEW: Meander Chip Preview Function
 function createMeanderChipPreview(x, y) {
     const group = new Konva.Group({ x: x, y: y, draggable: false, chipType: 'meander' });
-    group.add(new Konva.Rect({ width: chipWidth, height: chipHeight, fill: chipColor, stroke: chipStroke, strokeWidth: 1 }));
+    // Apply glass style + shadow
+    group.add(new Konva.Rect({
+        width: chipWidth,
+        height: chipHeight,
+        fill: '#d9e2ec',    // Darker blue-grey for better contrast
+        opacity: 0.85,      // Semi-transparent
+        stroke: chipStroke,
+        strokeWidth: 1,
+        // NEW: Add subtle drop shadow to preview
+        shadowColor: 'black',
+        shadowBlur: 5,
+        shadowOffsetX: 1,
+        shadowOffsetY: 1,
+        shadowOpacity: 0.15,
+        shadowEnabled: true
+    }));
 
     // Draw meander channel FIRST
     addMeanderChannel(group);
-
-    // Add port indicators LAST so they appear on top
-    group.add(new Konva.Circle({ x: 0, y: chipHeight / 2, radius: portRadius, fill: portColor }));
-    group.add(new Konva.Circle({ x: chipWidth, y: chipHeight / 2, radius: portRadius, fill: portColor }));
-
     return group;
 }
 
@@ -594,7 +611,23 @@ function createMeanderChipPreview(x, y) {
 function createMeanderChip(x, y) {
     const chipId = 'chip_' + Konva.Util.getRandomColor().replace('#','');
     const group = new Konva.Group({ x: x, y: y, draggable: true, chipType: 'meander', id: chipId });
-    group.add(new Konva.Rect({ width: chipWidth, height: chipHeight, fill: chipColor, stroke: chipStroke, strokeWidth: 1, name: 'component-border' })); // <<< Added name
+    // Apply glass style + shadow
+    group.add(new Konva.Rect({
+        width: chipWidth,
+        height: chipHeight,
+        fill: '#d9e2ec',    // Darker blue-grey for better contrast
+        opacity: 0.85,      // Semi-transparent
+        stroke: chipStroke,
+        strokeWidth: 1,
+        name: 'component-border',
+        // NEW: Add subtle drop shadow
+        shadowColor: 'black',
+        shadowBlur: 5,
+        shadowOffsetX: 1,
+        shadowOffsetY: 1,
+        shadowOpacity: 0.15,
+        shadowEnabled: true
+    }));
 
     // Set resistance attribute
     group.setAttr('resistance', RESISTANCE_MEANDER); // <<< ADDED
@@ -644,29 +677,23 @@ function deleteConnection(clickedTubePath) {
         // Remove data from array
         connections.splice(indexToRemove, 1);
 
-        // --- Make boundary circles visible again (if not outlet) ---
+        // --- Make ports visible again (if not outlet) ---
         const port1 = stage.findOne('#' + connData.fromPort);
         const port2 = stage.findOne('#' + connData.toPort);
 
         if (port1) {
-            const boundary1 = port1.getParent()?.findOne('.portBoundary');
-            // Make boundary visible
-            if (boundary1) boundary1.visible(true);
             // Make connection port visible ONLY if no other connections exist for it
             if (!isPortConnected(connData.fromPort)) {
                 port1.visible(true);
             }
         }
         if (port2) {
-            const boundary2 = port2.getParent()?.findOne('.portBoundary');
-            // Make boundary visible
-            if (boundary2) boundary2.visible(true);
             // Make connection port visible ONLY if no other connections exist for it
             if (!isPortConnected(connData.toPort)) {
                 port2.visible(true);
             }
         }
-        // --- End boundary/port visibility update ---
+        // --- End port visibility update ---
 
         // Remove shapes from layer
         clickedTubePath.destroy();
@@ -674,10 +701,10 @@ function deleteConnection(clickedTubePath) {
             outlinePath.destroy();
         }
 
-        // Trigger flow update AFTER removing connection and showing boundaries
+        // Trigger flow update AFTER removing connection and showing ports
         findFlowPathAndHighlight();
 
-        layer.draw(); // Redraw needed to show/hide boundaries & update flow
+        layer.draw(); // Redraw needed to show/hide ports & update flow
         console.log("Connection deleted successfully:", baseConnectionId);
     } else {
         console.warn("Could not find connection data for path:", baseConnectionId);
@@ -694,28 +721,34 @@ function setupPortVisualsAndLogic(config) {
     // config: { x, y, portId, uniqueId, mainDraggableGroup }
     const portVisualGroup = new Konva.Group({ x: config.x, y: config.y });
 
-    const boundaryCircleRadius = portRadius * 2.5;
-    const boundaryCircleStroke = 'darkgrey';
-
-    // Add the boundary circle (non-interactive)
-    portVisualGroup.add(new Konva.Circle({
-        radius: boundaryCircleRadius,
-        stroke: boundaryCircleStroke,
-        strokeWidth: 1,
-        listening: false,
-        name: 'portBoundary'
-    }));
+    // Determine the visual offset direction for the blue dot based on the port ID
+    let visualOffsetX = 0, visualOffsetY = 0;
+    const portId = config.portId;
+    if (portId.includes('left')) {
+        visualOffsetX = -6;  // Move left
+    } else if (portId.includes('right')) {
+        visualOffsetX = 6;   // Move right
+    } else if (portId.includes('top')) {
+        visualOffsetY = -6;  // Move up
+    } else if (portId.includes('bottom')) {
+        visualOffsetY = 6;   // Move down
+    }
 
     // Add the center connection point (the actual interactive port)
+    // Keep the hit detection and connection point at (0,0)
     const connectionPort = new Konva.Circle({
-        x: 0, y: 0,
+        x: 0, y: 0,  // Keep the actual port at center for connections
         radius: portRadius,
         fill: portColor,
+        stroke: '#2c3e50', // Dark blue-grey outline
+        strokeWidth: 1,
         portId: config.portId,
         id: config.uniqueId,
         hitRadius: 15,
         mainGroupId: config.mainDraggableGroup.id(),
-        name: 'connectionPort' // <<< Add name for reliable finding
+        name: 'connectionPort', // <<< Add name for reliable finding
+        offsetX: -visualOffsetX,  // Offset the visual appearance only
+        offsetY: -visualOffsetY   // Offset the visual appearance only
     });
     portVisualGroup.add(connectionPort);
 
@@ -807,8 +840,19 @@ function setupPortVisualsAndLogic(config) {
 
                 if (pathData) {
                     const baseConnectionId = 'conn_' + startPort.id() + '_' + endPort.id();
-                    const outlinePath = new Konva.Path({ data: pathData, stroke: '#555555', strokeWidth: 5, id: baseConnectionId + '_outline', listening: false });
-                    const tubePath = new Konva.Path({ data: pathData, stroke: 'lightgrey', strokeWidth: 3, id: baseConnectionId + '_tube' });
+                    const outlinePath = new Konva.Path({ 
+                        data: pathData, 
+                        stroke: channelOutlineColor, 
+                        strokeWidth: channelOutlineWidth, 
+                        id: baseConnectionId + '_outline', 
+                        listening: false 
+                    });
+                    const tubePath = new Konva.Path({ 
+                        data: pathData, 
+                        stroke: channelFillColor, // Use the same light blue as channels
+                        strokeWidth: channelFillWidth, 
+                        id: baseConnectionId + '_tube' 
+                    });
                     tubePath.on('contextmenu', (evt) => { evt.evt.preventDefault(); deleteConnection(evt.target); });
                     layer.add(outlinePath);
                     layer.add(tubePath);
@@ -822,27 +866,19 @@ function setupPortVisualsAndLogic(config) {
                     });
                     console.log(`Connection successful: ${startPort.id()} -> ${endPort.id()} (Resistance: ${calculateTubingResistance(tubePath.getLength()).toExponential(2)})`);
 
-                    // --- Hide boundary circles on successful connection (unless outlet) ---
-                    const startBoundary = startPort.getParent().findOne('.portBoundary');
-                    const endBoundary = endPort.getParent().findOne('.portBoundary');
-
-                    if (startType !== 'outlet' && startBoundary) {
-                        startBoundary.visible(false);
+                    // --- Hide port visuals on successful connection ---
+                    // Hide inner port circles
+                    if (startType !== 'outlet') {
+                        startPort.visible(false);
                     }
-                    if (endType !== 'outlet' && endBoundary) {
-                        endBoundary.visible(false);
-                    }
-                    // --- End boundary hiding ---
+                    endPort.visible(false);
+                    // --- End port hiding ---
 
-                    // --- Trigger flow update AFTER connection registered & boundaries hidden ---
+                    // --- Trigger flow update AFTER connection registered & ports hidden ---
                     findFlowPathAndHighlight(); // <<< Call it here
 
                     // <<< UPDATE TUBING LENGTH ON SUCCESSFUL CONNECTION >>>
                     calculateAndDisplayTubing();
-
-                    // --- Hide the connection port circles themselves ---
-                    startPort.visible(false);
-                    endPort.visible(false);
 
                 } else {
                     console.error("Could not calculate path data for connection.");
@@ -859,7 +895,7 @@ function setupPortVisualsAndLogic(config) {
                 }
                 // <<< END NEW >>>
 
-                // Final draw renders boundary changes AND flow highlights
+                // Final draw renders port changes AND flow highlights
                 layer.draw();
             } else {
                 console.log("Connection cancelled (clicked same port or invalid target).");
@@ -893,7 +929,7 @@ function setupPortVisualsAndLogic(config) {
     });
     // --- END MODIFICATION ---
 
-    return portVisualGroup; // Return the group containing boundary + inner circle
+    return portVisualGroup; // Return the group containing the inner circle
 }
 
 // --- Main Component Creation Functions --- Use Channel Helpers ---
@@ -901,10 +937,25 @@ function setupPortVisualsAndLogic(config) {
 function createStraightChip(x, y) {
     const chipId = 'chip_' + Konva.Util.getRandomColor().replace('#','');
     const group = new Konva.Group({ x: x, y: y, draggable: true, chipType: 'straight', id: chipId });
-    group.add(new Konva.Rect({ width: chipWidth, height: chipHeight, fill: chipColor, stroke: chipStroke, strokeWidth: 1, name: 'component-border' })); // <<< Added name
+    group.add(new Konva.Rect({
+        width: chipWidth,
+        height: chipHeight,
+        fill: '#d9e2ec',    // Darker blue-grey for better contrast
+        opacity: 0.85,      // Semi-transparent
+        stroke: chipStroke,
+        strokeWidth: 1,
+        name: 'component-border',
+        shadowColor: 'black',
+        shadowBlur: 5,
+        shadowOffsetX: 1,
+        shadowOffsetY: 1,
+        shadowOpacity: 0.15,
+        shadowEnabled: true
+    }));
+    // ... rest of the function remains the same ...
 
     // Set resistance attribute
-    group.setAttr('resistance', RESISTANCE_STRAIGHT); // <<< ADDED
+    group.setAttr('resistance', RESISTANCE_STRAIGHT);
 
     addStraightChannel(group); // Use helper
 
@@ -928,7 +979,22 @@ function createStraightChip(x, y) {
 function createXChip(x, y) {
     const chipId = 'chip_' + Konva.Util.getRandomColor().replace('#','');
     const group = new Konva.Group({ x: x, y: y, draggable: true, chipType: 'x-type', id: chipId });
-    group.add(new Konva.Rect({ width: chipWidth, height: chipHeight, fill: chipColor, stroke: chipStroke, strokeWidth: 1, name: 'component-border' })); // <<< Added name
+    // Apply glass style + shadow
+    group.add(new Konva.Rect({
+        width: chipWidth,
+        height: chipHeight,
+        fill: '#d9e2ec',    // Darker blue-grey for better contrast
+        opacity: 0.85,      // Semi-transparent
+        stroke: chipStroke,
+        strokeWidth: 1,
+        name: 'component-border',
+        shadowColor: 'black',
+        shadowBlur: 5,
+        shadowOffsetX: 1,
+        shadowOffsetY: 1,
+        shadowOpacity: 0.15,
+        shadowEnabled: true
+    }));
 
     // Set resistance attribute
     group.setAttr('resistance', RESISTANCE_X_TYPE); // <<< ADDED
@@ -966,14 +1032,29 @@ function createXChip(x, y) {
 function createTChip(x, y) {
     const chipId = 'chip_' + Konva.Util.getRandomColor().replace('#','');
     const group = new Konva.Group({ x: x, y: y, draggable: true, chipType: 't-type', id: chipId });
-    group.add(new Konva.Rect({ width: chipWidth, height: chipHeight, fill: chipColor, stroke: chipStroke, strokeWidth: 1, name: 'component-border' })); // <<< Added name
+    // Apply glass style + shadow
+    group.add(new Konva.Rect({
+        width: chipWidth,
+        height: chipHeight,
+        fill: '#d9e2ec',    // Darker blue-grey for better contrast
+        opacity: 0.85,      // Semi-transparent
+        stroke: chipStroke,
+        strokeWidth: 1,
+        name: 'component-border',
+        shadowColor: 'black',
+        shadowBlur: 5,
+        shadowOffsetX: 1,
+        shadowOffsetY: 1,
+        shadowOpacity: 0.15,
+        shadowEnabled: true
+    }));
 
     // Set resistance attribute
-    group.setAttr('resistance', RESISTANCE_T_TYPE); // <<< ADDED
+    group.setAttr('resistance', RESISTANCE_T_TYPE);
 
     addTChannel(group, chipId); // Use helper
 
-    // <<< Add internal connection data using UNIQUE IDs >>>
+    // Define internal connections for the T-chip
     const topPortUniqueId = chipId + '_port_top';
     const bottomPortUniqueId = chipId + '_port_bottom';
     const rightPortUniqueId = chipId + '_port_right';
@@ -996,32 +1077,57 @@ function createTChip(x, y) {
     return group;
 }
 
-// Updated to use setupPortVisualsAndLogic
+// Updated to use SVG image
 function createPump(x, y) {
     const itemId = 'pump_' + Konva.Util.getRandomColor().replace('#','');
-    const group = new Konva.Group({ x: x, y: y, draggable: true, chipType: 'pump', id: itemId, width: itemWidth, height: itemHeight });
+    const group = new Konva.Group({ 
+        x: x, 
+        y: y, 
+        draggable: true, 
+        chipType: 'pump', 
+        id: itemId, 
+        width: itemWidth, 
+        height: itemHeight 
+    });
 
     // Initialize port pressures attribute
-    group.setAttr('portPressures', {}); // <<< ADDED (Empty object for now)
+    group.setAttr('portPressures', {});
 
-    group.add(new Konva.Rect({ width: itemWidth, height: itemHeight, fill: chipColor, stroke: chipStroke, strokeWidth: 1, name: 'pumpBody component-border' })); // <<< Added name (also keep pumpBody)
-    group.add(new Konva.Text({ text: 'P', fontSize: itemHeight * 0.7, fontFamily: 'Arial', fontStyle: 'bold', fill: 'black', width: itemWidth, height: itemHeight, align: 'center', verticalAlign: 'middle', listening: false }));
-
-    const portPositions = [
-        { x: itemWidth, y: itemHeight * 1 / 5, portId: 'pump_right1', id: itemId + '_port_right1' },
-        { x: itemWidth, y: itemHeight * 2 / 5, portId: 'pump_right2', id: itemId + '_port_right2' },
-        { x: itemWidth, y: itemHeight * 3 / 5, portId: 'pump_right3', id: itemId + '_port_right3' },
-        { x: itemWidth, y: itemHeight * 4 / 5, portId: 'pump_right4', id: itemId + '_port_right4' },
-    ];
-
-    // Create and add Ports
-    portPositions.forEach(pos => {
-        const portGroup = setupPortVisualsAndLogic({
-            x: pos.x, y: pos.y,
-            portId: pos.portId, uniqueId: pos.id,
-            mainDraggableGroup: group
+    // Load the SVG image
+    Konva.Image.fromURL(pumpSvgDataUri, (imageNode) => {
+        imageNode.setAttrs({
+            width: itemWidth,
+            height: itemHeight,
+            name: 'pumpImage component-border',
+            // NEW: Add shadow properties like the chips
+            shadowColor: 'black',
+            shadowBlur: 5,
+            shadowOffsetX: 1,
+            shadowOffsetY: 1,
+            shadowOpacity: 0.15,
+            shadowEnabled: true
         });
-        group.add(portGroup);
+        group.add(imageNode);
+
+        // Add ports AFTER the image is loaded
+        const portPositions = [
+            { x: itemWidth, y: itemHeight * 1 / 5, portId: 'pump_right1', id: itemId + '_port_right1' },
+            { x: itemWidth, y: itemHeight * 2 / 5, portId: 'pump_right2', id: itemId + '_port_right2' },
+            { x: itemWidth, y: itemHeight * 3 / 5, portId: 'pump_right3', id: itemId + '_port_right3' },
+            { x: itemWidth, y: itemHeight * 4 / 5, portId: 'pump_right4', id: itemId + '_port_right4' }
+        ];
+
+        // Create and add Ports
+        portPositions.forEach(pos => {
+            const portGroup = setupPortVisualsAndLogic({
+                x: pos.x, y: pos.y,
+                portId: pos.portId, uniqueId: pos.id,
+                mainDraggableGroup: group
+            });
+            group.add(portGroup);
+        });
+
+        group.getLayer()?.batchDraw();
     });
 
     group.on('dragmove', () => { updateConnectionLines(group); });
@@ -1034,7 +1140,18 @@ function createOutlet(x, y) {
     const group = new Konva.Group({ x: x, y: y, draggable: true, chipType: 'outlet', id: itemId, width: outletWidth, height: outletHeight });
 
     Konva.Image.fromURL(outletSvgDataUri, (imageNode) => {
-        imageNode.setAttrs({ width: outletWidth, height: outletHeight, name: 'outletImage component-border' }); // <<< Added name (also keep outletImage)
+        imageNode.setAttrs({
+            width: outletWidth,
+            height: outletHeight,
+            name: 'outletImage component-border',
+            // NEW: Add shadow properties like the chips
+            shadowColor: 'black',
+            shadowBlur: 5,
+            shadowOffsetX: 1,
+            shadowOffsetY: 1,
+            shadowOpacity: 0.15,
+            shadowEnabled: true
+        });
         group.add(imageNode);
 
         // Create and add Port (Top Center)
@@ -1248,14 +1365,20 @@ function setupPalette() {
         // Use chipPreviewSize for calculations now
         const padding = 10; // Padding inside the chip preview area
         const availableWidth = chipPreviewSize - padding;
-        // REMOVED: -15 adjustment, as the <p> is now outside this container
         const availableHeight = chipPreviewSize - padding; // Use full height within padding
-        const previewScale = Math.min(availableWidth / outletWidth, availableHeight / outletHeight);
+
+        // Calculate the initial scale to fit
+        let previewScale = Math.min(availableWidth / outletWidth, availableHeight / outletHeight);
+
+        // Apply an additional reduction factor to make it slightly smaller
+        previewScale *= 0.85;
+
         const previewWidth = outletWidth * previewScale;
         const previewHeight = outletHeight * previewScale;
         // Center the preview within the chipPreviewSize area
         const previewX = (chipPreviewSize - previewWidth) / 2;
-        const previewY = (chipPreviewSize - previewHeight) / 2; // Vertically center
+        // Center vertically and shift up more to prevent bottom cutoff
+        const previewY = (chipPreviewSize - previewHeight) / 2; // <<< NEW: Just center
 
         const outletPreview = createOutletPreview(previewX, previewY, previewWidth, previewHeight, outletSvgDataUri);
         outletPaletteLayer.add(outletPreview);
@@ -1775,7 +1898,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
             } else if (dragChipType === 'outlet') {
                 indicatorWidth = outletWidth;
                 indicatorHeight = outletHeight;
-            } else {
+        } else {
                 indicatorWidth = chipWidth;
                 indicatorHeight = chipHeight;
             }
@@ -1837,7 +1960,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
             } else if (dragChipType === 'outlet') {
                 dropX = pos.x - outletWidth / 2;
                 dropY = pos.y - outletHeight / 2;
-            } else {
+        } else {
                 dropX = pos.x - chipWidth / 2;
                 dropY = pos.y - chipHeight / 2;
             }
@@ -2127,7 +2250,7 @@ function findFlowPathAndHighlight() {
 
     // 1. Reset existing highlights
     layer.find('._tube').forEach(tube => {
-        tube.stroke('lightgrey');
+        tube.stroke(channelFillColor); // Use the same light blue as channels
     });
     layer.find('.internalChannelFill').forEach(channel => {
         const chipGroup = channel.findAncestor('Group');
@@ -2146,20 +2269,17 @@ function findFlowPathAndHighlight() {
     });
 
     // 2. Identify Start (Pump) Ports
-    // ... (rest of pump port identification remains the same) ...
     const pumpPorts = new Set();
     console.log("[Port Check] Starting port identification...");
-    stage.find('.portBoundary').forEach(boundaryCircle => {
-        const portVisualGroup = boundaryCircle.getParent();
-        const connectionPort = portVisualGroup.findOne('.connectionPort');
-        const mainGroupId = connectionPort?.getAttr('mainGroupId');
-        if (!connectionPort || !mainGroupId) { return; }
+    stage.find('.connectionPort').forEach(port => {
+        const mainGroupId = port.getAttr('mainGroupId');
+        if (!mainGroupId) { return; }
         const mainGroup = stage.findOne('#' + mainGroupId);
         if (!mainGroup) { return; }
         const groupType = mainGroup.getAttr('chipType');
         if (groupType === 'pump') {
-            console.log(`[Port Check] -> ADDING Pump Port: ${connectionPort.id()}`);
-            pumpPorts.add(connectionPort.id());
+            console.log(`[Port Check] -> ADDING Pump Port: ${port.id()}`);
+            pumpPorts.add(port.id());
         }
     });
     console.log(`[Port Check] Finished identification. Final pumpPorts size: ${pumpPorts.size}`);
@@ -2229,57 +2349,99 @@ function findFlowPathAndHighlight() {
         }
     });
 
+    // --- REVISED BFS LOGIC ---
     while (queue.length > 0) {
         const currentId = queue.shift();
         const neighbors = adj[currentId] || [];
 
         neighbors.forEach(neighborId => {
-            if (!visitedPorts.has(neighborId)) {
-                visitedPorts.add(neighborId);
-                const conn = connections.find(c => (c.fromPort === currentId && c.toPort === neighborId) || (c.toPort === currentId && c.fromPort === neighborId));
+            // --- Determine the connecting element ID first ---
+            let elementIdToHighlight = null;
+            const conn = connections.find(c => (c.fromPort === currentId && c.toPort === neighborId) || (c.toPort === currentId && c.fromPort === neighborId));
 
-                if (conn) { // External tube
-                    elementsToHighlight.add(conn.lineId + '_tube');
-                } else { // Internal connection
-                    const isCurrentInternal = currentId.includes('_internal');
-                    const isNeighborInternal = neighborId.includes('_internal');
-                    let externalPortId;
-                    let internalNodeId;
-                    if (isCurrentInternal && !isNeighborInternal) {
-                        externalPortId = neighborId;
-                        internalNodeId = currentId;
-                    } else if (!isCurrentInternal && isNeighborInternal) {
-                        externalPortId = currentId;
-                        internalNodeId = neighborId;
-                    } else if (!isCurrentInternal && !isNeighborInternal) {
-                        externalPortId = currentId;
+            if (conn) { // External tube connection
+                elementIdToHighlight = conn.lineId + '_tube';
+            } else { // Internal chip connection
+                // Need to figure out if current or neighbor is the internal node ID
+                const isCurrentInternal = currentId.includes('_internal');
+                const isNeighborInternal = neighborId.includes('_internal');
+                let externalPortId;
+                let internalNodeId;
+
+                if (isCurrentInternal && !isNeighborInternal) {
+                    externalPortId = neighborId;
+                    internalNodeId = currentId;
+                } else if (!isCurrentInternal && isNeighborInternal) {
+                    externalPortId = currentId;
+                    internalNodeId = neighborId;
+                } else if (!isCurrentInternal && !isNeighborInternal) {
+                    // This case handles straight/meander internal connections
+                    externalPortId = currentId; // Or neighborId, doesn't matter for finding the chip
+                    internalNodeId = null; // Signifies not T/X type for segment ID calc below
+                } else {
+                    // This case should ideally not happen if adj list is correct
+                    console.warn(`[FlowViz BFS - Revised] Unexpected internal node pairing: ${currentId} <-> ${neighborId}`);
+                    externalPortId = currentId; // Fallback
+                    internalNodeId = null;
+                }
+
+                // Find the chip group via the external port ID
+                const portShape = stage.findOne('#' + externalPortId);
+                const chipGroupId = portShape?.getAttr('mainGroupId');
+                const chipGroup = chipGroupId ? stage.findOne('#' + chipGroupId) : null;
+                const chipType = chipGroup?.getAttr('chipType');
+
+                if (chipType === 'straight' || chipType === 'meander') {
+                    // Highlight the single internal channel fill line using the chip's ID
+                    if (chipGroupId) {
+                        elementIdToHighlight = chipGroupId + '_internalChannelFill';
                     } else {
-                        externalPortId = currentId; // Fallback for unexpected case
+                        console.warn(`[FlowViz BFS - Revised] Could not find chip group ID for ${chipType} segment: ${currentId} <-> ${neighborId}`);
                     }
-
-                    const portShape = stage.findOne('#' + externalPortId);
-                    const chipGroupId = portShape?.getAttr('mainGroupId');
-                    const chipGroup = chipGroupId ? stage.findOne('#' + chipGroupId) : null;
-                    const chipType = chipGroup?.getAttr('chipType');
-
-                    if (chipType === 'straight' || chipType === 'meander') {
-                        elementsToHighlight.add(chipGroupId + '_internalChannelFill');
-                    } else if (chipType === 't-type' || chipType === 'x-type') {
-                        if (internalNodeId && externalPortId) {
-                            const segmentId = getSegmentId(externalPortId, internalNodeId);
-                            elementsToHighlight.add(segmentId);
-                            highlightedChipJunctions.add(chipGroupId); // <<< ADD chip ID to set
-                        } else {
-                             console.warn(`[FlowViz BFS] Could not identify parts for T/X segment: ${currentId} <-> ${neighborId}`);
-                        }
+                } else if (chipType === 't-type' || chipType === 'x-type') {
+                    // Must have identified an internal node ID for T/X types
+                    if (internalNodeId && externalPortId && chipGroupId) {
+                        elementIdToHighlight = getSegmentId(externalPortId, internalNodeId);
+                        highlightedChipJunctions.add(chipGroupId); // Keep track of highlighted junctions
                     } else {
-                        console.warn(`[FlowViz BFS] Unknown chip type for internal connection: ${currentId} <-> ${neighborId}`);
+                        console.warn(`[FlowViz BFS - Revised] Could not identify parts for T/X segment: ${currentId} <-> ${neighborId} (Internal: ${internalNodeId}, External: ${externalPortId}, Chip: ${chipGroupId})`);
                     }
                 }
-                queue.push(neighborId);
+                // Ignore other chip types (pump, outlet) as they have no internal segments to highlight here
+            }
+
+            // --- Add the determined element to the highlight set ---
+            if (elementIdToHighlight) {
+                elementsToHighlight.add(elementIdToHighlight);
+            } else {
+                // Only log warning if it wasn't an expected non-highlightable connection (e.g., pump port to nothing external)
+                // Avoid logging for the expected case where an internal node connects back to an already-processed external port, as the segment is handled when traversing *to* the internal node.
+                // Only truly warn if no element could be determined when one was expected.
+                if (!conn && !currentId.includes('_internal') && !neighborId.includes('_internal') && !(chipGroup?.getAttr('chipType') === 'pump' || chipGroup?.getAttr('chipType') === 'outlet')) {
+                    // This condition is complex, might need refinement. Aims to catch unexpected misses.
+                    console.warn(`[FlowViz BFS - Revised] Could not determine element ID between ${currentId} and ${neighborId}`);
+                }
+            }
+
+            // --- Now, handle queueing and visited status ---
+            if (!visitedPorts.has(neighborId)) {
+                // Check if the neighbor is an outlet port - do not add outlets to queue
+                const neighborPortShape = stage.findOne('#' + neighborId);
+                const neighborMainGroupId = neighborPortShape?.getAttr('mainGroupId');
+                const neighborGroup = neighborMainGroupId ? stage.findOne('#' + neighborMainGroupId) : null;
+                const neighborChipType = neighborGroup?.getAttr('chipType');
+
+                if (neighborChipType !== 'outlet') {
+                    visitedPorts.add(neighborId);
+                    queue.push(neighborId);
+                } else {
+                    visitedPorts.add(neighborId); // Mark outlet as visited so we don't try to process it again
+                    console.log(`[FlowViz BFS - Revised] Reached outlet ${neighborId}. Stopping path here.`);
+                }
             }
         });
     }
+    // --- END REVISED BFS LOGIC ---
 
     // 5. Apply Highlights
     if (elementsToHighlight.size > 0) {
@@ -2339,11 +2501,14 @@ stage.on('click tap', function (e) {
         if (selectedComponent && selectedComponent instanceof Konva.Group) {
             const border = selectedComponent.findOne('.component-border');
             if (border) {
-                if (selectedComponent.getAttr('chipType') === 'outlet') {
+                // --- MODIFICATION: Treat pump like outlet on deselection ---
+                const type = selectedComponent.getAttr('chipType');
+                if (type === 'outlet' || type === 'pump') { // Check for pump OR outlet
                     border.stroke(null); border.strokeWidth(0);
                 } else {
                     border.stroke(chipStroke); border.strokeWidth(1);
                 }
+                // --- END MODIFICATION ---
             }
         }
         // Logically deselect (whether it was canvas or palette)
@@ -2373,11 +2538,14 @@ stage.on('click tap', function (e) {
              if (selectedComponent && selectedComponent instanceof Konva.Group) {
                  const oldBorder = selectedComponent.findOne('.component-border');
                  if (oldBorder) {
-                     if (selectedComponent.getAttr('chipType') === 'outlet') {
+                     // --- MODIFICATION: Treat pump like outlet on deselection ---
+                     const oldType = selectedComponent.getAttr('chipType');
+                     if (oldType === 'outlet' || oldType === 'pump') { // Check for pump OR outlet
                          oldBorder.stroke(null); oldBorder.strokeWidth(0);
                      } else {
                          oldBorder.stroke(chipStroke); oldBorder.strokeWidth(1);
                      }
+                     // --- END MODIFICATION ---
                  }
              }
              // No visual deselection needed if previous was a palette item
@@ -2474,13 +2642,13 @@ function buildNetworkGraph() {
             graph.adj[portId] = graph.adj[portId] || []; // Ensure adj entry exists
 
             // Set known pressures for pumps and outlets
-            if (chipType === 'pump') {
+    if (chipType === 'pump') {
                 graph.nodes[portId].type = 'pump';
                 const pressuresPa = group.getAttr('portPressures') || {};
                 // Default 0 Pa if explicitly undefined OR not present
                 graph.nodes[portId].pressure = pressuresPa[portId] === undefined ? 0 : pressuresPa[portId];
                  console.log(`[GraphBuild] Pump Port ${portId} Pressure: ${graph.nodes[portId].pressure} Pa`); // Debug
-            } else if (chipType === 'outlet') {
+    } else if (chipType === 'outlet') {
                 graph.nodes[portId].type = 'outlet';
                 graph.nodes[portId].pressure = 0; // Outlets are at 0 Pa relative pressure
                  console.log(`[GraphBuild] Outlet Port ${portId} Pressure: 0 Pa`); // Debug
@@ -2495,7 +2663,7 @@ function buildNetworkGraph() {
                 if (internalConns.length === 1 && internalConns[0].length === 2 && chipResistance) {
                      console.log(`[GraphBuild] Adding internal segment for ${chipId}: ${internalConns[0][0]} <-> ${internalConns[0][1]} (R=${chipResistance})`);
                     addSegment(internalConns[0][0], internalConns[0][1], chipResistance);
-                } else {
+    } else {
                     console.warn(`Invalid internal connection/resistance for ${chipType} chip ${chipId}`);
                 }
             } else if (chipType === 't-type' || chipType === 'x-type') {
@@ -2594,7 +2762,7 @@ function solvePressures(graph) {
                 // Known pressure neighbor - contributes to B vector
                 const knownPressure = graph.nodes[neighborId].pressure;
                 B.set([i], B.get([i]) + conductance * knownPressure);
-            } else {
+        } else {
                 // Unknown pressure neighbor - contributes to A matrix (off-diagonal)
                 const j = nodeIndexMap.get(neighborId);
                 if (j !== undefined) {
@@ -2776,7 +2944,7 @@ function runFluidSimulation() {
         simButton.textContent = '✓ Complete';
         simButton.style.backgroundColor = '#28a745'; // Success green
 
-        setTimeout(() => {
+             setTimeout(() => {
             simButton.textContent = originalText;
             // Restore original background color more robustly
             simButton.style.backgroundColor = originalBgColor || ''; // Reset inline style or set to original inline
@@ -2796,10 +2964,16 @@ function clearSimulationVisuals() {
         label.destroy();
     });
 
-    // Explicitly find and remove port dots
+    // Explicitly find and remove port dots (orange simulation dots)
     layer.find('.port-dot').forEach(dot => {
         dot.destroy();
     });
+
+    // --- NEW: Hide blue connection dots --- //
+    layer.find('.connectionPort').forEach(port => {
+        port.visible(false);
+    });
+    // --- END NEW --- //
 
     // Reset tube colors
     layer.find('._tube').forEach(tube => {
@@ -2892,6 +3066,11 @@ function interpolateColor(color1, color2, factor) {
 function visualizeSimulationResults() {
     console.log("Visualizing simulation results...");
     // clearSimulationVisuals() is called at the start of runFluidSimulation
+
+    // REMOVED Redundant hiding logic - should happen in clearSimulationVisuals
+    // layer.find('.connectionPort').forEach(port => {
+    //     port.visible(false);  // Hide the blue connection dots
+    // });
 
     const { pressures, flows } = simulationResults;
     const mbarToPascal = 100;
@@ -3155,16 +3334,16 @@ function visualizeSimulationResults() {
         const shouldAddOrangeDot = !isPumpPort || isConnected; // Add dot if it's NOT a pump OR if it IS a pump AND is connected
 
         if (shouldAddOrangeDot) { // Only add orange simulation dot if the condition is met
-            const originalRadius = 3; // <<< Store original radius
-            const hoverRadius = 4.5; // <<< Define hover radius
+            const originalRadius = 4; // <<< Increased base radius
+            const hoverRadius = 6; // <<< Increased hover radius
 
             const dot = new Konva.Circle({
                 x: port.x(),
                 y: port.y(),
                 radius: originalRadius, // <<< Use original radius
                 fill: '#FF5722',
-                stroke: 'white',
-                strokeWidth: 1,
+                stroke: 'black', // <<< Changed stroke to black
+                strokeWidth: 1, // <<< Adjusted stroke width to 1
                 name: 'port-dot simulation-label',
                 listening: true // Only listening for hover if the orange dot is present
             });
@@ -3189,21 +3368,16 @@ function visualizeSimulationResults() {
         }
 
         // --- NEW: Hide port visuals after simulation ---
-        const boundary = portGroup.findOne('.portBoundary');
-
-        // Hide ALL boundary circles unconditionally after simulation
-        if (boundary) {
-            boundary.visible(false);
-        }
-
         // Hide inner grey connection port ONLY for outlets and unconnected pump ports
-        if (isOutletPort || (isPumpPort && !isConnected)) {
-            port.visible(false); // Hide inner connection circle
-        } else {
-            // Ensure inner port is visible if it shouldn't be hidden
-            port.visible(true);
-        }
-        // --- END NEW HIDE LOGIC ---
+        // if (isOutletPort || (isPumpPort && !isConnected)) {
+        //     port.visible(false); // Hide inner connection circle
+        // } else {
+        //     // Ensure inner port is visible if it shouldn't be hidden
+        //     port.visible(true);
+        // } // REMOVED BLOCK END
+        // The blue connectionPort dot should remain hidden after simulation,
+        // as clearSimulationVisuals() already hid it. Only orange port-dots are shown.
+
     });
 
     // 5. Final draw (Konva layer)
@@ -3227,27 +3401,20 @@ function resetSimulationState() {
     // 3. Restore the initial connectivity highlighting (Pump Reachability)
     findFlowPathAndHighlight();
 
-    // 4. Re-enable boundary circles and ports for interaction (partly handled in findFlowPath)
-    // Ensure all connection ports are visible again
+    // 4. Re-enable ports for interaction
     layer.find('.connectionPort').forEach(port => {
-        const group = port.getParent();
         const mainGroup = stage.findOne('#' + port.getAttr('mainGroupId'));
         const chipType = mainGroup?.getAttr('chipType');
-        if (chipType !== 'outlet') { // Don't show outlet connection point
+        
+        // Show blue connection dot only if:
+        // - Not an outlet port
+        // - Not connected to anything
+        if (chipType !== 'outlet' && !isPortConnected(port.id())) {
             port.visible(true);
-        }
-        // Show boundary if port is not connected
-        if (!isPortConnected(port.id())) {
-            const boundary = group?.findOne('.portBoundary');
-            if (boundary) {
-                boundary.visible(true);
-            }
         }
     });
 
     // 5. Clear the properties panel if it's showing simulation data
-    // (Checking if selectedComponent exists and has simulation data might be complex,
-    // simpler to just clear it or re-render it without sim data)
     if (selectedComponent) {
         updatePropertiesPanel(); // Re-render properties without simulation data
     }
@@ -3548,8 +3715,8 @@ document.addEventListener('keydown', (e) => {
             
             // Update the canvas and component list
             layer.draw();
-            updateComponentList();
-            calculateAndDisplayTubing();
+                 updateComponentList();
+                 calculateAndDisplayTubing();
         }
     }
 });
