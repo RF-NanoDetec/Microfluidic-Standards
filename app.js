@@ -3256,11 +3256,11 @@ function visualizeSimulationResults() {
         // Show the summary box
         summaryBox.style.display = 'block';
 
-        // Update numerical summary content (clear existing numerical items first)
-        // Find existing summary items and remove them if they exist
-        summaryContent.querySelectorAll('.summary-item').forEach(item => item.remove());
+        // --- MODIFIED: Update numerical summary content ---
+        // Clear existing summary items first
+        summaryContent.querySelectorAll('.summary-item, .simulation-description').forEach(item => item.remove()); // Also remove old description
 
-        // Prepend the new summary items
+        // Prepend the new summary items with improved structure
         const summaryHtml = `
             <div class="summary-item">
                 <span class="summary-label">Active Segments:</span>
@@ -3277,10 +3277,42 @@ function visualizeSimulationResults() {
         `;
         summaryContent.insertAdjacentHTML('afterbegin', summaryHtml);
 
-        // --- NEW: Update HTML Flow Legend --- //
+        // --- NEW: Add Simulation Description ---
+        const descriptionHtml = `
+            <div class="simulation-description">
+                 <p>Steady-state pressure-driven flow simulation (laminar).</p>
+            </div>
+        `;
+        // Append description after the legend (assuming legend is already in HTML)
+        const legendElement = summaryContent.querySelector('.legend-container'); // Assuming legend has this wrapper class
+        if (legendElement) {
+            legendElement.insertAdjacentHTML('afterend', descriptionHtml);
+        } else {
+            // Fallback: Append to the end of the content if legend container not found
+            summaryContent.insertAdjacentHTML('beforeend', descriptionHtml);
+             console.warn("Could not find '.legend-container' to place description after. Appending to end.");
+        }
+        // --- END NEW ---
+
+
+        // --- Update HTML Flow Legend (Assuming structure from CSS suggestion) --- //
+        // Ensure your HTML for the legend looks something like this:
+        /*
+        <div class="legend-container">
+            <div class="legend-title">Flow Rate (µL/min)</div>
+            <div class="flow-legend">
+                <div class="gradient-bar"></div>
+                <div class="legend-labels">
+                    <span class="max-label"></span> <!- Populated by JS ->
+                    <span class="mid-label"></span> <!- Populated by JS ->
+                    <span class="zero-label">0.00</span>
+                </div>
+            </div>
+        </div>
+        */
         const gradientBar = summaryContent.querySelector('.gradient-bar');
         const maxLabel = summaryContent.querySelector('.max-label');
-        const midLabel = summaryContent.querySelector('.mid-label');
+        const midLabel = summaryContent.querySelector('.mid-label'); // Using mid label again
 
         if (gradientBar && maxLabel && midLabel) {
             // Update Gradient Bar Background
@@ -3291,25 +3323,25 @@ function visualizeSimulationResults() {
             const colorStop7 = getRelativeFlowColor(maxFlowUlMin * 0.3, maxFlowUlMin);
             const colorStop9 = getRelativeFlowColor(maxFlowUlMin * 0.1, maxFlowUlMin);
             const colorStop10 = getRelativeFlowColor(0, maxFlowUlMin);
-            gradientBar.style.background = `linear-gradient(to bottom, 
-                ${colorStop0} 0%, 
-                ${colorStop1} 10%, 
-                ${colorStop3} 30%, 
-                ${colorStop5} 50%, 
-                ${colorStop7} 70%, 
-                ${colorStop9} 90%, 
+            gradientBar.style.background = `linear-gradient(to bottom,
+                ${colorStop0} 0%,
+                ${colorStop1} 10%,
+                ${colorStop3} 30%,
+                ${colorStop5} 50%,
+                ${colorStop7} 70%,
+                ${colorStop9} 90%,
                 ${colorStop10} 100%)`;
 
             // Update Labels
             const maxFlowText = maxFlowUlMin.toFixed(maxFlowUlMin >= 1 ? 1 : 2);
             const midFlowText = (maxFlowUlMin / 2).toFixed(maxFlowUlMin >= 2 ? 1 : 2);
             maxLabel.textContent = maxFlowText;
-            midLabel.textContent = midFlowText;
-            // Zero label is already set in HTML
+            midLabel.textContent = midFlowText; // Update mid label
+            // Zero label is static HTML
         } else {
-            console.error("Could not find all HTML legend elements to update.");
+            console.error("Could not find all required HTML legend elements (.gradient-bar, .max-label, .mid-label) to update.");
         }
-        // --- END NEW: Update HTML Flow Legend --- //
+        // --- END Update HTML Flow Legend --- //
 
     } else {
         console.error("Simulation summary box or content container not found!");
