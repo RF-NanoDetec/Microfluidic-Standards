@@ -766,7 +766,8 @@ function setupPortVisualsAndLogic(config) {
             // --- Select first port ---
             if (clickedPortType !== 'outlet' && isPortConnected(clickedPortId)) {
                 console.log("Port", clickedPortId, "is already connected (and not an outlet).");
-                alert("This port is already connected.");
+                // alert("This port is already connected."); // OLD
+                showNotification("This port is already connected and cannot be selected.", 'warning'); // NEW
                 return;
             }
             startPort = clickedPort;
@@ -793,7 +794,8 @@ function setupPortVisualsAndLogic(config) {
             if (clickedPort !== startPort && clickedPort.attrs.portId) {
                 if (clickedPortType !== 'outlet' && isPortConnected(clickedPortId)) {
                     console.log("Target port", clickedPortId, "is already connected (and not an outlet). Cancelling selection.");
-                    alert("The target port is already connected.");
+                    // alert("The target port is already connected."); // OLD
+                    showNotification("The target port is already connected. Connection cancelled.", 'warning'); // NEW
                     startPort.fill(startPort.getAttr('originalFill')); // Reset to original grey
                     startPort = null;
 
@@ -2149,31 +2151,70 @@ window.addEventListener('DOMContentLoaded', (event) => {
     const componentList = document.getElementById('component-list');
     const togglePaletteBtn = document.getElementById('toggle-palette-btn');
     const toggleComponentListBtn = document.getElementById('toggle-component-list-btn');
+    // --- NEW: Get icon elements by their new IDs ---
+    const paletteIcon = document.getElementById('palette-toggle-icon');
+    const detailsIcon = document.getElementById('details-toggle-icon');
 
-    if (palette && togglePaletteBtn) {
+    if (palette && togglePaletteBtn && paletteIcon) { // Added paletteIcon check
         togglePaletteBtn.addEventListener('click', () => {
+            const willBeVisible = !palette.classList.contains('sidebar-visible');
             palette.classList.toggle('sidebar-visible');
             // Optional: Hide component list if palette is shown
             if (componentList && palette.classList.contains('sidebar-visible')) {
                 componentList.classList.remove('sidebar-visible');
+                // --- NEW: Reset details icon to open state ---
+                if (detailsIcon) {
+                    detailsIcon.src = 'icons/right_panel_open_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24.svg';
+                }
             }
+
+            // --- NEW: Update palette icon based on new visibility state ---
+            if (willBeVisible) {
+                paletteIcon.src = 'icons/left_panel_close_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24.svg';
+            } else {
+                paletteIcon.src = 'icons/left_panel_open_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24.svg';
+            }
+        });
+    } else { // --- NEW: Added more specific error logging ---
+        console.error("Missing elements for Palette toggle:", {
+            palette: !!palette,
+            togglePaletteBtn: !!togglePaletteBtn,
+            paletteIcon: !!paletteIcon
         });
     }
 
-    if (componentList && toggleComponentListBtn) {
+    if (componentList && toggleComponentListBtn && detailsIcon) { // Added detailsIcon check
         toggleComponentListBtn.addEventListener('click', () => {
+            const willBeVisible = !componentList.classList.contains('sidebar-visible');
             componentList.classList.toggle('sidebar-visible');
             // Optional: Hide palette if component list is shown
             if (palette && componentList.classList.contains('sidebar-visible')) {
                 palette.classList.remove('sidebar-visible');
+                // --- NEW: Reset palette icon to open state ---
+                if (paletteIcon) {
+                    paletteIcon.src = 'icons/left_panel_open_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24.svg';
+                }
             }
+
+            // --- NEW: Update details icon based on new visibility state ---
+            if (willBeVisible) {
+                detailsIcon.src = 'icons/right_panel_close_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24.svg';
+            } else {
+                detailsIcon.src = 'icons/right_panel_open_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24.svg';
+            }
+        });
+    } else { // --- NEW: Added more specific error logging ---
+        console.error("Missing elements for Details/Component List toggle:", {
+            componentList: !!componentList,
+            toggleComponentListBtn: !!toggleComponentListBtn,
+            detailsIcon: !!detailsIcon
         });
     }
     // --- END Sidebar Toggle Logic --- //
 
     // --- NEW: Dynamic Height Adjustment for Small Screens --- //
     const header = document.querySelector('header');
-    const introText = document.querySelector('.introduction-text');
+    // const introText = document.querySelector('.introduction-text'); // REMOVED
     // const palette = document.getElementById('palette'); // Already defined above
     // const componentList = document.getElementById('component-list'); // Already defined above
     const mainContent = document.getElementById('main-content');
@@ -2181,20 +2222,31 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
     function adjustLayoutHeights() {
         // Check if elements exist before proceeding
-        if (!header || !introText || !palette || !componentList || !mainContent) {
-            console.error("Height Adjust: Missing one or more layout elements.");
-            return;
+        // --- MODIFIED: Log specific missing elements ---
+        const missingElements = [];
+        if (!header) missingElements.push('header');
+        // if (!introText) missingElements.push('.introduction-text'); // REMOVED Check
+        if (!palette) missingElements.push('#palette');
+        if (!componentList) missingElements.push('#component-list');
+        if (!mainContent) missingElements.push('#main-content');
+
+        if (missingElements.length > 0) {
+            console.error("Height Adjust: Missing element(s):", missingElements.join(', '));
+            return; // Exit the function if any element is missing
         }
+        // --- END MODIFICATION ---
 
         // Check if we are in the small screen view based on CSS media query
         if (window.matchMedia('(max-width: 992px)').matches) {
             const headerHeight = header.offsetHeight;
-            const introTextHeight = introText.offsetHeight;
+            // const introTextHeight = introText.offsetHeight; // REMOVED
             const viewportHeight = window.innerHeight;
-            const correctTop = headerHeight + introTextHeight; // Calculate correct top position
+            // const correctTop = headerHeight + introTextHeight; // Calculate correct top position - REMOVED introTextHeight
+            const correctTop = headerHeight; // UPDATED: Only use header height
 
             // Calculate available height below header and intro text, minus app padding
-            const availableHeight = viewportHeight - correctTop - appContainerPaddingSmall;
+            // const availableHeight = viewportHeight - correctTop - appContainerPaddingSmall; // REMOVED introTextHeight calculation
+            const availableHeight = viewportHeight - correctTop - appContainerPaddingSmall; // Keep calculation based on new correctTop
 
             // Apply calculated height AND TOP POSITION as inline style
             if (availableHeight > 0) {
@@ -2723,7 +2775,8 @@ function solvePressures(graph) {
     }
     if (Object.keys(graph.segments).length === 0 && unknownNodeIds.length > 0) {
         console.warn("Cannot solve: No segments defined in the graph, but unknown nodes exist.");
-        alert("Cannot solve: No connections found.")
+        // alert("Cannot solve: No connections found.") // OLD
+        showNotification("Cannot simulate: No connections found in the network.", 'error'); // NEW
         return null;
     }
 
@@ -2792,7 +2845,8 @@ function solvePressures(graph) {
     }
 
     if (!matrixOk) {
-         alert("Failed to solve: Network appears to have isolated parts or errors (zero diagonal in matrix). Please check connections.");
+         // alert("Failed to solve: Network appears to have isolated parts or errors (zero diagonal in matrix). Please check connections."); // OLD
+         showNotification("Simulation failed: Network might have isolated parts or errors. Check connections.", 'error'); // NEW
          return null;
     }
     // --- End Matrix Check --- //
@@ -2806,9 +2860,11 @@ function solvePressures(graph) {
     } catch (error) {
         console.error("Error solving linear system with math.lusolve:", error);
         if (error.message && error.message.includes("singular")) {
-            alert("Failed to solve: The network configuration seems unstable or disconnected (singular matrix). Please check connections, especially to outlets.");
+            // alert("Failed to solve: The network configuration seems unstable or disconnected (singular matrix). Please check connections, especially to outlets."); // OLD
+            showNotification("Simulation failed: Network unstable or disconnected. Check connections, especially to outlets.", 'error'); // NEW
         } else {
-            alert("An error occurred during the simulation calculation. Check console for details.");
+            // alert("An error occurred during the simulation calculation. Check console for details."); // OLD
+            showNotification("An error occurred during simulation. Check console for details.", 'error'); // NEW
         }
         return null; // Indicate failure
     }
@@ -2897,19 +2953,60 @@ function runFluidSimulation() {
     console.log("--- Starting Fluid Simulation ---");
     clearSimulationVisuals(); // Clear previous results first
 
+    // --- Build Graph and Check Connectivity --- //
     const graph = buildNetworkGraph();
     if (!graph || Object.keys(graph.nodes).length === 0) {
         console.error("Failed to build network graph or graph is empty.");
-        alert("Network graph could not be built. Add components and connections.");
-        return;
-    }
-    const hasKnownPressure = Object.values(graph.nodes).some(node => node.pressure !== undefined);
-    if (!hasKnownPressure) {
-        console.error("Simulation requires at least one pump pressure set or an outlet.");
-        alert("Simulation requires at least one pump pressure to be set or an outlet to be present.");
+        showNotification("Cannot simulate: Network graph could not be built. Add components and connections.", 'error');
         return;
     }
 
+    // --- NEW: Check Pump-Outlet Connectivity using BFS --- // 
+    const pumpPortIds = Object.entries(graph.nodes)
+                            .filter(([id, node]) => node.type === 'pump')
+                            .map(([id]) => id);
+    const outletPortIds = new Set(Object.entries(graph.nodes)
+                                  .filter(([id, node]) => node.type === 'outlet')
+                                  .map(([id]) => id));
+
+    let outletReachable = false;
+    const visited = new Set();
+    const queue = [...pumpPortIds]; // Start BFS from all pump ports
+    pumpPortIds.forEach(id => visited.add(id));
+
+    while (queue.length > 0) {
+        const currentId = queue.shift();
+
+        if (outletPortIds.has(currentId)) {
+            outletReachable = true;
+            break; // Found a path to an outlet
+        }
+
+        const neighbors = graph.adj[currentId] || [];
+        neighbors.forEach(neighborId => {
+            if (!visited.has(neighborId)) {
+                visited.add(neighborId);
+                queue.push(neighborId);
+            }
+        });
+    }
+
+    if (!outletReachable) {
+        console.error("Simulation cancelled: No connected path found between pump and outlet.");
+        showNotification("Cannot simulate: No complete path found from a pump to an outlet.", 'warning');
+        return; // Stop simulation
+    }
+    // --- END CONNECTIVITY CHECK ---
+
+    // --- Pressure Source Check (Original logic remains) --- //
+    const hasKnownPressure = Object.values(graph.nodes).some(node => node.pressure !== undefined);
+    if (!hasKnownPressure) {
+        console.error("Simulation requires at least one pump pressure set or an outlet.");
+        showNotification("Cannot simulate: Set at least one pump pressure or add an outlet.", 'warning');
+        return;
+    }
+
+    // --- Proceed with Solving --- //
     const solvedPressures = solvePressures(graph);
     if (!solvedPressures) {
         console.error("Failed to solve for pressures.");
@@ -3441,7 +3538,7 @@ function resetSimulationState() {
         // Show blue connection dot only if:
         // - Not an outlet port
         // - Not connected to anything
-        if (chipType !== 'outlet' && !isPortConnected(port.id())) {
+        if (!isPortConnected(port.id())) {
             port.visible(true);
         }
     });
@@ -3763,3 +3860,47 @@ stage.on('mousemove', (e) => {
     }
 });
 // <<< END NEW >>>
+
+// --- NEW: Notification Function ---
+function showNotification(message, type = 'error', duration = 5000) {
+    const container = document.getElementById('notification-area');
+    if (!container) return;
+
+    const notification = document.createElement('div');
+    notification.classList.add('notification', type);
+
+    // Add message content
+    const messageSpan = document.createElement('span');
+    messageSpan.textContent = message;
+    notification.appendChild(messageSpan);
+
+    // Add close button
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;'; // '×' symbol
+    closeBtn.classList.add('close-btn');
+    closeBtn.onclick = () => {
+        notification.classList.remove('visible');
+        // Wait for fade out transition before removing
+        notification.addEventListener('transitionend', () => notification.remove());
+    };
+    notification.appendChild(closeBtn);
+
+    container.appendChild(notification);
+
+    // Trigger the transition to make it visible
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        notification.classList.add('visible');
+      });
+    });
+
+    // Auto-dismiss after duration (if duration is provided and > 0)
+    if (duration && duration > 0) {
+        setTimeout(() => {
+            // Check if the notification still exists (wasn't closed manually)
+            if (notification.parentElement) {
+                closeBtn.onclick(); // Use the same logic as manual close
+            }
+        }, duration);
+    }
+}

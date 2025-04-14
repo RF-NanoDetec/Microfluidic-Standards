@@ -25,10 +25,10 @@
             <!-- NEW: Toggle Buttons (hidden by default via CSS) -->
             <div class="sidebar-toggles">
                 <button id="toggle-palette-btn" title="Toggle Palette">
-                    <img src="palette.svg" alt="Palette" />
+                    <img id="palette-toggle-icon" src="icons/left_panel_open_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24.svg" alt="Palette" />
                 </button>
                 <button id="toggle-component-list-btn" title="Toggle Details">
-                    <img src="details.svg" alt="Details" />
+                    <img id="details-toggle-icon" src="icons/right_panel_open_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24.svg" alt="Details" />
                 </button>
             </div>
         </div>
@@ -172,7 +172,11 @@
                 </div>
             </div>
         </aside>
-    </div>
+
+        <!-- NEW: Notification Area -->
+        <div id="notification-area" class="notification-area"></div>
+
+    </div> <!-- End App Container -->
 
     <!-- NEW: How-to-Use Modal (outside app-container) -->
     <div id="howto-modal-overlay">
