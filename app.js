@@ -1,3 +1,4 @@
+// === INITIALIZATION AND CONFIGURATION ===
 // Get the container dimensions from CSS
 // Note: These might be 0 if the script runs before the CSS is fully applied
 // or the element is rendered. Consider moving size calculation inside DOMContentLoaded.
@@ -83,6 +84,7 @@ let dropIndicatorShape = null; // <<< NEW: Shape indicating drop location
 // --- Storage for permanent connections ---
 const connections = []; // Array of { fromChip, fromPort, toChip, toPort, lineId }
 
+// === UTILITY FUNCTIONS ===
 // --- Utility function to find Konva node by ID (useful later) ---
 function findNodeById(id) {
     return stage.findOne('#' + id);
@@ -90,6 +92,7 @@ function findNodeById(id) {
 
 // --- Path Calculation Helper Functions ---
 
+// === CONNECTION MANAGEMENT ===
 function getPortOrientation(port) {
     const portId = port.attrs.portId;
     if (!portId) return null;
@@ -160,67 +163,48 @@ function calculatePathData(port1, port2) {
 
 // --- Channel Drawing Helper Functions ---
 
+// === COMPONENT DEFINITIONS ===
 // Updated to use a single Path with fill and stroke
 function addStraightChannel(group) {
     const startX = 0;
     const endX = chipWidth;
     const y = chipHeight / 2;
     const points = [startX, y, endX, y];
-    const chipId = group.id(); // Get the chip ID
+    const chipId = group.id();
 
     // Draw the outline FIRST (will be at bottom)
-    const outline = new Konva.Line({
-        points: points,
-        stroke: channelOutlineColor,
-        strokeWidth: channelOutlineWidth, // Use constant 5
-        lineCap: channelCap,
-        name: 'channelOutline', // Keep consistent naming
-        listening: false
-    });
+    const outline = createChannelLine(points, { isOutline: true });
     group.add(outline);
 
     // Draw the fill line ON TOP
-    const fill = new Konva.Line({
-        points: points,
-        stroke: channelFillColor,
-        strokeWidth: channelFillWidth, // Use constant 3
-        lineCap: channelCap,
-        // Assign ID based on chip ID for highlighting/simulation lookup
-        id: chipId ? `${chipId}_internalChannelFill` : `preview_${Konva.Util.getRandomColor()}_internalFill`, // Use chip ID if available, otherwise unique preview ID
-        name: 'internalChannelFill', // Keep consistent naming
-        listening: false
+    const fill = createChannelLine(points, {
+        id: chipId ? `${chipId}_internalChannelFill` : `preview_${Konva.Util.getRandomColor()}_internalFill`
     });
     group.add(fill);
 }
 
 // Updated to draw individual segments with IDs
-function addXChannel(group, chipId) { // <<< Added chipId parameter
+function addXChannel(group, chipId) {
     const cx = chipWidth / 2;
     const cy = chipHeight / 2;
-    const internalNodeId = getInternalNodeId(chipId); // Get the internal node ID
-    const fillExtension = 1; // <<< Extend fill lines by 1 pixel past center
+    const internalNodeId = getInternalNodeId(chipId);
+    const fillExtension = 1;
 
-    // --- Define Port Coordinates and IDs ---
+    // Define port coordinates and IDs
     const ports = [
-        { x: cx, y: 0, id: chipId + '_port_top' },          // Top
-        { x: cx, y: chipHeight, id: chipId + '_port_bottom' }, // Bottom
-        { x: 0, y: cy, id: chipId + '_port_left' },         // Left
-        { x: chipWidth, y: cy, id: chipId + '_port_right' }   // Right
+        { x: cx, y: 0, id: chipId + '_port_top' },
+        { x: cx, y: chipHeight, id: chipId + '_port_bottom' },
+        { x: 0, y: cy, id: chipId + '_port_left' },
+        { x: chipWidth, y: cy, id: chipId + '_port_right' }
     ];
 
-    // --- Draw OUTLINES first ---
+    // Draw OUTLINES first
     ports.forEach(port => {
         const points = [port.x, port.y, cx, cy];
-        group.add(new Konva.Line({
-            points: points,
-            stroke: channelOutlineColor,
-            strokeWidth: channelOutlineWidth,
-            lineCap: channelCap,
-            listening: false
-        }));
+        group.add(createChannelLine(points, { isOutline: true }));
     });
 
-    // --- Draw outline circle at the center junction ---
+    // Draw outline circle at the center junction
     group.add(new Konva.Circle({
         x: cx,
         y: cy,
@@ -229,7 +213,7 @@ function addXChannel(group, chipId) { // <<< Added chipId parameter
         listening: false
     }));
 
-    // --- Draw FILLS second (on top of outlines) ---
+    // Draw FILLS second (on top of outlines)
     ports.forEach(port => {
         // Calculate direction vector from port to center
         const dx = cx - port.x;
@@ -237,21 +221,17 @@ function addXChannel(group, chipId) { // <<< Added chipId parameter
         const dist = Math.sqrt(dx*dx + dy*dy);
         let endX = cx;
         let endY = cy;
+        
         // Extend endpoint slightly past center if distance is not zero
         if (dist > 1e-6) {
             endX += (dx / dist) * fillExtension;
             endY += (dy / dist) * fillExtension;
         }
 
-        const points = [port.x, port.y, endX, endY]; // Use extended endpoint
+        const points = [port.x, port.y, endX, endY];
         const segmentId = chipId ? getSegmentId(port.id, internalNodeId) : `preview_segment_${Konva.Util.getRandomColor()}`;
 
-        group.add(new Konva.Line({
-            points: points,
-            stroke: channelFillColor,
-            strokeWidth: channelFillWidth,
-            lineCap: 'butt', // Use butt cap for precise end at extended point
-            listening: false,
+        group.add(createChannelLine(points, {
             id: segmentId,
             name: 'internalSegmentFill'
         }));
@@ -259,32 +239,26 @@ function addXChannel(group, chipId) { // <<< Added chipId parameter
 }
 
 // Updated to draw individual segments with IDs
-function addTChannel(group, chipId) { // <<< Added chipId parameter
+function addTChannel(group, chipId) {
     const cx = chipWidth / 2;
     const cy = chipHeight / 2;
-    const internalNodeId = getInternalNodeId(chipId); // Get the internal node ID
-    const fillExtension = 1; // <<< Extend fill lines by 1 pixel past center
+    const internalNodeId = getInternalNodeId(chipId);
+    const fillExtension = 1;
 
-    // --- Define Port Coordinates and IDs ---
+    // Define port coordinates and IDs
     const ports = [
-        { x: cx, y: 0, id: chipId + '_port_top' },          // Top
-        { x: cx, y: chipHeight, id: chipId + '_port_bottom' }, // Bottom
-        { x: chipWidth, y: cy, id: chipId + '_port_right' }   // Right
+        { x: cx, y: 0, id: chipId + '_port_top' },
+        { x: cx, y: chipHeight, id: chipId + '_port_bottom' },
+        { x: chipWidth, y: cy, id: chipId + '_port_right' }
     ];
 
-    // --- Draw OUTLINES first ---
+    // Draw OUTLINES first
     ports.forEach(port => {
         const points = [port.x, port.y, cx, cy];
-        group.add(new Konva.Line({
-            points: points,
-            stroke: channelOutlineColor,
-            strokeWidth: channelOutlineWidth,
-            lineCap: channelCap,
-            listening: false
-        }));
+        group.add(createChannelLine(points, { isOutline: true }));
     });
 
-    // --- Draw outline circle at the center junction ---
+    // Draw outline circle at the center junction
     group.add(new Konva.Circle({
         x: cx,
         y: cy,
@@ -293,7 +267,7 @@ function addTChannel(group, chipId) { // <<< Added chipId parameter
         listening: false
     }));
 
-    // --- Draw FILLS second (on top of outlines) ---
+    // Draw FILLS second (on top of outlines)
     ports.forEach(port => {
         // Calculate direction vector from port to center
         const dx = cx - port.x;
@@ -301,104 +275,40 @@ function addTChannel(group, chipId) { // <<< Added chipId parameter
         const dist = Math.sqrt(dx*dx + dy*dy);
         let endX = cx;
         let endY = cy;
+        
         // Extend endpoint slightly past center if distance is not zero
         if (dist > 1e-6) {
             endX += (dx / dist) * fillExtension;
             endY += (dy / dist) * fillExtension;
         }
 
-        const points = [port.x, port.y, endX, endY]; // Use extended endpoint
+        const points = [port.x, port.y, endX, endY];
         const segmentId = getSegmentId(port.id, internalNodeId);
 
-        group.add(new Konva.Line({
-            points: points,
-            stroke: channelFillColor,
-            strokeWidth: channelFillWidth,
-            lineCap: 'butt', // Use butt cap for precise end at extended point
-            listening: false,
+        group.add(createChannelLine(points, {
             id: segmentId,
             name: 'internalSegmentFill'
         }));
     });
-
-    // --- Draw fill circle LAST at the center junction ---
-    // REMOVED - Fill lines now overlap slightly due to extension
-    /*
-     group.add(new Konva.Circle({
-         x: cx,
-         y: cy,
-         radius: channelFillWidth / 2,
-         fill: channelFillColor,
-         listening: false
-     }));
-     */
 }
 
 // --- Preview Chip Creation Functions --- Use Channel Helpers ---
 
 function createStraightChipPreview(x, y) {
-    const group = new Konva.Group({ x: x, y: y, draggable: false, chipType: 'straight' });
-    // Apply the same glass style + shadow to the preview rectangle
-    group.add(new Konva.Rect({
-        width: chipWidth,
-        height: chipHeight,
-        fill: '#d9e2ec',    // Darker blue-grey for better contrast
-        opacity: 0.85,      // Semi-transparent
-        stroke: chipStroke,
-        strokeWidth: 1,
-        // NEW: Add subtle drop shadow to preview
-        shadowColor: 'black',
-        shadowBlur: 5,
-        shadowOffsetX: 1,
-        shadowOffsetY: 1,
-        shadowOpacity: 0.15,
-        shadowEnabled: true
-    }));
-    addStraightChannel(group); // Use helper
+    const group = createBaseChip(x, y, 'straight', false);
+    addStraightChannel(group);
     return group;
 }
 
 function createXChipPreview(x, y) {
-    const group = new Konva.Group({ x: x, y: y, draggable: false, chipType: 'x-type' });
-    // Apply glass style + shadow
-    group.add(new Konva.Rect({
-        width: chipWidth,
-        height: chipHeight,
-        fill: '#d9e2ec',    // Darker blue-grey for better contrast
-        opacity: 0.85,      // Semi-transparent
-        stroke: chipStroke,
-        strokeWidth: 1,
-        // NEW: Add subtle drop shadow to preview
-        shadowColor: 'black',
-        shadowBlur: 5,
-        shadowOffsetX: 1,
-        shadowOffsetY: 1,
-        shadowOpacity: 0.15,
-        shadowEnabled: true
-    }));
-    addXChannel(group); // Use helper
+    const group = createBaseChip(x, y, 'x-type', false);
+    addXChannel(group);
     return group;
 }
 
 function createTChipPreview(x, y) {
-    const group = new Konva.Group({ x: x, y: y, draggable: false, chipType: 't-type' });
-    // Apply glass style + shadow
-    group.add(new Konva.Rect({
-        width: chipWidth,
-        height: chipHeight,
-        fill: '#d9e2ec',    // Darker blue-grey for better contrast
-        opacity: 0.85,      // Semi-transparent
-        stroke: chipStroke,
-        strokeWidth: 1,
-        // NEW: Add subtle drop shadow to preview
-        shadowColor: 'black',
-        shadowBlur: 5,
-        shadowOffsetX: 1,
-        shadowOffsetY: 1,
-        shadowOpacity: 0.15,
-        shadowEnabled: true
-    }));
-    addTChannel(group); // Use helper
+    const group = createBaseChip(x, y, 't-type', false);
+    addTChannel(group);
     return group;
 }
 
@@ -468,12 +378,11 @@ function addMeanderChannel(group) {
     const y_bottom = h * 3 / 4; // Bottom extent of the meander
     const y_mid = h / 2; // Start and end y-coordinate
 
-    // Create a points array for the meander path - each pair is an x,y coordinate
+    // Create points array for the meander path
     const points = [
         0, y_mid, // Start at left edge
         w_seg - r, y_mid, // Horizontal segment to first corner
 
-        // We'll directly draw the rounded corners with line segments
         // Corner 1 (Up) - approximate curve with line segments
         w_seg - r/2, y_mid,
         w_seg, y_mid - r/2,
@@ -556,84 +465,33 @@ function addMeanderChannel(group) {
     ];
 
     // Draw the outline FIRST (will be at bottom)
-    const outline = new Konva.Line({
-        points: points,
-        stroke: channelOutlineColor,
-        strokeWidth: channelOutlineWidth,
-        lineCap: channelCap,  // Changed from 'butt' to channelCap (which is 'round')
-        lineJoin: channelJoin,  // Using channelJoin constant for consistency
-        name: 'channelOutline',
-        listening: false
-    });
-    group.add(outline);
+    group.add(createChannelLine(points, { isOutline: true }));
 
     // Draw the fill line ON TOP
-    const chipId = group.id(); // Get the chip ID if it exists
-    const fill = new Konva.Line({
-        points: points,
-        stroke: channelFillColor,
-        strokeWidth: channelFillWidth,
-        lineCap: channelCap,  // Already using channelCap
-        lineJoin: channelJoin,  // Using channelJoin constant for consistency
-        name: 'internalChannelFill',
+    const chipId = group.id();
+    group.add(createChannelLine(points, {
         id: chipId ? `${chipId}_internalChannelFill` : `preview_${Konva.Util.getRandomColor()}_internalFill`,
-        listening: false
-    });
-    group.add(fill);
+        name: 'internalChannelFill'
+    }));
 }
 
 // NEW: Meander Chip Preview Function
 function createMeanderChipPreview(x, y) {
-    const group = new Konva.Group({ x: x, y: y, draggable: false, chipType: 'meander' });
-    // Apply glass style + shadow
-    group.add(new Konva.Rect({
-        width: chipWidth,
-        height: chipHeight,
-        fill: '#d9e2ec',    // Darker blue-grey for better contrast
-        opacity: 0.85,      // Semi-transparent
-        stroke: chipStroke,
-        strokeWidth: 1,
-        // NEW: Add subtle drop shadow to preview
-        shadowColor: 'black',
-        shadowBlur: 5,
-        shadowOffsetX: 1,
-        shadowOffsetY: 1,
-        shadowOpacity: 0.15,
-        shadowEnabled: true
-    }));
-
-    // Draw meander channel FIRST
+    const group = createBaseChip(x, y, 'meander', false);
     addMeanderChannel(group);
     return group;
 }
 
 // NEW: Meander Chip Creation Function
 function createMeanderChip(x, y) {
-    const chipId = 'chip_' + Konva.Util.getRandomColor().replace('#','');
-    const group = new Konva.Group({ x: x, y: y, draggable: true, chipType: 'meander', id: chipId });
-    // Apply glass style + shadow
-    group.add(new Konva.Rect({
-        width: chipWidth,
-        height: chipHeight,
-        fill: '#d9e2ec',    // Darker blue-grey for better contrast
-        opacity: 0.85,      // Semi-transparent
-        stroke: chipStroke,
-        strokeWidth: 1,
-        name: 'component-border',
-        // NEW: Add subtle drop shadow
-        shadowColor: 'black',
-        shadowBlur: 5,
-        shadowOffsetX: 1,
-        shadowOffsetY: 1,
-        shadowOpacity: 0.15,
-        shadowEnabled: true
-    }));
+    const group = createBaseChip(x, y, 'meander');
+    const chipId = group.id();
 
     // Set resistance attribute
-    group.setAttr('resistance', RESISTANCE_MEANDER); // <<< ADDED
+    group.setAttr('resistance', RESISTANCE_MEANDER);
 
-    // Draw meander channel FIRST
-    addMeanderChannel(group);
+    // Add the channel
+    addMeanderChannel(group, chipId);
 
     // Define internal connections for the meander chip
     const leftPortUniqueId = chipId + '_port_left';
@@ -642,13 +500,12 @@ function createMeanderChip(x, y) {
         [leftPortUniqueId, rightPortUniqueId]
     ]);
 
-    // Add Ports LAST so they appear on top
-    const leftPortGroup = setupPortVisualsAndLogic({ x: 0, y: chipHeight / 2, portId: 'meander_left', uniqueId: leftPortUniqueId, mainDraggableGroup: group });
-    group.add(leftPortGroup);
-    const rightPortGroup = setupPortVisualsAndLogic({ x: chipWidth, y: chipHeight / 2, portId: 'meander_right', uniqueId: rightPortUniqueId, mainDraggableGroup: group });
-    group.add(rightPortGroup);
+    // Add ports
+    addChipPorts(group, 'meander', chipId);
 
+    // Add drag handler
     group.on('dragmove', () => { updateConnectionLines(group); });
+    
     return group;
 }
 
@@ -937,71 +794,40 @@ function setupPortVisualsAndLogic(config) {
 // --- Main Component Creation Functions --- Use Channel Helpers ---
 
 function createStraightChip(x, y) {
-    const chipId = 'chip_' + Konva.Util.getRandomColor().replace('#','');
-    const group = new Konva.Group({ x: x, y: y, draggable: true, chipType: 'straight', id: chipId });
-    group.add(new Konva.Rect({
-        width: chipWidth,
-        height: chipHeight,
-        fill: '#d9e2ec',    // Darker blue-grey for better contrast
-        opacity: 0.85,      // Semi-transparent
-        stroke: chipStroke,
-        strokeWidth: 1,
-        name: 'component-border',
-        shadowColor: 'black',
-        shadowBlur: 5,
-        shadowOffsetX: 1,
-        shadowOffsetY: 1,
-        shadowOpacity: 0.15,
-        shadowEnabled: true
-    }));
-    // ... rest of the function remains the same ...
+    const group = createBaseChip(x, y, 'straight');
+    const chipId = group.id();
 
     // Set resistance attribute
     group.setAttr('resistance', RESISTANCE_STRAIGHT);
 
-    addStraightChannel(group); // Use helper
+    // Add the channel
+    addStraightChannel(group);
 
-    // <<< Add internal connection data using UNIQUE IDs >>>
+    // Add internal connection data using UNIQUE IDs
     const leftPortUniqueId = chipId + '_port_left';
     const rightPortUniqueId = chipId + '_port_right';
     group.setAttr('internalConnections', [
         [leftPortUniqueId, rightPortUniqueId]
     ]);
 
-    // Ports using setupPortVisualsAndLogic
-    const leftPortGroup = setupPortVisualsAndLogic({ x: 0, y: chipHeight / 2, portId: 'straight_left', uniqueId: leftPortUniqueId, mainDraggableGroup: group });
-    group.add(leftPortGroup);
-    const rightPortGroup = setupPortVisualsAndLogic({ x: chipWidth, y: chipHeight / 2, portId: 'straight_right', uniqueId: rightPortUniqueId, mainDraggableGroup: group });
-    group.add(rightPortGroup);
+    // Add ports
+    addChipPorts(group, 'straight', chipId);
 
+    // Add drag handler
     group.on('dragmove', () => { updateConnectionLines(group); });
+    
     return group;
 }
 
 function createXChip(x, y) {
-    const chipId = 'chip_' + Konva.Util.getRandomColor().replace('#','');
-    const group = new Konva.Group({ x: x, y: y, draggable: true, chipType: 'x-type', id: chipId });
-    // Apply glass style + shadow
-    group.add(new Konva.Rect({
-        width: chipWidth,
-        height: chipHeight,
-        fill: '#d9e2ec',    // Darker blue-grey for better contrast
-        opacity: 0.85,      // Semi-transparent
-        stroke: chipStroke,
-        strokeWidth: 1,
-        name: 'component-border',
-        shadowColor: 'black',
-        shadowBlur: 5,
-        shadowOffsetX: 1,
-        shadowOffsetY: 1,
-        shadowOpacity: 0.15,
-        shadowEnabled: true
-    }));
+    const group = createBaseChip(x, y, 'x-type');
+    const chipId = group.id();
 
     // Set resistance attribute
-    group.setAttr('resistance', RESISTANCE_X_TYPE); // <<< ADDED
+    group.setAttr('resistance', RESISTANCE_X_TYPE);
 
-    addXChannel(group, chipId); // Use helper
+    // Add the channel
+    addXChannel(group, chipId);
 
     // Define internal connections for the X-chip (FULL connectivity)
     const leftPortId = chipId + '_port_left';
@@ -1017,44 +843,24 @@ function createXChip(x, y) {
         [topPortId, bottomPortId]
     ]);
 
-    // Ports using setupPortVisualsAndLogic
-    const leftPortGroup = setupPortVisualsAndLogic({ x: 0, y: chipHeight / 2, portId: 'x_left', uniqueId: leftPortId, mainDraggableGroup: group });
-    group.add(leftPortGroup);
-    const rightPortGroup = setupPortVisualsAndLogic({ x: chipWidth, y: chipHeight / 2, portId: 'x_right', uniqueId: rightPortId, mainDraggableGroup: group });
-    group.add(rightPortGroup);
-    const topPortGroup = setupPortVisualsAndLogic({ x: chipWidth / 2, y: 0, portId: 'x_top', uniqueId: topPortId, mainDraggableGroup: group });
-    group.add(topPortGroup);
-    const bottomPortGroup = setupPortVisualsAndLogic({ x: chipWidth / 2, y: chipHeight, portId: 'x_bottom', uniqueId: bottomPortId, mainDraggableGroup: group });
-    group.add(bottomPortGroup);
+    // Add ports
+    addChipPorts(group, 'x-type', chipId);
 
+    // Add drag handler
     group.on('dragmove', () => { updateConnectionLines(group); });
+    
     return group;
 }
 
 function createTChip(x, y) {
-    const chipId = 'chip_' + Konva.Util.getRandomColor().replace('#','');
-    const group = new Konva.Group({ x: x, y: y, draggable: true, chipType: 't-type', id: chipId });
-    // Apply glass style + shadow
-    group.add(new Konva.Rect({
-        width: chipWidth,
-        height: chipHeight,
-        fill: '#d9e2ec',    // Darker blue-grey for better contrast
-        opacity: 0.85,      // Semi-transparent
-        stroke: chipStroke,
-        strokeWidth: 1,
-        name: 'component-border',
-        shadowColor: 'black',
-        shadowBlur: 5,
-        shadowOffsetX: 1,
-        shadowOffsetY: 1,
-        shadowOpacity: 0.15,
-        shadowEnabled: true
-    }));
+    const group = createBaseChip(x, y, 't-type');
+    const chipId = group.id();
 
     // Set resistance attribute
     group.setAttr('resistance', RESISTANCE_T_TYPE);
 
-    addTChannel(group, chipId); // Use helper
+    // Add the channel
+    addTChannel(group, chipId);
 
     // Define internal connections for the T-chip
     const topPortUniqueId = chipId + '_port_top';
@@ -1066,16 +872,12 @@ function createTChip(x, y) {
         [bottomPortUniqueId, rightPortUniqueId]
     ]);
 
-    // Ports using setupPortVisualsAndLogic
-    const cx = chipWidth / 2, cy = chipHeight / 2;
-    const topPortGroup = setupPortVisualsAndLogic({ x: cx, y: 0, portId: 't_top', uniqueId: topPortUniqueId, mainDraggableGroup: group });
-    group.add(topPortGroup);
-    const bottomPortGroup = setupPortVisualsAndLogic({ x: cx, y: chipHeight, portId: 't_bottom', uniqueId: bottomPortUniqueId, mainDraggableGroup: group });
-    group.add(bottomPortGroup);
-    const rightPortGroup = setupPortVisualsAndLogic({ x: chipWidth, y: cy, portId: 't_right', uniqueId: rightPortUniqueId, mainDraggableGroup: group });
-    group.add(rightPortGroup);
+    // Add ports
+    addChipPorts(group, 't-type', chipId);
 
+    // Add drag handler
     group.on('dragmove', () => { updateConnectionLines(group); });
+    
     return group;
 }
 
@@ -1229,6 +1031,8 @@ function updateConnectionLines(movedChipGroup) {
 }
 
 // --- Palette Setup (Use Preview functions) ---
+
+// === PALETTE SETUP ===
 function setupPalette() {
     // --- NEW: Define fixed size for palette chip Konva stages --- //
     const chipPreviewSize = 64; // Match the CSS width/height for .palette-chip
@@ -1439,6 +1243,7 @@ stage.on('contextmenu', (e) => {
 
 // --- Component List Logic ---
 
+// === UI MANAGEMENT ===
 const componentListContainer = document.getElementById('component-list-content');
 
 // Map chipType to a user-friendly display name
@@ -1836,6 +1641,8 @@ function updateComponentList() {
 }
 
 // --- Event Listener Modifications ---
+
+// === EVENT HANDLERS ===
 window.addEventListener('DOMContentLoaded', (event) => {
     console.log('DOM fully loaded and parsed');
 
@@ -2297,6 +2104,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
 // --- Flow Pathfinding and Highlighting ---
 
+// === FLOW PATHFINDING & HIGHLIGHTING ===
 function findFlowPathAndHighlight() {
     console.log("Updating flow visualization (Pump Reachability)...");
 
@@ -2628,6 +2436,7 @@ stage.on('click tap', function (e) {
 
 // --- Fluid Simulation Engine --- //
 
+// === SIMULATION ENGINE ===
 // Structure to hold the calculated simulation results
 let simulationResults = {
     pressures: {}, // { nodeId: pressureInPascals }
@@ -3055,6 +2864,7 @@ function runFluidSimulation() {
 
 // --- Visualization Functions --- //
 
+// === VISUALIZATION ===
 function clearSimulationVisuals() {
     // Clear all simulation-related visuals including dots
     layer.find('.simulation-label').forEach(label => {
@@ -3904,3 +3714,177 @@ function showNotification(message, type = 'error', duration = 5000) {
         }, duration);
     }
 }
+
+// === COMPONENT DEFINITIONS ===
+
+// Helper function to create base chip structure
+function createBaseChip(x, y, chipType, isDraggable = true) {
+    const chipId = isDraggable ? 'chip_' + Konva.Util.getRandomColor().replace('#','') : null;
+    const group = new Konva.Group({ 
+        x: x, 
+        y: y, 
+        draggable: isDraggable, 
+        chipType: chipType, 
+        id: chipId 
+    });
+
+    // Add the standard glass-style background
+    group.add(new Konva.Rect({
+        width: chipWidth,
+        height: chipHeight,
+        fill: '#d9e2ec',    // Darker blue-grey for better contrast
+        opacity: 0.85,      // Semi-transparent
+        stroke: chipStroke,
+        strokeWidth: 1,
+        name: 'component-border',
+        shadowColor: 'black',
+        shadowBlur: 5,
+        shadowOffsetX: 1,
+        shadowOffsetY: 1,
+        shadowOpacity: 0.15,
+        shadowEnabled: true
+    }));
+
+    return group;
+}
+
+// Helper function to create channel lines with consistent styling
+function createChannelLine(points, options = {}) {
+    const {
+        isOutline = false,
+        name = isOutline ? 'channelOutline' : 'internalChannelFill',
+        id = null,
+        listening = false
+    } = options;
+
+    return new Konva.Line({
+        points: points,
+        stroke: isOutline ? channelOutlineColor : channelFillColor,
+        strokeWidth: isOutline ? channelOutlineWidth : channelFillWidth,
+        lineCap: channelCap,
+        lineJoin: channelJoin,
+        name: name,
+        id: id,
+        listening: listening
+    });
+}
+
+// Helper function to create and add ports to a chip
+function addPortToChip(group, portConfig) {
+    const {
+        x,
+        y,
+        portId,
+        uniqueId,
+        mainDraggableGroup = group
+    } = portConfig;
+
+    const portGroup = setupPortVisualsAndLogic({
+        x,
+        y,
+        portId,
+        uniqueId,
+        mainDraggableGroup
+    });
+    group.add(portGroup);
+    return portGroup;
+}
+
+// Helper function to add standard ports for a chip type
+function addChipPorts(group, chipType, chipId) {
+    const cx = chipWidth / 2;
+    const cy = chipHeight / 2;
+    const ports = [];
+
+    switch (chipType) {
+        case 'straight':
+            ports.push(
+                addPortToChip(group, {
+                    x: 0,
+                    y: cy,
+                    portId: 'straight_left',
+                    uniqueId: `${chipId}_port_left`
+                }),
+                addPortToChip(group, {
+                    x: chipWidth,
+                    y: cy,
+                    portId: 'straight_right',
+                    uniqueId: `${chipId}_port_right`
+                })
+            );
+            break;
+
+        case 'x-type':
+            ports.push(
+                addPortToChip(group, {
+                    x: 0,
+                    y: cy,
+                    portId: 'x_left',
+                    uniqueId: `${chipId}_port_left`
+                }),
+                addPortToChip(group, {
+                    x: chipWidth,
+                    y: cy,
+                    portId: 'x_right',
+                    uniqueId: `${chipId}_port_right`
+                }),
+                addPortToChip(group, {
+                    x: cx,
+                    y: 0,
+                    portId: 'x_top',
+                    uniqueId: `${chipId}_port_top`
+                }),
+                addPortToChip(group, {
+                    x: cx,
+                    y: chipHeight,
+                    portId: 'x_bottom',
+                    uniqueId: `${chipId}_port_bottom`
+                })
+            );
+            break;
+
+        case 't-type':
+            ports.push(
+                addPortToChip(group, {
+                    x: cx,
+                    y: 0,
+                    portId: 't_top',
+                    uniqueId: `${chipId}_port_top`
+                }),
+                addPortToChip(group, {
+                    x: cx,
+                    y: chipHeight,
+                    portId: 't_bottom',
+                    uniqueId: `${chipId}_port_bottom`
+                }),
+                addPortToChip(group, {
+                    x: chipWidth,
+                    y: cy,
+                    portId: 't_right',
+                    uniqueId: `${chipId}_port_right`
+                })
+            );
+            break;
+
+        case 'meander':
+            ports.push(
+                addPortToChip(group, {
+                    x: 0,
+                    y: cy,
+                    portId: 'meander_left',
+                    uniqueId: `${chipId}_port_left`
+                }),
+                addPortToChip(group, {
+                    x: chipWidth,
+                    y: cy,
+                    portId: 'meander_right',
+                    uniqueId: `${chipId}_port_right`
+                })
+            );
+            break;
+    }
+
+    return ports;
+}
+
+// Updated to use a single Path with fill and stroke
