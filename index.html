@@ -20,7 +20,7 @@
         <!-- Wrap logo and title for easier alignment -->
         <div class="header-content">
             <!-- Placeholder for the logo -->
-            <img id="logo" src="Logo.svg" alt="Company Logo" /> 
+            <img id="logo" src="images/Logo.svg" alt="Company Logo" /> 
 
             <!-- NEW: Toggle Buttons (hidden by default via CSS) -->
             <div class="sidebar-toggles">
@@ -96,22 +96,22 @@
                 <!-- NEW: Getting Started Overlay -->
                 <div id="getting-started-overlay" class="getting-started-overlay">
                     <h4>Drag & Drop to Start</h4>
-                    <img src="drag-drop-icon.svg" alt="" width="40" height="40" /> <!-- Placeholder icon -->
+                    <img src="icons/drag-drop-icon.svg" alt="" width="40" height="40" /> <!-- Placeholder icon -->
                     <p>Drag components from the palette here to start building.</p>
                 </div>
 
                 <div id="konva-stage"></div> <!-- Konva stage will attach here -->
                  <!-- Button will be positioned here via CSS -->
                  <button id="clear-canvas-btn" title="Clear Canvas">
-                    <img src="trash.svg" alt="Clear Canvas" />
+                    <img src="icons/trash.svg" alt="Clear Canvas" />
                  </button>
                  <button id="run-simulation-btn">Run Simulation</button>
                  <!-- NEW: Reset Simulation Button -->
                  <button id="reset-simulation-btn" title="Reset Simulation State">
-                     <img src="restart.svg" alt="Reset Simulation" />
+                     <img src="icons/restart.svg" alt="Reset Simulation" />
                  </button>
                  <!-- NEW: Howto Icon -->
-                 <img id="howto-icon" src="howto.svg" alt="How to Use" title="How to Use Guide" />
+                 <img id="howto-icon" src="icons/howto.svg" alt="How to Use" title="How to Use Guide" />
             </div>
         </main>
 
@@ -123,7 +123,7 @@
                 <div id="simulation-summary-content">
                     <!-- Summary items will be populated by JS -->
                     <!-- NEW: Flow Legend -->
-                    <div class="flow-legend-container">
+                    <div class="legend-container">
                         <span class="legend-title">Flow Rate (µL/min)</span>
                         <div class="legend-content">
                             <div class="gradient-bar"></div>
@@ -187,7 +187,7 @@
 
             <h4>Building Your Circuit:</h4>
             <ul>
-                <li><strong>Add Components:</strong> Drag components from the Palette (left sidebar) onto the Canvas (center). <em>On smaller screens, use the <img src="palette.svg" alt="Palette" style="height:1em; vertical-align:middle;"/> button to show/hide the Palette.</em></li>
+                <li><strong>Add Components:</strong> Drag components from the Palette (left sidebar) onto the Canvas (center). <em>On smaller screens, use the <img src="icons/palette.svg" alt="Palette" style="height:1em; vertical-align:middle;"/> button to show/hide the Palette.</em></li>
                 <li><strong>Connect Ports:</strong> Right-click a grey port circle on one component, then right-click a port on another to create tubing. A dashed line will guide you.</li>
                 <li><strong>Move Components:</strong> Click and drag components on the canvas to reposition them.</li>
                 <li><strong>Delete Connections:</strong> Right-click an existing tube to remove it.</li>
@@ -196,11 +196,11 @@
 
             <h4>Configuring & Simulating:</h4>
             <ul>
-                <li><strong>View/Edit Properties:</strong> Click a component on the canvas to view its details and edit properties (like Pump pressures) in the right sidebar. <em>On smaller screens, use the <img src="details.svg" alt="Details" style="height:1em; vertical-align:middle;"/> button to show/hide the Details sidebar.</em></li>
+                <li><strong>View/Edit Properties:</strong> Click a component on the canvas to view its details and edit properties (like Pump pressures) in the right sidebar. <em>On smaller screens, use the <img src="icons/details.svg" alt="Details" style="height:1em; vertical-align:middle;"/> button to show/hide the Details sidebar.</em></li>
                 <li><strong>Run Simulation:</strong> Click the 'Run Simulation' button to calculate pressures (mbar) and flow rates (µL/min).</li>
                 <li><strong>View Results:</strong> Observe tube colors indicating flow rate (see Legend). Hover over the orange dots on ports for specific pressure and throughput values. The 'Simulation Results' box in the sidebar provides a summary.</li>
-                <li><strong>Reset Simulation:</strong> Click the 'Reset Simulation' button (<img src="restart.svg" alt="Reset" style="height:1em; vertical-align:middle;"/>) to clear simulation results and colors, restoring the view to the initial connectivity state.</li>
-                <li><strong>Clear Canvas:</strong> Click the 'Clear Canvas' button (<img src="trash.svg" alt="Clear" style="height:1em; vertical-align:middle;"/>) to remove all components and connections.</li>
+                <li><strong>Reset Simulation:</strong> Click the 'Reset Simulation' button (<img src="icons/restart.svg" alt="Reset" style="height:1em; vertical-align:middle;"/>) to clear simulation results and colors, restoring the view to the initial connectivity state.</li>
+                <li><strong>Clear Canvas:</strong> Click the 'Clear Canvas' button (<img src="icons/trash.svg" alt="Clear" style="height:1em; vertical-align:middle;"/>) to remove all components and connections.</li>
             </ul>
 
             <h4>Other Tips:</h4>
@@ -214,6 +214,24 @@
         </div>
     </div>
 
+    <script src="config/constants.js"></script>
+    <script src="core/konvaSetup.js"></script>
+    <script src="core/utils.js"></script>
+    <script src="ui/sidebar.js"></script>
+    <script src="core/connections.js"></script>
+    <script src="core/dragAndDrop.js"></script>
+    <script src="core/simulationEngine.js"></script>
+    <script src="core/simulationVisuals.js"></script>
+    <script src="core/canvasInteractions.js"></script>
+    <script src="ui/uiInteractions.js"></script>
+    <script src="ui/paletteSetup.js"></script>
+    <script src="components/componentUtils.js"></script>
+    <script src="components/straightChip.js"></script>
+    <script src="components/xChip.js"></script>
+    <script src="components/tChip.js"></script>
+    <script src="components/meanderChip.js"></script>
+    <script src="components/pump.js"></script>
+    <script src="components/outlet.js"></script>
     <script src="app.js"></script>
 </body>
 </html> 
