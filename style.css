@@ -4,6 +4,15 @@ html, body {
     overflow: hidden; /* Prevent body scrolling */
 }
 
+:root {
+    --font-size-h1: 1.25rem; /* 20px */
+    --font-size-h2: 1.125rem; /* 18px */
+    --font-size-h3: 1rem; /* 16px */
+    --color-heading: #333333; /* Dark gray for headings */
+    --color-logo-blue: #003366; /* Logo blue accent */
+    --color-text: #555555; /* Default body text color */
+}
+
 body {
     font-family: 'Roboto', sans-serif; /* UPDATED FONT */
     /* margin: 20px; */ /* Removed */
@@ -41,7 +50,7 @@ header {
 
 header h1 {
     margin: 0;
-    font-size: 1.4em; /* Reduced font size */
+    font-size: var(--font-size-h1);
     font-weight: 700; /* Use Bold for Roboto title */
     /* Color now inherited from header */
 }
@@ -176,9 +185,9 @@ header h1 {
 h2 {
     margin-top: 0;
     margin-bottom: 12px; /* Added bottom margin */
-    font-size: 1.15em; /* Slightly larger */
-    font-weight: 700; /* Montserrat bold */
-    color: #003366; /* Branding: Midnight Blue for headings */
+    font-size: var(--font-size-h2);
+    font-weight: 600;
+    color: var(--color-heading);
 }
 
 .palette-chip {
@@ -394,9 +403,9 @@ h2 {
 #selected-component-properties h3 {
     margin-top: 0;
     margin-bottom: 10px;
-    font-size: 1.1em; /* Slightly larger main heading */
-    font-weight: 700; /* Bolder main heading */
-    color: #003366;
+    font-size: var(--font-size-h3);
+    font-weight: 600;
+    color: var(--color-heading);
 }
 
 /* NEW: Styling for the purpose paragraph */
@@ -490,9 +499,9 @@ h2 {
 .sidebar-box h2 {
     margin-top: 0;
     margin-bottom: 12px;
-    font-size: 1em; /* Reduced from 1.15em */
+    font-size: var(--font-size-h2);
     font-weight: 600;
-    color: #003366;
+    color: var(--color-heading);
 }
 
 /* New table-like structure styles */
