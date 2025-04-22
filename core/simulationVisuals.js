@@ -11,20 +11,17 @@ function clearSimulationVisuals() {
     });
 
     // Reset tube colors
-    layer.find('._tube').forEach(tube => { // Note: Depends on Konva layer variable
-        tube.stroke('lightgrey');
+    layer.find('._tube').forEach(tube => {
+        // use default channel colors for reset
+        tube.stroke(channelFillColor);
         const outline = layer.findOne('#' + tube.id().replace('_tube', '_outline')); // Note: Depends on Konva layer variable
-        if(outline) outline.stroke('#555555');
+        if (outline) outline.stroke(channelOutlineColor);
     });
 
     // Reset internal channel colors
-    layer.find('.internalChannelFill').forEach(channel => { // Note: Depends on Konva layer variable
-        const chipGroup = channel.findAncestor('Group');
-        if (chipGroup && chipGroup.getAttr('chipType') === 'meander') {
-            channel.stroke(channelFillColor);
-        } else if (channel instanceof Konva.Path) {
-            channel.fill(channelFillColor);
-        }
+    layer.find('.internalChannelFill').forEach(channel => {
+        // Reset stroke color for all internal channels (straight, meander, etc.)
+        channel.stroke(channelFillColor);
     });
 
     // Reset internal segment colors

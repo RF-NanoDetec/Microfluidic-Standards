@@ -19,14 +19,14 @@ const chipRectStyle = {
     fill: '#d9e2ec',    // Darker blue-grey for better contrast
     opacity: 0.85,      // Semi-transparent
     stroke: 'black',
-    strokeWidth: 0.5,
+    strokeWidth: 0.75,
     name: 'component-border' // Common name
 };
 const previewRectStyle = {
     fill: '#d9e2ec',
     opacity: 0.85,
     stroke: 'black',
-    strokeWidth: 0.5,
+    strokeWidth: 0.75,
     name: 'component-border' // Common name
 };
 
@@ -41,7 +41,7 @@ const chipStroke = 'black';
 const connectionStubLength = 10; // How far the line goes straight from the port
 const channelFillColor = '#e3f2fd';    // Light blue fill
 const channelOutlineColor = '#555555';   // Match tubing outline
-const channelFillWidth = 3; // Increased to match meander channel
+const channelFillWidth = 3.5; // Increased to match meander channel
 const channelOutlineWidth = 5; // Increased to match meander channel
 const channelCap = 'butt';  // Changed from 'round' to 'butt' for straight edges
 const channelJoin = 'miter';  // Changed from 'round' to 'miter' for sharp corners

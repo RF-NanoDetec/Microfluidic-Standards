@@ -10,11 +10,24 @@ function getPortOrientation(port) {
     return null;
 }
 
+// Add helper to compute the actual visual center of a port (account for offset)
+function getPortCenter(port) {
+    const raw = port.getAbsolutePosition();
+    return {
+        x: raw.x - port.offsetX(),
+        y: raw.y - port.offsetY()
+    };
+}
+
 function calculatePathData(port1, port2) {
     if (!port1 || !port2) return ''; // Safety check
 
-    const pos1 = port1.getAbsolutePosition();
-    const pos2 = port2.getAbsolutePosition();
+    // for permanent tubing, use port group position (flush at chip edge)
+    const p1GroupPos = port1.getParent().getAbsolutePosition();
+    const p2GroupPos = port2.getParent().getAbsolutePosition();
+    const pos1 = { x: p1GroupPos.x, y: p1GroupPos.y };
+    const pos2 = { x: p2GroupPos.x, y: p2GroupPos.y };
+
     const orient1 = getPortOrientation(port1);
     const orient2 = getPortOrientation(port2);
 
@@ -124,9 +137,12 @@ function deleteConnection(clickedTubePath) {
             outlinePath.destroy();
         }
 
-        // Reset ALL visual elements regardless of pump connection
-        // This ensures consistent state before re-highlighting
-        resetAllVisualElements(); // Note: resetAllVisualElements might need to be passed or made global
+        // Reset visuals to non-highlighted state using simulation visuals if available
+        if (typeof clearSimulationVisuals === 'function') {
+            clearSimulationVisuals();
+        } else {
+            resetAllVisualElements();
+        }
 
         // Trigger flow update AFTER removing connection and resetting visuals
         findFlowPathAndHighlight();
@@ -181,10 +197,9 @@ function setupPortVisualsAndLogic(config) {
 
     // --- Attach Listeners to the INNER connectionPort ---
 
-    connectionPort.on('contextmenu', (e) => {
-        e.evt.preventDefault();
-        const clickedPort = e.target; // This is the inner connectionPort circle
-        const clickedPortId = clickedPort.id(); // uniqueId
+    connectionPort.on('click', (e) => {
+        const clickedPort = e.target; // left-click instead of right-click
+        const clickedPortId = clickedPort.id();
         const clickedPortMainGroupId = clickedPort.getAttr('mainGroupId');
         const clickedPortGroup = stage.findOne('#' + clickedPortMainGroupId);
         const clickedPortType = clickedPortGroup?.getAttr('chipType');
@@ -232,12 +247,17 @@ function setupPortVisualsAndLogic(config) {
                         listening: false
                     });
                     const tubePath = new Konva.Path({
+                        name: '_tube', // mark for flow utilities to find/clear/reset
                         data: pathData,
                         stroke: channelFillColor, // Use the same light blue as channels
                         strokeWidth: channelFillWidth,
                         id: baseConnectionId + '_tube'
                     });
-                    tubePath.on('contextmenu', (evt) => { evt.evt.preventDefault(); deleteConnection(evt.target); });
+                    tubePath.on('click', (evt) => {
+                        // select on click, not immediate delete
+                        evt.cancelBubble = true;
+                        selectConnection(evt.target);
+                    });
                     layer.add(outlinePath);
                     layer.add(tubePath);
                     connections.push({
@@ -292,6 +312,56 @@ function setupPortVisualsAndLogic(config) {
     return portVisualGroup;
 }
 
+// === SECTION: Global Stage Listeners for Connections ===
+
+// --- Stage Click Listener for Second‐Port Completion or Cancellation ---
+stage.on('click', (e) => {
+    // Only when a connection attempt is active
+    if (startPort !== null) {
+        // If we're snapped to a port, finalize connection there
+        if (currentSnapPort) {
+            currentSnapPort.fire('click');
+        } else if (e.target === stage) {
+            // Otherwise, click on empty stage cancels the attempt
+            cancelConnectionAttempt();
+        }
+    }
+});
+
+// === SECTION: Path Calculation Helper Functions ===
+const portSnapRadius = 10; // reduced snap threshold for cleaner selection
+
+// --- Stage MouseMove Listener for Temporary Connection Line ---
+stage.on('mousemove', (e) => {
+    if (startPort === null || tempConnectionLine === null) return;
+    
+    // compute visual start point
+    const startPos = getPortCenter(startPort);
+    const pointerPos = stage.getPointerPosition();
+
+    // find nearby ports to snap
+    const ports = stage.find('.connectionPort');
+    let snapPort = null;
+    let minDist = portSnapRadius;
+    ports.forEach(port => {
+        if (port === startPort || !port.isVisible()) return;
+        const pos = getPortCenter(port);
+        const dx = pos.x - pointerPos.x;
+        const dy = pos.y - pointerPos.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < minDist) {
+            minDist = dist;
+            snapPort = port;
+        }
+    });
+
+    // use visual center on end
+    const endPos = snapPort ? getPortCenter(snapPort) : pointerPos;
+
+    tempConnectionLine.points([startPos.x, startPos.y, endPos.x, endPos.y]);
+    layer.batchDraw();
+});
+
 // --- Helper function for initiating a connection ---
 function handleInitiateConnection(clickedPort) {
     const clickedPortId = clickedPort.id();
@@ -312,7 +382,7 @@ function handleInitiateConnection(clickedPort) {
 
     // Set cursor and create temporary line
     stage.container().style.cursor = 'crosshair';
-    const startPos = startPort.getAbsolutePosition();
+    const startPos = getPortCenter(startPort);
     tempConnectionLine = new Konva.Line({
         points: [startPos.x, startPos.y, startPos.x, startPos.y],
         stroke: portSelectedColor, // Use same green as port
@@ -392,39 +462,98 @@ function updateConnectionLines(movedChipGroup) {
     layer.batchDraw(); // Update the layer once all paths are adjusted
 }
 
-// === SECTION: Global Stage Listeners for Connections ===
+// GLOBAL: track the currently selected tubePath
+let selectedTube = null;
 
-// --- Add Stage Context Menu Listener for Cancellation ---
-stage.on('contextmenu', (e) => {
-    // Only act if the context menu is triggered directly on the stage,
-    // not on a specific shape (like a port or connection line, which have their own handlers)
-    if (e.target === stage) {
-        e.evt.preventDefault(); // Prevent the default browser context menu
+// Helper to dispatch selection events (for sidebar consumption)
+function updateSelectedSidebar(connectionId) {
+    window.dispatchEvent(new CustomEvent('connection:selected', { detail: { id: connectionId } }));
+}
 
-        // If a connection attempt is in progress (startPort is selected),
-        // cancel it by calling the existing helper function.
-        if (startPort !== null) {
-            console.log("Connection cancelled (clicked stage background).");
-            cancelConnectionAttempt(); // This function resets startPort and removes temp line
+// Select a tube path: highlight and notify
+function selectConnection(path) {
+    deselectConnection(); // Deselect any previously selected tube first
+    selectedTube = path;
+
+    // Store original visual state
+    const originalStroke = path.stroke();
+    const originalWidth = path.strokeWidth();
+    path.setAttr('originalStroke', originalStroke);
+    path.setAttr('originalStrokeWidth', originalWidth);
+
+    // Determine the selected stroke color based on the original
+    let selectedStrokeColor;
+    const defaultFill = typeof channelFillColor !== 'undefined' ? channelFillColor : '#e3f2fd'; // Fallback
+    const highlightFill = typeof flowHighlightColor !== 'undefined' ? flowHighlightColor : '#007bff'; // Fallback
+    const selectedDefaultFill = '#b0becb';  // Darker light blue
+    const selectedHighlightFill = '#0056b3'; // Darker strong blue
+
+    if (originalStroke === defaultFill) {
+        selectedStrokeColor = selectedDefaultFill;
+    } else if (originalStroke === highlightFill) {
+        selectedStrokeColor = selectedHighlightFill;
+    } else {
+        // If it's some other color (e.g., from simulation gradient), use the darker highlight color as default selected state
+        selectedStrokeColor = selectedHighlightFill;
+    }
+
+    // Apply selected state visuals
+    path.stroke(selectedStrokeColor);
+    // Ensure standard width (remove previous +2 logic)
+    path.strokeWidth(typeof channelFillWidth !== 'undefined' ? channelFillWidth : 3.5);
+
+    // Notify sidebar etc.
+    updateSelectedSidebar(path.id().replace('_tube', ''));
+    layer.draw(); // Draw the changes
+}
+
+// Deselect any selected tube
+function deselectConnection() {
+    if (selectedTube) {
+        // Restore original visual state
+        const originalStroke = selectedTube.getAttr('originalStroke');
+        const originalWidth = selectedTube.getAttr('originalStrokeWidth');
+
+        if (originalStroke) {
+            selectedTube.stroke(originalStroke);
         }
+        if (originalWidth) {
+            selectedTube.strokeWidth(originalWidth);
+        } else {
+            // Fallback if original width wasn't stored
+            selectedTube.strokeWidth(typeof channelFillWidth !== 'undefined' ? channelFillWidth : 3.5);
+        }
+
+        // Clear stored attributes
+        selectedTube.setAttr('originalStroke', null);
+        selectedTube.setAttr('originalStrokeWidth', null);
+
+        selectedTube = null;
+    }
+    updateSelectedSidebar(null);
+    // Re-run flow highlighting to restore channel colors based on fluid state
+    findFlowPathAndHighlight(); // Keep this to ensure colors reflect current state
+    layer.draw(); // Draw the changes (includes updates from findFlowPathAndHighlight)
+}
+
+// After stage is initialized, allow keyboard delete
+const container = stage.container();
+container.tabIndex = 1; // make focusable
+container.style.outline = 'none';
+container.addEventListener('keydown', (evt) => {
+    if (evt.key === 'Delete' && selectedTube) {
+        deleteConnection(selectedTube);
+        deselectConnection();
     }
 });
 
-// --- Stage MouseMove Listener for Temporary Connection Line ---
-stage.on('mousemove', (e) => {
-    // Only act if a connection attempt is in progress (startPort is selected)
-    // and the temporary line object exists.
-    if (startPort !== null && tempConnectionLine !== null) {
-        // Get the absolute position of the starting port
-        const startPos = startPort.getAbsolutePosition();
-        // Get the current pointer position relative to the stage
-        const pointerPos = stage.getPointerPosition();
-
-        // Update the points of the temporary line to go from the start port
-        // to the current mouse pointer position.
-        tempConnectionLine.points([startPos.x, startPos.y, pointerPos.x, pointerPos.y]);
-
-        // Redraw the layer efficiently using batchDraw
-        layer.batchDraw();
+// --- Stage Click Listener for Background Deselect/Cancellation ---
+stage.on('click', (e) => {
+    // clicking empty stage background clears selection or cancels in-flight
+    if (e.target === stage) {
+        if (startPort !== null) {
+            cancelConnectionAttempt();
+        }
+        deselectConnection();
     }
 }); 

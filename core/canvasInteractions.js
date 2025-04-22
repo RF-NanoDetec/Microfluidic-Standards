@@ -15,16 +15,37 @@ function setupCanvasEventListeners() {
         if (e.target === stage) {
             // Visually deselect previous canvas component
             if (selectedComponent && selectedComponent instanceof Konva.Group && !selectedComponent.isPaletteItem) {
-                const border = selectedComponent.findOne('.component-border');
-                if (border) {
-                    const type = selectedComponent.getAttr('chipType');
-                    // Pumps/Outlets have no border when deselected
-                    if (type === 'outlet' || type === 'pump') {
-                        border.stroke(null);
-                        border.strokeWidth(0);
-                    } else {
-                        border.stroke(chipStroke); // Default border for chips
-                        border.strokeWidth(1);
+                const type = selectedComponent.getAttr('chipType');
+
+                if (type === 'pump' || type === 'outlet') {
+                    // Restore pump/outlet visual state (remove filter, restore border)
+                    const imageNode = selectedComponent.findOne('.pumpImage, .outletImage'); // Find either image
+                    if (imageNode) {
+                        imageNode.brightness(0); // Reset brightness
+                        imageNode.filters([]); // Clear filters
+                        // Restore default border
+                        imageNode.stroke(chipStroke); // Use chipStroke constant
+                        imageNode.strokeWidth(0.75);
+                        imageNode.cache(); // Recache after removing filter and setting stroke
+                    }
+                } else {
+                    // Restore chip visual state (fill, opacity, stroke)
+                    const border = selectedComponent.findOne('.component-border');
+                    if (border) {
+                        // Restore fill and opacity from constants (assuming constants.js is loaded)
+                        if (typeof chipRectStyle !== 'undefined') {
+                            border.fill(chipRectStyle.fill || '#d9e2ec'); // Default fallback
+                            border.opacity(chipRectStyle.opacity || 0.85);
+                        } else {
+                            // Fallback if constants aren't available globally here
+                            border.fill('#d9e2ec');
+                            border.opacity(0.85);
+                            console.warn('chipRectStyle not found, using default fill/opacity for deselection.');
+                        }
+
+                        // Restore stroke
+                        border.stroke(chipStroke); // Default border color
+                        border.strokeWidth(0.75); // Default width
                     }
                 }
             }
@@ -59,13 +80,35 @@ function setupCanvasEventListeners() {
             if (componentGroup !== selectedComponent) {
                 // Deselect previous component (if any)
                 if (selectedComponent && selectedComponent instanceof Konva.Group && !selectedComponent.isPaletteItem) {
-                    const oldBorder = selectedComponent.findOne('.component-border');
-                    if (oldBorder) {
-                        const oldType = selectedComponent.getAttr('chipType');
-                        if (oldType === 'outlet' || oldType === 'pump') {
-                            oldBorder.stroke(null); oldBorder.strokeWidth(0);
-                        } else {
-                            oldBorder.stroke(chipStroke); oldBorder.strokeWidth(1);
+                    const oldType = selectedComponent.getAttr('chipType');
+
+                    if (oldType === 'pump' || oldType === 'outlet') {
+                        // Restore pump/outlet visual state (remove filter, restore border)
+                        const oldImageNode = selectedComponent.findOne('.pumpImage, .outletImage');
+                        if (oldImageNode) {
+                            oldImageNode.brightness(0);
+                            oldImageNode.filters([]);
+                            // Restore default border
+                            oldImageNode.stroke(chipStroke);
+                            oldImageNode.strokeWidth(0.75);
+                            oldImageNode.cache();
+                        }
+                    } else {
+                        // Restore chip visual state (fill, opacity, stroke)
+                        const oldBorder = selectedComponent.findOne('.component-border');
+                        if (oldBorder) {
+                            // Restore fill and opacity
+                            if (typeof chipRectStyle !== 'undefined') {
+                                oldBorder.fill(chipRectStyle.fill || '#d9e2ec');
+                                oldBorder.opacity(chipRectStyle.opacity || 0.85);
+                            } else {
+                                oldBorder.fill('#d9e2ec');
+                                oldBorder.opacity(0.85);
+                            }
+
+                            // Restore stroke
+                            oldBorder.stroke(chipStroke); // Default border color
+                            oldBorder.strokeWidth(0.75); // Default width
                         }
                     }
                 }
@@ -73,6 +116,7 @@ function setupCanvasEventListeners() {
 
                 // Select the new component
                 selectedComponent = componentGroup;
+                const newType = selectedComponent.getAttr('chipType');
 
                 // Update the properties panel
                  if (typeof updatePropertiesPanel === 'function') {
@@ -85,11 +129,27 @@ function setupCanvasEventListeners() {
                 const selectedBox = document.querySelector('.selected-component-box');
                 if (selectedBox) selectedBox.style.display = 'flex'; // Use flex as defined for .sidebar-box
 
-                // Visually highlight the new selection
-                const newBorder = selectedComponent.findOne('.component-border');
-                if (newBorder) {
-                    newBorder.stroke('blue');
-                    newBorder.strokeWidth(2);
+                // Visually highlight the new selection based on type
+                if (newType === 'pump' || newType === 'outlet') {
+                    // Apply brightness filter and ensure border for pump/outlet image
+                    const imageNode = selectedComponent.findOne('.pumpImage, .outletImage');
+                    if (imageNode) {
+                        // Ensure standard border is applied first
+                        imageNode.stroke(chipStroke);
+                        imageNode.strokeWidth(0.75);
+                        // Apply filter
+                        imageNode.filters([Konva.Filters.Brighten]); // Apply brighten filter
+                        imageNode.brightness(-0.15); // Set brightness adjustment (-1 to 1 range)
+                        imageNode.cache(); // Cache node for filter performance
+                    }
+                } else {
+                    // Darken fill for other chips
+                    const backgroundShape = selectedComponent.findOne('.component-border');
+                    if (backgroundShape) {
+                        backgroundShape.fill('#b0becb'); // Darker fill for selection
+                        backgroundShape.strokeWidth(0.75);
+                        backgroundShape.stroke(chipStroke);
+                    }
                 }
 
                 layer.draw(); // Redraw to show highlight
