@@ -38,6 +38,16 @@ function createOutlet(x, y) {
         height: outletHeight // Pass height
     });
 
+    // Add a transparent background rect for hit detection (selection/dragging)
+    const backgroundRect = new Konva.Rect({
+        width: outletWidth,
+        height: outletHeight,
+        fill: 'transparent', // Make it invisible
+        name: 'outlet-background',
+        listening: true // Make it capture events
+    });
+    group.add(backgroundRect);
+
     // Load the SVG image using the helper
     addComponentVisual(group, { 
         type: 'image', 
@@ -48,16 +58,27 @@ function createOutlet(x, y) {
         // shadowStyle: shadowStyle, 
         svgDataUri: outletSvgDataUri 
     });
+
+    // Wait briefly for async image load, then disable listening on the image
+    setTimeout(() => {
+        const imageNode = group.findOne('.outletImage'); // Find by name
+        if (imageNode) {
+            imageNode.listening(false); // Make sure the image ITSELF doesn't capture clicks
+            console.log("Disabled listening for outlet image.");
+            group.getLayer()?.batchDraw(); // Redraw if needed
+        }
+    }, 50); // 50ms delay, adjust if needed
     
     // Similar to pump, add port after initiating image load
     const portX = outletWidth / 2;
-    const portY = 0;
+    const portY = 22;
     const portGroup = setupPortVisualsAndLogic({
         x: portX, y: portY,
         portId: 'outlet_top_in', uniqueId: itemId + '_port_in',
         mainDraggableGroup: group
     });
     group.add(portGroup);
+    portGroup.moveToTop(); // Ensure port is drawn on top of the image
 
     // --- Trigger flow update AFTER outlet is fully initialized ---
     // This might still be slightly racy depending on image load speed,

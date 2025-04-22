@@ -198,6 +198,7 @@ function setupPortVisualsAndLogic(config) {
     // --- Attach Listeners to the INNER connectionPort ---
 
     connectionPort.on('click', (e) => {
+        e.cancelBubble = true; // Prevent event from bubbling up to the main component
         const clickedPort = e.target; // left-click instead of right-click
         const clickedPortId = clickedPort.id();
         const clickedPortMainGroupId = clickedPort.getAttr('mainGroupId');
@@ -281,9 +282,7 @@ function setupPortVisualsAndLogic(config) {
                     console.log(`Connection successful: ${startPort.id()} -> ${endPort.id()} (Length: ${intendedLengthCm}cm, Resistance: ${resistance.toExponential(2)})`);
 
                     // --- Hide port visuals on successful connection ---
-                    if (startType !== 'outlet') {
-                        startPort.visible(false);
-                    }
+                    startPort.visible(false);
                     endPort.visible(false);
 
                     // --- Trigger flow update AFTER connection registered & ports hidden ---

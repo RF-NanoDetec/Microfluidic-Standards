@@ -160,15 +160,17 @@ function setupPalette() {
         const outletKonvaContainer = document.getElementById('palette-outlet-konva');
         if (outletKonvaContainer) {
             const padding = 10; // Padding inside the LOGICAL 64x64 area
-            const availableWidth = chipPreviewSize - padding; // Max width within 64x64
-            const availableHeight = chipPreviewSize - padding; // Max height within 64x64
-            let previewScale = Math.min(availableWidth / outletWidth, availableHeight / outletHeight);
-            previewScale *= 0.85; // Further shrink
+            const availableWidth = chipPreviewSize; // Restore: Use full width for scaling calc
+            const availableHeight = chipPreviewSize; // Restore: Use full height for scaling calc
+            // Restore: Scale based on height only to fill vertical space, allowing width cropping
+            let previewScale = availableHeight / outletHeight; 
+            // previewScale *= 0.85; // Keep commented: No extra shrink
             const previewWidth = outletWidth * previewScale;
-            const previewHeight = outletHeight * previewScale;
+            const previewHeight = outletHeight * previewScale; // This will be == availableHeight (64)
             // Calculate X, Y relative to the top-left of the 64x64 logical area
-            const previewX = (chipPreviewSize - previewWidth) / 2;
-            const previewY = (chipPreviewSize - previewHeight) / 2;
+            // Keep: Align right edge with container, crop left side
+            const previewX = chipPreviewSize - previewWidth + 15; // Add 5px offset to move it back to the right
+            const previewY = -6; // Shift up slightly to crop the top (approx 10%)
 
             // Pass calculated dimensions relative to 64x64. The createOutletPreview function positions the group,
             // and setupPaletteItem centers that group using centeringOffset.
