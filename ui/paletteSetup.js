@@ -1,17 +1,29 @@
 // === SECTION: Palette Setup Logic ===
 
 // Dependencies:
-// - Konva: Konva.Stage, Konva.Layer, Konva.Text
+// - Konva: Konva.Stage, Konva.Layer, Konva.Text, Konva.Easings
 // - Component Preview Functions: createStraightChipPreview, createXChipPreview, createTChipPreview, createMeanderChipPreview, createPumpPreview, createOutletPreview
 // - Sidebar Function: handlePaletteSelection (from ui/sidebar.js)
 // - Utility Function: getComponentDisplayName (from core/utils.js)
 // - Constants: chipWidth, chipHeight, itemWidth, itemHeight, outletWidth, outletHeight, outletSvgDataUri
 // - DOM Elements: #palette-straight-chip-konva, #palette-straight-chip, #palette-x-chip-konva, #palette-x-chip, #palette-t-chip-konva, #palette-t-chip, #palette-meander-chip-konva, #palette-meander-chip, #palette-pump-konva, #palette-pump, #palette-outlet-konva, #palette-outlet
 
+// --- Define shadow style for preview hover ---
+const previewHoverShadow = {
+    shadowColor: 'rgba(0,0,0,0.4)', // Slightly darker shadow
+    shadowBlur: 6,
+    shadowOffsetX: 2,
+    shadowOffsetY: 2,
+    shadowOpacity: 1, // Opacity is controlled by shadowColor rgba alpha
+    shadowEnabled: true
+};
+
 function setupPalette() {
     console.log("Setting up component palette...");
     // --- Define fixed size for palette chip Konva stages --- //
-    const chipPreviewSize = 64; // Match the CSS width/height for .palette-chip
+    const chipPreviewSize = 64; // The visible size matching CSS
+    const paletteStageRenderSize = 76; // Larger size for rendering buffer (e.g., 64 + 6*2 for shadow/scale)
+    const centeringOffset = (paletteStageRenderSize - chipPreviewSize) / 2; // Offset to center 64px content in 76px stage
 
     // --- Helper Function to Setup a Single Palette Item --- //
     function setupPaletteItem(baseId, chipType, createPreviewFunc, ...previewArgs) {
@@ -31,15 +43,20 @@ function setupPalette() {
 
         const paletteStage = new Konva.Stage({
             container: konvaContainerId,
-            width: chipPreviewSize,
-            height: chipPreviewSize,
+            width: paletteStageRenderSize,  // Use larger render size
+            height: paletteStageRenderSize, // Use larger render size
         });
         const paletteLayer = new Konva.Layer();
         paletteStage.add(paletteLayer);
 
-        // Create and add the preview shape
+        // Create the preview shape (this still uses original coords/sizes like chipWidth)
         const previewShape = createPreviewFunc(...previewArgs);
         if (previewShape) {
+            // --- POSITION the preview shape group correctly in the larger stage ---
+            // Add the centering offset to the existing position set by createPreviewFunc
+            previewShape.x(previewShape.x() + centeringOffset);
+            previewShape.y(previewShape.y() + centeringOffset);
+
             paletteLayer.add(previewShape);
              // Special handling for async previews (like images in outlets)
              // Drawing might happen within the createPreviewFunc callback
@@ -49,6 +66,48 @@ function setupPalette() {
         } else {
              console.error(`Failed to create preview for ${chipType}`);
         }
+
+        // --- NEW: Add hover effects (Revised Logic) ---
+        if (outerDiv && previewShape) {
+            outerDiv.addEventListener('mouseover', () => {
+                // 1. Scale the entire group
+                previewShape.to({
+                    scaleX: 1.08,
+                    scaleY: 1.08,
+                    duration: 0.15,
+                    easing: Konva.Easings.EaseInOut
+                });
+
+                // 2. Apply shadow ONLY to the visual-shape node(s) within the group
+                const visualNodes = previewShape.find('.visual-shape');
+                visualNodes.forEach(node => {
+                    node.setAttrs(previewHoverShadow);
+                    // Ensure visual node is slightly above channel if needed (optional)
+                    // node.moveUp(); 
+                });
+
+                paletteLayer.batchDraw();
+            });
+
+            outerDiv.addEventListener('mouseout', () => {
+                // 1. Scale the entire group back
+                previewShape.to({
+                    scaleX: 1,
+                    scaleY: 1,
+                    duration: 0.15,
+                    easing: Konva.Easings.EaseInOut
+                });
+
+                // 2. Remove shadow from the visual-shape node(s)
+                const visualNodes = previewShape.find('.visual-shape');
+                visualNodes.forEach(node => {
+                    node.shadowEnabled(false);
+                });
+
+                paletteLayer.batchDraw();
+            });
+        }
+        // --- END NEW ---
 
         // Add click listener to the outer div for selection
         if (outerDiv) {
@@ -64,8 +123,10 @@ function setupPalette() {
     }
 
     // --- Setup Individual Palette Items --- //
-    const chipOffsetX = 5; // Consistent X offset for previews
-    const chipOffsetY = 3; // Consistent Y offset for previews
+    // Offsets for *within* the 64x64 component area remain relative to that area
+    // The centeringOffset handles positioning the whole 64x64 area inside the 76x76 stage
+    const chipOffsetX = 5; // Consistent X offset for previews inside their 64x64 logical space
+    const chipOffsetY = 3; // Consistent Y offset for previews inside their 64x64 logical space
 
     // Straight Chip
     if (typeof createStraightChipPreview === 'function') {
@@ -96,20 +157,21 @@ function setupPalette() {
 
     // Outlet
     if (typeof createOutletPreview === 'function') {
-        // Outlet requires scaling calculation
         const outletKonvaContainer = document.getElementById('palette-outlet-konva');
         if (outletKonvaContainer) {
-             const padding = 10;
-             const availableWidth = chipPreviewSize - padding;
-             const availableHeight = chipPreviewSize - padding;
-             let previewScale = Math.min(availableWidth / outletWidth, availableHeight / outletHeight);
-             previewScale *= 0.85; // Further shrink
-             const previewWidth = outletWidth * previewScale;
-             const previewHeight = outletHeight * previewScale;
-             const previewX = (chipPreviewSize - previewWidth) / 2;
-             const previewY = (chipPreviewSize - previewHeight) / 2;
+            const padding = 10; // Padding inside the LOGICAL 64x64 area
+            const availableWidth = chipPreviewSize - padding; // Max width within 64x64
+            const availableHeight = chipPreviewSize - padding; // Max height within 64x64
+            let previewScale = Math.min(availableWidth / outletWidth, availableHeight / outletHeight);
+            previewScale *= 0.85; // Further shrink
+            const previewWidth = outletWidth * previewScale;
+            const previewHeight = outletHeight * previewScale;
+            // Calculate X, Y relative to the top-left of the 64x64 logical area
+            const previewX = (chipPreviewSize - previewWidth) / 2;
+            const previewY = (chipPreviewSize - previewHeight) / 2;
 
-            // Pass calculated dimensions and the SVG data URI
+            // Pass calculated dimensions relative to 64x64. The createOutletPreview function positions the group,
+            // and setupPaletteItem centers that group using centeringOffset.
             setupPaletteItem('outlet', 'outlet', createOutletPreview, previewX, previewY, previewWidth, previewHeight, outletSvgDataUri);
         } else {
             console.error("Palette container 'palette-outlet-konva' not found for scaling calculation!");

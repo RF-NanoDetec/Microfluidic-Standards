@@ -235,11 +235,7 @@ h2 {
     /* z-index: 0; */
 }
 
-/* NEW: Scale and add shadow only to the konva content on hover */
-.palette-chip:hover .konvajs-content {
-    transform: scale(1.05);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Apply shadow here */
-}
+/* REMOVED empty ruleset for .palette-chip:hover .konvajs-content */
 
 /* Position the Run Simulation button on the canvas */
 #run-simulation-btn {
