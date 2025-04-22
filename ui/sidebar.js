@@ -2,7 +2,7 @@
 // Originally from app.js
 // Dependencies:
 // - Global variables: selectedComponent, propertiesContainer, tubingInfoContainer, componentListContainer, stage, layer, connections, simulationResults
-// - Constants: MBAR_TO_PASCAL, PASCAL_TO_MBAR, PIXEL_TO_METER_SCALE, MICRO_LITERS_PER_MINUTE_FACTOR, chipWidth, chipHeight, itemWidth, itemHeight, outletWidth, outletHeight, CHANNEL_WIDTH_MICRONS, CHANNEL_DEPTH_MICRONS, LENGTH_STRAIGHT_MM, LENGTH_T_X_SEGMENT_MM, LENGTH_MEANDER_MM
+// - Constants: MBAR_TO_PASCAL, PASCAL_TO_MBAR, PIXEL_TO_METER_SCALE, MICRO_LITERS_PER_MINUTE_FACTOR, chipWidth, chipHeight, itemWidth, itemHeight, outletWidth, outletHeight, CHANNEL_WIDTH_MICRONS, CHANNEL_DEPTH_MICRONS, LENGTH_STRAIGHT_MM, LENGTH_T_X_SEGMENT_MM, LENGTH_MEANDER_MM, TUBE_INNER_RADIUS_M
 // - Utility functions (from core/utils.js): getComponentDisplayName, formatScientificNotation
 // - Helper functions (from core/simulationHelpers.js or app.js if not moved): getInternalNodeId, getSegmentId
 // - Konva objects: stage, layer
@@ -11,219 +11,262 @@
 const componentListContainer = document.getElementById('component-list-content');
 const propertiesContainer = document.getElementById('selected-component-properties');
 const tubingInfoContainer = document.getElementById('tubing-info');
+const selectedBox = document.querySelector('.selected-component-box'); // Get reference to the box itself
+const selectedBoxTitle = selectedBox ? selectedBox.querySelector('h2') : null; // Get reference to the title
 
-function updatePropertiesPanel() {
-    if (!propertiesContainer) {
-        console.error("Properties container not found!");
-            return;
-        }
+function updatePropertiesPanel(component = selectedComponent, tubeId = null) {
+    if (!propertiesContainer || !selectedBox || !selectedBoxTitle) {
+        console.error("Sidebar elements (properties container, box, or title) not found!");
+        return;
+    }
 
     propertiesContainer.innerHTML = ''; // Clear previous content
 
-    if (!selectedComponent) {
-        // Optional: Display a message if nothing is selected
-        // propertiesContainer.innerHTML = '<p>Select a component to see properties.</p>';
-        return;
-    }
+    // --- Handle Tube Selection ---
+    if (tubeId && !component) { // Check if a tube is selected AND no component is selected
+        selectedBoxTitle.textContent = 'Fluidic Tubing'; // Update title
+        const tube = layer.findOne('#' + tubeId); // Find the tube shape
+        const connData = connections.find(conn => conn.lineId === tubeId.replace('_tube', ''));
 
-    // --- Determine if selection is from palette or canvas ---
-    const isPalette = selectedComponent && selectedComponent.isPaletteItem === true;
-    const componentType = (selectedComponent && typeof selectedComponent.getAttr === 'function') ? selectedComponent.getAttr('chipType') : selectedComponent.chipType;
-    const componentId = isPalette ? null : selectedComponent.id(); // No ID for palette items
+        if (!tube || !connData) {
+            propertiesContainer.innerHTML = '<p>Error: Could not find selected tube details.</p>';
+            selectedBox.style.display = 'flex'; // Show the box even on error
+            return;
+        }
 
-    // Check if componentType is valid
-    if (!componentType) {
-        console.error("Selected component is invalid or missing chipType", selectedComponent);
-        propertiesContainer.innerHTML = '<p>Error: Invalid component selected.</p>';
-        return;
-    }
-
-    const simulationRan = !isPalette && simulationResults && Object.keys(simulationResults.pressures).length > 0 && Object.keys(simulationResults.flows).length > 0;
-
-    // --- MODIFIED: Set heading to just the component display name --- //
-    let propertiesHtml = `<h3>${getComponentDisplayName(componentType)}</h3>`;
-
-    // Display ID only for canvas components
-    if (!isPalette && componentId) {
-        propertiesHtml += `<p style="font-size: 0.8em; color: #666; margin-top: -8px; margin-bottom: 10px;">ID: ${componentId}</p>`;
-    }
-
-    // --- Add Component Description and Details ---
-    propertiesHtml += '<div class="component-details" style="margin-bottom: 15px;">'; // Container for details
-    let purpose = '';
-    let material = 'Glass'; // Default for chips
-    let dimensions = '';
-    let resistanceText = 'N/A';
-    let channelDimensionsText = ''; // <<< NEW: Initialize channel dimensions text
-
-    // Get resistance: from object if palette, from attribute if canvas
-    const resistanceValue = isPalette ? selectedComponent.resistance : ((selectedComponent && typeof selectedComponent.getAttr === 'function') ? selectedComponent.getAttr('resistance') : null);
-
-    // Calculate dimensions in mm
-    const chipDimMm = `${(chipWidth * PIXEL_TO_METER_SCALE * 1000).toFixed(1)}mm x ${(chipHeight * PIXEL_TO_METER_SCALE * 1000).toFixed(1)}mm`;
-    const pumpDimMm = `${(itemWidth * PIXEL_TO_METER_SCALE * 1000).toFixed(1)}mm x ${(itemHeight * PIXEL_TO_METER_SCALE * 1000).toFixed(1)}mm`;
-    const outletDimMm = `${(outletWidth * PIXEL_TO_METER_SCALE * 1000).toFixed(1)}mm x ${(outletHeight * PIXEL_TO_METER_SCALE * 1000).toFixed(1)}mm`;
-
-    switch (componentType) {
-        case 'straight':
-            purpose = 'Provides a simple, straight path for fluid transport between two points.';
-            dimensions = chipDimMm;
-            resistanceText = resistanceValue ? `${formatScientificNotation(resistanceValue)} Pa·s/m³` : 'Error';
-            channelDimensionsText = `${CHANNEL_WIDTH_MICRONS}µm W x ${CHANNEL_DEPTH_MICRONS}µm D x ${LENGTH_STRAIGHT_MM}mm L`;
-            break;
-        case 't-type':
-            purpose = 'Used to split one fluid stream into two, or merge two streams into one.';
-            dimensions = chipDimMm;
-            resistanceText = resistanceValue ? `${formatScientificNotation(resistanceValue)} Pa·s/m³ (per segment)` : 'Error';
-            channelDimensionsText = `${CHANNEL_WIDTH_MICRONS}µm W x ${CHANNEL_DEPTH_MICRONS}µm D x ${LENGTH_T_X_SEGMENT_MM}mm L (per segment)`;
-            break;
-        case 'x-type':
-            purpose = 'Allows for complex flow manipulation, such as mixing four streams or forming droplets.';
-            dimensions = chipDimMm;
-            resistanceText = resistanceValue ? `${formatScientificNotation(resistanceValue)} Pa·s/m³ (per segment)` : 'Error';
-            channelDimensionsText = `${CHANNEL_WIDTH_MICRONS}µm W x ${CHANNEL_DEPTH_MICRONS}µm D x ${LENGTH_T_X_SEGMENT_MM}mm L (per segment)`;
-            break;
-        case 'meander':
-            purpose = 'Increases the path length within a small area, useful for mixing, heat exchange, or increasing reaction time.';
-            dimensions = chipDimMm;
-            resistanceText = resistanceValue ? `${formatScientificNotation(resistanceValue)} Pa·s/m³` : 'Error';
-            channelDimensionsText = `${CHANNEL_WIDTH_MICRONS}µm W x ${CHANNEL_DEPTH_MICRONS}µm D x ${LENGTH_MEANDER_MM}mm L (total)`;
-            break;
-        case 'pump':
-            purpose = 'Acts as the fluid source, providing adjustable pressure to drive flow through the connected network via its four output ports.';
-            material = 'N/A'; // Pumps aren't typically glass microfluidic chips
-            dimensions = pumpDimMm;
-            resistanceText = 'N/A (Source)';
-            break;
-        case 'outlet':
-            purpose = 'Represents the exit point of the fluidic system, typically assumed to be at atmospheric pressure (0 Pa relative).';
-            material = 'N/A'; // Outlets aren't typically glass microfluidic chips
-            dimensions = outletDimMm;
-            resistanceText = 'N/A (Sink)';
-            break;
-        default:
-            purpose = 'Unknown component type.';
-            material = 'N/A';
-            dimensions = 'N/A';
-            resistanceText = 'N/A';
-    }
-
-    propertiesHtml += `<p class="component-purpose">${purpose}</p>`;
-
-    propertiesHtml += '<div class="properties-grid">'; // Start grid container
-
-    if (material !== 'N/A') {
-        propertiesHtml += `<div class="prop-row"><span class="prop-label">Material:</span><span class="prop-value">${material}</span></div>`;
-    }
-    if (componentType !== 'pump' && componentType !== 'outlet') {
-        propertiesHtml += `<div class="prop-row"><span class="prop-label">Chip Dim.:</span><span class="prop-value">${dimensions}</span></div>`;
-
-        if (channelDimensionsText) {
-            let valueHtml = channelDimensionsText;
-            let subValueHtml = '';
-            if (valueHtml.includes('(per segment)')) {
-                valueHtml = valueHtml.replace('(per segment)', '').trim();
-                subValueHtml = '<span class="prop-sub-value">(per segment)</span>';
-            } else if (valueHtml.includes('(total)')) {
-                 valueHtml = valueHtml.replace('(total)', '').trim();
-                 subValueHtml = '<span class="prop-sub-value">(total)</span>';
+        // Determine intended length based on pump connection
+        const group1 = stage.findOne('#' + connData.fromChip);
+        const group2 = stage.findOne('#' + connData.toChip);
+        let intendedLengthCm = 5; // Default length (user requested 5cm)
+        if (group1 && group2) {
+            if (group1.getAttr('chipType') === 'pump' || group2.getAttr('chipType') === 'pump') {
+                intendedLengthCm = 30;
             }
-            propertiesHtml += `<div class="prop-row"><span class="prop-label">Channel Dim.:</span><span class="prop-value">${valueHtml}${subValueHtml}</span></div>`;
-        }
-    }
-    if (resistanceText !== 'N/A (Source)' && resistanceText !== 'N/A (Sink)') {
-         let valueHtml = resistanceText;
-         let subValueHtml = '';
-         if (valueHtml.includes('(per segment)')) {
-             valueHtml = valueHtml.replace('(per segment)', '').trim();
-             subValueHtml = '<span class="prop-sub-value">(per segment)</span>';
-         }
-         propertiesHtml += `<div class="prop-row"><span class="prop-label">Resistance:</span><span class="prop-value">${valueHtml}${subValueHtml}</span></div>`;
-    }
-
-    propertiesHtml += '</div>'; // End grid container
-
-    propertiesHtml += '</div>'; // End component-details
-
-    if (!isPalette && componentType === 'pump') {
-        propertiesHtml += '<hr style="margin: 15px 0;">';
-        propertiesHtml += '<h4 class="subheading">Port Pressures (mbar)</h4>';
-        const portPressuresPa = selectedComponent.getAttr('portPressures') || {};
-        const ports = selectedComponent.find('.connectionPort');
-
-        if (ports.length === 0) {
-            propertiesHtml += '<p>No ports found.</p>';
         } else {
-            ports.forEach((port, index) => {
-                const portId = port.id();
-                const currentPressurePa = portPressuresPa[portId] || 0;
-                const currentPressureMbar = currentPressurePa / MBAR_TO_PASCAL;
-
-                propertiesHtml += `
-                    <div class="property-item">
-                        <label for="pressure_${portId}">Port ${index + 1}:</label>
-                        <input type="number" id="pressure_${portId}" data-port-id="${portId}" value="${currentPressureMbar}" step="1">
-                    </div>
-                `;
-            });
-        }
-    }
-
-    if (simulationRan && (componentType === 't-type' || componentType === 'x-type')) {
-        propertiesHtml += '<hr style="margin: 15px 0;">';
-        propertiesHtml += '<h4 class="subheading">Internal Junction Simulation</h4>';
-
-        // Ensure getInternalNodeId exists and is accessible
-        const internalNodeId = typeof getInternalNodeId === 'function' ? getInternalNodeId(componentId) : `internal_${componentId}`; // Fallback if function not found
-        const internalPressurePa = simulationResults.pressures[internalNodeId];
-
-        if (internalPressurePa !== undefined && isFinite(internalPressurePa)) {
-            const internalPressureMbar = internalPressurePa / MBAR_TO_PASCAL;
-            propertiesHtml += `<div class="property-item"><span>Junction Pressure: ${internalPressureMbar.toFixed(1)} mbar</span></div>`;
-        } else {
-            propertiesHtml += `<div class="property-item"><span>Junction Pressure: N/A</span></div>`;
+            console.warn("Could not find groups to determine tube length for:", connData.lineId);
         }
 
-        propertiesHtml += '<h5 class="subheading-small">Segment Flows (to/from Junction):</h5>';
-        const ports = selectedComponent.find('.connectionPort');
-        if (ports.length > 0) {
-            propertiesHtml += '<ul class="simulation-list">';
-            ports.forEach(port => {
-                const portId = port.id();
-                const portGenericId = port.getAttr('portId');
-                // Ensure getSegmentId exists and is accessible
-                 const segmentId = typeof getSegmentId === 'function' ? getSegmentId(portId, internalNodeId) : `${portId}_${internalNodeId}`; // Fallback
+        // Get resistance (calculated from visual length)
+        const resistance = connData.resistance;
+        // Get inner dimension used in calculation (from constants.js)
+        const innerRadiusM = typeof TUBE_INNER_RADIUS_M !== 'undefined' ? TUBE_INNER_RADIUS_M : 0.000254;
+        const innerDiameterInches = (innerRadiusM * 2 * 1000 / 25.4).toFixed(3); // Convert m to inches
 
-                const flowData = simulationResults.flows[segmentId];
-                let flowText = "N/A";
+        let propertiesHtml = `<p style="font-size: 0.8em; color: #666; margin-top: -8px; margin-bottom: 10px;">ID: ${connData.lineId}</p>`;
+        propertiesHtml += '<div class="properties-grid">'; // Use grid for consistency
+        propertiesHtml += `<div class="prop-row"><span class="prop-label">Length:</span><span class="prop-value">${intendedLengthCm} cm</span></div>`; // Display 5 or 30 cm
+        propertiesHtml += `<div class="prop-row"><span class="prop-label">Resistance:</span><span class="prop-value">${formatScientificNotation(resistance)} Pa·s/m³</span></div>`; // Display resistance from visual length
+        propertiesHtml += `<div class="prop-row"><span class="prop-label">Material:</span><span class="prop-value">Silicone</span></div>`;
+        propertiesHtml += `<div class="prop-row"><span class="prop-label">Dimensions:</span><span class="prop-value">1/16 inch OD, ${innerDiameterInches} inch ID</span></div>`;
+        propertiesHtml += '</div>'; // End grid
 
-                if (flowData && isFinite(flowData.flow)) {
-                    const flowRateM3ps = flowData.flow;
-                    const flowRateUlMin = flowRateM3ps * MICRO_LITERS_PER_MINUTE_FACTOR;
-                    let directionIndicator = "";
-                    if (Math.abs(flowRateM3ps) > 1e-15) {
-                        if (flowData.to === internalNodeId) {
-                            directionIndicator = "+"; // Flow INTO junction
-                        } else if (flowData.from === internalNodeId) {
-                            directionIndicator = "-"; // Flow OUT OF junction
-                        }
-                    }
-                    flowText = `${directionIndicator}${Math.abs(flowRateUlMin).toFixed(2)} µL/min`;
+        propertiesContainer.innerHTML = propertiesHtml;
+        selectedBox.style.display = 'flex'; // Ensure the box is visible
+
+    // --- Handle Component Selection ---
+    } else if (component) { // Use the passed 'component' parameter
+        selectedBoxTitle.textContent = 'Selected Component'; // Reset title
+        // --- Determine if selection is from palette or canvas ---
+        const isPalette = component.isPaletteItem === true;
+        const componentType = (typeof component.getAttr === 'function') ? component.getAttr('chipType') : component.chipType;
+        const componentId = isPalette ? null : component.id(); // No ID for palette items
+
+        // Check if componentType is valid
+        if (!componentType) {
+            console.error("Selected component is invalid or missing chipType", component);
+            propertiesContainer.innerHTML = '<p>Error: Invalid component selected.</p>';
+            selectedBox.style.display = 'flex';
+            return;
+        }
+
+        const simulationRan = !isPalette && simulationResults && Object.keys(simulationResults.pressures).length > 0 && Object.keys(simulationResults.flows).length > 0;
+
+        // --- MODIFIED: Set heading to just the component display name --- //
+        let propertiesHtml = `<h3>${getComponentDisplayName(componentType)}</h3>`;
+
+        // Display ID only for canvas components
+        if (!isPalette && componentId) {
+            propertiesHtml += `<p style="font-size: 0.8em; color: #666; margin-top: -8px; margin-bottom: 10px;">ID: ${componentId}</p>`;
+        }
+
+        // --- Add Component Description and Details ---
+        propertiesHtml += '<div class="component-details" style="margin-bottom: 15px;">'; // Container for details
+        let purpose = '';
+        let material = 'Glass'; // Default for chips
+        let dimensions = '';
+        let resistanceText = 'N/A';
+        let channelDimensionsText = ''; // <<< NEW: Initialize channel dimensions text
+
+        // Get resistance: from object if palette, from attribute if canvas
+        const resistanceValue = isPalette ? component.resistance : ((component && typeof component.getAttr === 'function') ? component.getAttr('resistance') : null);
+
+        // Calculate dimensions in mm
+        const chipDimMm = `${(chipWidth * (typeof PIXEL_TO_METER_SCALE !== 'undefined' ? PIXEL_TO_METER_SCALE : 0.0001) * 1000).toFixed(1)}mm x ${(chipHeight * (typeof PIXEL_TO_METER_SCALE !== 'undefined' ? PIXEL_TO_METER_SCALE : 0.0001) * 1000).toFixed(1)}mm`;
+        const pumpDimMm = `${(itemWidth * (typeof PIXEL_TO_METER_SCALE !== 'undefined' ? PIXEL_TO_METER_SCALE : 0.0001) * 1000).toFixed(1)}mm x ${(itemHeight * (typeof PIXEL_TO_METER_SCALE !== 'undefined' ? PIXEL_TO_METER_SCALE : 0.0001) * 1000).toFixed(1)}mm`;
+        const outletDimMm = `${(outletWidth * (typeof PIXEL_TO_METER_SCALE !== 'undefined' ? PIXEL_TO_METER_SCALE : 0.0001) * 1000).toFixed(1)}mm x ${(outletHeight * (typeof PIXEL_TO_METER_SCALE !== 'undefined' ? PIXEL_TO_METER_SCALE : 0.0001) * 1000).toFixed(1)}mm`;
+
+        switch (componentType) {
+            case 'straight':
+                purpose = 'Provides a simple, straight path for fluid transport between two points.';
+                dimensions = chipDimMm;
+                resistanceText = resistanceValue ? `${formatScientificNotation(resistanceValue)} Pa·s/m³` : 'Error';
+                channelDimensionsText = `${CHANNEL_WIDTH_MICRONS}µm W x ${CHANNEL_DEPTH_MICRONS}µm D x ${LENGTH_STRAIGHT_MM}mm L`;
+                break;
+            case 't-type':
+                purpose = 'Used to split one fluid stream into two, or merge two streams into one.';
+                dimensions = chipDimMm;
+                resistanceText = resistanceValue ? `${formatScientificNotation(resistanceValue)} Pa·s/m³ (per segment)` : 'Error';
+                channelDimensionsText = `${CHANNEL_WIDTH_MICRONS}µm W x ${CHANNEL_DEPTH_MICRONS}µm D x ${LENGTH_T_X_SEGMENT_MM}mm L (per segment)`;
+                break;
+            case 'x-type':
+                purpose = 'Allows for complex flow manipulation, such as mixing four streams or forming droplets.';
+                dimensions = chipDimMm;
+                resistanceText = resistanceValue ? `${formatScientificNotation(resistanceValue)} Pa·s/m³ (per segment)` : 'Error';
+                channelDimensionsText = `${CHANNEL_WIDTH_MICRONS}µm W x ${CHANNEL_DEPTH_MICRONS}µm D x ${LENGTH_T_X_SEGMENT_MM}mm L (per segment)`;
+                break;
+            case 'meander':
+                purpose = 'Increases the path length within a small area, useful for mixing, heat exchange, or increasing reaction time.';
+                dimensions = chipDimMm;
+                resistanceText = resistanceValue ? `${formatScientificNotation(resistanceValue)} Pa·s/m³` : 'Error';
+                channelDimensionsText = `${CHANNEL_WIDTH_MICRONS}µm W x ${CHANNEL_DEPTH_MICRONS}µm D x ${LENGTH_MEANDER_MM}mm L (total)`;
+                break;
+            case 'pump':
+                purpose = 'Acts as the fluid source, providing adjustable pressure to drive flow through the connected network via its four output ports.';
+                material = 'N/A'; // Pumps aren't typically glass microfluidic chips
+                dimensions = pumpDimMm;
+                resistanceText = 'N/A (Source)';
+                break;
+            case 'outlet':
+                purpose = 'Represents the exit point of the fluidic system, typically assumed to be at atmospheric pressure (0 Pa relative).';
+                material = 'N/A'; // Outlets aren't typically glass microfluidic chips
+                dimensions = outletDimMm;
+                resistanceText = 'N/A (Sink)';
+                break;
+            default:
+                purpose = 'Unknown component type.';
+                material = 'N/A';
+                dimensions = 'N/A';
+                resistanceText = 'N/A';
+        }
+
+        propertiesHtml += `<p class="component-purpose">${purpose}</p>`;
+
+        propertiesHtml += '<div class="properties-grid">'; // Start grid container
+
+        if (material !== 'N/A') {
+            propertiesHtml += `<div class="prop-row"><span class="prop-label">Material:</span><span class="prop-value">${material}</span></div>`;
+        }
+        if (componentType !== 'pump' && componentType !== 'outlet') {
+            propertiesHtml += `<div class="prop-row"><span class="prop-label">Chip Dim.:</span><span class="prop-value">${dimensions}</span></div>`;
+
+            if (channelDimensionsText) {
+                let valueHtml = channelDimensionsText;
+                let subValueHtml = '';
+                if (valueHtml.includes('(per segment)')) {
+                    valueHtml = valueHtml.replace('(per segment)', '').trim();
+                    subValueHtml = '<span class="prop-sub-value">(per segment)</span>';
+                } else if (valueHtml.includes('(total)')) {
+                     valueHtml = valueHtml.replace('(total)', '').trim();
+                     subValueHtml = '<span class="prop-sub-value">(total)</span>';
                 }
-                propertiesHtml += `<li>${portGenericId}: ${flowText}</li>`;
-            });
-            propertiesHtml += '</ul>';
-        } else {
-             propertiesHtml += '<p class="simulation-list-empty">No ports found for flow details.</p>';
+                propertiesHtml += `<div class="prop-row"><span class="prop-label">Channel Dim.:</span><span class="prop-value">${valueHtml}${subValueHtml}</span></div>`;
+            }
         }
-    }
+        if (resistanceText !== 'N/A (Source)' && resistanceText !== 'N/A (Sink)') {
+             let valueHtml = resistanceText;
+             let subValueHtml = '';
+             if (valueHtml.includes('(per segment)')) {
+                 valueHtml = valueHtml.replace('(per segment)', '').trim();
+                 subValueHtml = '<span class="prop-sub-value">(per segment)</span>';
+             }
+             propertiesHtml += `<div class="prop-row"><span class="prop-label">Resistance:</span><span class="prop-value">${valueHtml}${subValueHtml}</span></div>`;
+        }
 
-    propertiesContainer.innerHTML = propertiesHtml;
+        propertiesHtml += '</div>'; // End grid container
 
-    if (!isPalette && componentType === 'pump') {
-        propertiesContainer.querySelectorAll('input[type="number"]').forEach(input => {
-            input.addEventListener('change', handlePressureInputChange);
-        });
+        propertiesHtml += '</div>'; // End component-details
+
+        if (!isPalette && componentType === 'pump') {
+            propertiesHtml += '<hr style="margin: 15px 0;">';
+            propertiesHtml += '<h4 class="subheading">Port Pressures (mbar)</h4>';
+            const portPressuresPa = component.getAttr('portPressures') || {};
+            const ports = component.find('.connectionPort');
+
+            if (ports.length === 0) {
+                propertiesHtml += '<p>No ports found.</p>';
+            } else {
+                ports.forEach((port, index) => {
+                    const portId = port.id();
+                    const currentPressurePa = portPressuresPa[portId] || 0;
+                    const currentPressureMbar = currentPressurePa / MBAR_TO_PASCAL;
+
+                    propertiesHtml += `
+                        <div class="property-item">
+                            <label for="pressure_${portId}">Port ${index + 1}:</label>
+                            <input type="number" id="pressure_${portId}" data-port-id="${portId}" value="${currentPressureMbar.toFixed(1)}" step="1">
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        if (simulationRan && (componentType === 't-type' || componentType === 'x-type')) {
+            propertiesHtml += '<hr style="margin: 15px 0;">';
+            propertiesHtml += '<h4 class="subheading">Internal Junction Simulation</h4>';
+
+            // Ensure getInternalNodeId exists and is accessible
+            const internalNodeId = typeof getInternalNodeId === 'function' ? getInternalNodeId(componentId) : `internal_${componentId}`; // Fallback if function not found
+            const internalPressurePa = simulationResults.pressures[internalNodeId];
+
+            if (internalPressurePa !== undefined && isFinite(internalPressurePa)) {
+                const internalPressureMbar = internalPressurePa / MBAR_TO_PASCAL;
+                propertiesHtml += `<div class="property-item"><span>Junction Pressure: ${internalPressureMbar.toFixed(1)} mbar</span></div>`;
+            } else {
+                propertiesHtml += `<div class="property-item"><span>Junction Pressure: N/A</span></div>`;
+            }
+
+            propertiesHtml += '<h5 class="subheading-small">Segment Flows (to/from Junction):</h5>';
+            const ports = component.find('.connectionPort');
+            if (ports.length > 0) {
+                propertiesHtml += '<ul class="simulation-list">';
+                ports.forEach(port => {
+                    const portId = port.id();
+                    const portGenericId = port.getAttr('portId');
+                    // Ensure getSegmentId exists and is accessible
+                     const segmentId = typeof getSegmentId === 'function' ? getSegmentId(portId, internalNodeId) : `${portId}_${internalNodeId}`; // Fallback
+
+                    const flowData = simulationResults.flows[segmentId];
+                    let flowText = "N/A";
+
+                    if (flowData && isFinite(flowData.flow)) {
+                        const flowRateM3ps = flowData.flow;
+                        const flowRateUlMin = flowRateM3ps * MICRO_LITERS_PER_MINUTE_FACTOR;
+                        let directionIndicator = "";
+                        if (Math.abs(flowRateM3ps) > 1e-15) {
+                            if (flowData.to === internalNodeId) {
+                                directionIndicator = "+"; // Flow INTO junction
+                            } else if (flowData.from === internalNodeId) {
+                                directionIndicator = "-"; // Flow OUT OF junction
+                            }
+                        }
+                        flowText = `${directionIndicator}${Math.abs(flowRateUlMin).toFixed(2)} µL/min`;
+                    }
+                    propertiesHtml += `<li>${portGenericId}: ${flowText}</li>`;
+                });
+                propertiesHtml += '</ul>';
+            } else {
+                 propertiesHtml += '<p class="simulation-list-empty">No ports found for flow details.</p>';
+            }
+        }
+
+        propertiesContainer.innerHTML = propertiesHtml;
+        selectedBox.style.display = 'flex'; // Ensure box is visible
+
+    // --- Handle No Selection ---
+    } else {
+        selectedBoxTitle.textContent = 'Selected Component'; // Reset title
+        propertiesContainer.innerHTML = '<p>Select a component or connection for details.</p>'; // Default message
+        selectedBox.style.display = 'none'; // Hide the box if nothing is selected
     }
 }
 
@@ -356,4 +399,15 @@ function handlePaletteSelection(chipType) {
 
     // Update the properties panel to show info for the selected palette item
     updatePropertiesPanel();
+}
+
+// Add event listener for pump pressure changes
+// Make sure this listener is added only once, maybe outside the function or checked
+if (!propertiesContainer.dataset.listenerAttached) {
+    propertiesContainer.addEventListener('change', (event) => {
+        if (event.target.type === 'number' && event.target.id.startsWith('pressure_')) {
+            handlePressureInputChange(event);
+        }
+    });
+    propertiesContainer.dataset.listenerAttached = 'true';
 } 

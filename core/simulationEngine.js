@@ -16,10 +16,11 @@ function getSegmentId(nodeId1, nodeId2) {
 }
 
 // --- Utility function to calculate tubing resistance ---
-function calculateTubingResistance(lengthInPixels) {
-    if (lengthInPixels <= 0) return 0;
-    const lengthInMeters = lengthInPixels * PIXEL_TO_METER_SCALE;
+// MODIFIED: Accepts length in METERS directly
+function calculateTubingResistance(lengthInMeters) {
+    if (lengthInMeters <= 0) return 0;
     // R = (8 * mu * L) / (pi * r^4) = POISEUILLE_CONSTANT * L
+    // No pixel conversion needed here anymore
     return POISEUILLE_CONSTANT * lengthInMeters;
 }
 

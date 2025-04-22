@@ -18,15 +18,16 @@ function setupCanvasEventListeners() {
                 const type = selectedComponent.getAttr('chipType');
 
                 if (type === 'pump' || type === 'outlet') {
-                    // Restore pump/outlet visual state (remove filter, restore border)
-                    const imageNode = selectedComponent.findOne('.pumpImage, .outletImage'); // Find either image
+                    // Restore original image
+                    const imageNode = selectedComponent.findOne('.pumpImage, .outletImage');
                     if (imageNode) {
-                        imageNode.brightness(0); // Reset brightness
-                        imageNode.filters([]); // Clear filters
-                        // Restore default border
-                        imageNode.stroke(chipStroke); // Use chipStroke constant
-                        imageNode.strokeWidth(0.75);
-                        imageNode.cache(); // Recache after removing filter and setting stroke
+                        const originalUri = (type === 'pump') ? pumpSvgDataUri : outletSvgDataUri;
+                        const originalImage = new window.Image();
+                        originalImage.src = originalUri;
+                        // Assign the new image object to the Konva node
+                        // Konva might need the image to load first, but often handles data URIs quickly
+                        // If flicker occurs, add originalImage.onload = () => { imageNode.image(originalImage); layer.batchDraw(); }
+                        imageNode.image(originalImage);
                     }
                 } else {
                     // Restore chip visual state (fill, opacity, stroke)
@@ -83,15 +84,15 @@ function setupCanvasEventListeners() {
                     const oldType = selectedComponent.getAttr('chipType');
 
                     if (oldType === 'pump' || oldType === 'outlet') {
-                        // Restore pump/outlet visual state (remove filter, restore border)
+                        // Restore original image
                         const oldImageNode = selectedComponent.findOne('.pumpImage, .outletImage');
                         if (oldImageNode) {
-                            oldImageNode.brightness(0);
-                            oldImageNode.filters([]);
-                            // Restore default border
-                            oldImageNode.stroke(chipStroke);
-                            oldImageNode.strokeWidth(0.75);
-                            oldImageNode.cache();
+                            const originalUri = (oldType === 'pump') ? pumpSvgDataUri : outletSvgDataUri;
+                            const originalImage = new window.Image();
+                            originalImage.src = originalUri;
+                             // Assign the new image object to the Konva node
+                            // If flicker occurs, add originalImage.onload = () => { oldImageNode.image(originalImage); layer.batchDraw(); }
+                            oldImageNode.image(originalImage);
                         }
                     } else {
                         // Restore chip visual state (fill, opacity, stroke)
@@ -131,16 +132,15 @@ function setupCanvasEventListeners() {
 
                 // Visually highlight the new selection based on type
                 if (newType === 'pump' || newType === 'outlet') {
-                    // Apply brightness filter and ensure border for pump/outlet image
+                    // Swap to the darker SVG version
                     const imageNode = selectedComponent.findOne('.pumpImage, .outletImage');
                     if (imageNode) {
-                        // Ensure standard border is applied first
-                        imageNode.stroke(chipStroke);
-                        imageNode.strokeWidth(0.75);
-                        // Apply filter
-                        imageNode.filters([Konva.Filters.Brighten]); // Apply brighten filter
-                        imageNode.brightness(-0.15); // Set brightness adjustment (-1 to 1 range)
-                        imageNode.cache(); // Cache node for filter performance
+                        const selectedUri = (newType === 'pump') ? pumpSvgDataUri_Selected : outletSvgDataUri_Selected;
+                        const selectedImage = new window.Image();
+                        selectedImage.src = selectedUri;
+                         // Assign the new image object to the Konva node
+                         // If flicker occurs, add selectedImage.onload = () => { imageNode.image(selectedImage); layer.batchDraw(); }
+                        imageNode.image(selectedImage);
                     }
                 } else {
                     // Darken fill for other chips

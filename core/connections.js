@@ -260,15 +260,25 @@ function setupPortVisualsAndLogic(config) {
                     });
                     layer.add(outlinePath);
                     layer.add(tubePath);
+
+                    // Determine intended length based on pump connection
+                    let intendedLengthCm = 5; // Default 5cm
+                    if (startType === 'pump' || endType === 'pump') {
+                        intendedLengthCm = 30;
+                    }
+                    const intendedLengthMeters = intendedLengthCm / 100;
+                    // Calculate resistance based on INTENDED length
+                    const resistance = calculateTubingResistance(intendedLengthMeters);
+
                     connections.push({
                         fromChip: startMainGroupId,
                         fromPort: startPort.id(),
                         toChip: endMainGroupId,
                         toPort: endPort.id(),
                         lineId: baseConnectionId,
-                        resistance: calculateTubingResistance(tubePath.getLength()) // Note: calculateTubingResistance needs to be accessible
+                        resistance: resistance // Store resistance based on intended length
                     });
-                    console.log(`Connection successful: ${startPort.id()} -> ${endPort.id()} (Resistance: ${calculateTubingResistance(tubePath.getLength()).toExponential(2)})`);
+                    console.log(`Connection successful: ${startPort.id()} -> ${endPort.id()} (Length: ${intendedLengthCm}cm, Resistance: ${resistance.toExponential(2)})`);
 
                     // --- Hide port visuals on successful connection ---
                     if (startType !== 'outlet') {
@@ -433,6 +443,9 @@ function updateConnectionLines(movedChipGroup) {
                     tubePath.data(newPathData);
                     outlinePath.data(newPathData);
 
+                    // REMOVED: Resistance recalculation based on visual length.
+                    // Resistance is now fixed based on intended physical length.
+                    /*
                     // --- Recalculate and update resistance ---
                     const newLengthPx = tubePath.getLength();
                     const newResistance = calculateTubingResistance(newLengthPx); // Note: calculateTubingResistance needs to be accessible
@@ -444,7 +457,7 @@ function updateConnectionLines(movedChipGroup) {
                         console.warn("Could not find connection in array to update resistance:", conn.lineId);
                     }
                     // --- End resistance update ---
-
+                    */
                 } else {
                     console.warn("Could not recalculate path data for connection:", conn.lineId);
                 }
@@ -473,8 +486,9 @@ function updateSelectedSidebar(connectionId) {
 // Select a tube path: highlight and notify
 function selectConnection(path) {
     deselectConnection(); // Deselect any previously selected tube first
-    selectedTube = path;
+    selectedTube = path; // Set global selectedTube
 
+    // --- Selection Visuals ---
     // Store original visual state
     const originalStroke = path.stroke();
     const originalWidth = path.strokeWidth();
@@ -483,53 +497,72 @@ function selectConnection(path) {
 
     // Determine the selected stroke color based on the original
     let selectedStrokeColor;
-    const defaultFill = typeof channelFillColor !== 'undefined' ? channelFillColor : '#e3f2fd'; // Fallback
-    const highlightFill = typeof flowHighlightColor !== 'undefined' ? flowHighlightColor : '#007bff'; // Fallback
-    const selectedDefaultFill = '#b0becb';  // Darker light blue
-    const selectedHighlightFill = '#0056b3'; // Darker strong blue
+    const defaultFill = typeof channelFillColor !== 'undefined' ? channelFillColor : '#e3f2fd';
+    const highlightFill = typeof flowHighlightColor !== 'undefined' ? flowHighlightColor : '#007bff';
+    const selectedDefaultFill = '#b0becb';
+    const selectedHighlightFill = '#0056b3';
 
     if (originalStroke === defaultFill) {
         selectedStrokeColor = selectedDefaultFill;
     } else if (originalStroke === highlightFill) {
         selectedStrokeColor = selectedHighlightFill;
     } else {
-        // If it's some other color (e.g., from simulation gradient), use the darker highlight color as default selected state
         selectedStrokeColor = selectedHighlightFill;
     }
 
     // Apply selected state visuals
     path.stroke(selectedStrokeColor);
-    // Ensure standard width (remove previous +2 logic)
     path.strokeWidth(typeof channelFillWidth !== 'undefined' ? channelFillWidth : 3.5);
+    // --- End Selection Visuals ---
 
-    // Notify sidebar etc.
+
+    // --- Update Sidebar ---
+    // Call updatePropertiesPanel with null for component and the tube ID
+    if (typeof updatePropertiesPanel === 'function') {
+        updatePropertiesPanel(null, path.id());
+    } else {
+        console.warn("updatePropertiesPanel function not found.");
+    }
+    // --- End Update Sidebar ---
+
+    // Notify other listeners if necessary (original code)
     updateSelectedSidebar(path.id().replace('_tube', ''));
     layer.draw(); // Draw the changes
 }
 
 // Deselect any selected tube
 function deselectConnection() {
-    if (selectedTube) {
+    const tubeToDeselect = selectedTube; // Store reference before clearing
+    if (tubeToDeselect) {
         // Restore original visual state
-        const originalStroke = selectedTube.getAttr('originalStroke');
-        const originalWidth = selectedTube.getAttr('originalStrokeWidth');
+        const originalStroke = tubeToDeselect.getAttr('originalStroke');
+        const originalWidth = tubeToDeselect.getAttr('originalStrokeWidth');
 
         if (originalStroke) {
-            selectedTube.stroke(originalStroke);
+            tubeToDeselect.stroke(originalStroke);
         }
         if (originalWidth) {
-            selectedTube.strokeWidth(originalWidth);
+            tubeToDeselect.strokeWidth(originalWidth);
         } else {
-            // Fallback if original width wasn't stored
-            selectedTube.strokeWidth(typeof channelFillWidth !== 'undefined' ? channelFillWidth : 3.5);
+            tubeToDeselect.strokeWidth(typeof channelFillWidth !== 'undefined' ? channelFillWidth : 3.5);
         }
 
         // Clear stored attributes
-        selectedTube.setAttr('originalStroke', null);
-        selectedTube.setAttr('originalStrokeWidth', null);
+        tubeToDeselect.setAttr('originalStroke', null);
+        tubeToDeselect.setAttr('originalStrokeWidth', null);
 
-        selectedTube = null;
+        selectedTube = null; // Clear global selectedTube
     }
+
+    // --- Update Sidebar ---
+    // Only clear the panel if a tube WAS deselected (tubeToDeselect is not null)
+    // AND if no component is currently selected (check the global selectedComponent)
+    if (tubeToDeselect && !selectedComponent && typeof updatePropertiesPanel === 'function') {
+         updatePropertiesPanel(null, null); // Clear panel
+    }
+    // --- End Update Sidebar ---
+
+    // Notify other listeners (original code)
     updateSelectedSidebar(null);
     // Re-run flow highlighting to restore channel colors based on fluid state
     findFlowPathAndHighlight(); // Keep this to ensure colors reflect current state
@@ -548,12 +581,31 @@ container.addEventListener('keydown', (evt) => {
 });
 
 // --- Stage Click Listener for Background Deselect/Cancellation ---
+// MODIFIED: Ensure sidebar update on background deselect
 stage.on('click', (e) => {
-    // clicking empty stage background clears selection or cancels in-flight
-    if (e.target === stage) {
+    if (e.target === stage) { // Clicking empty stage background
+        let connectionCancelled = false;
         if (startPort !== null) {
             cancelConnectionAttempt();
+            connectionCancelled = true;
         }
-        deselectConnection();
+
+        let tubeDeselected = false;
+        if (selectedTube) {
+             deselectConnection(); // This will call updatePropertiesPanel if needed
+             tubeDeselected = true;
+        }
+
+        // If deselecting a component via background click, ensure panel updates
+        // The component deselection logic is in canvasInteractions.js
+        // It should call updatePropertiesPanel(), so we don't need to here.
+        // However, we MUST ensure that if we just deselected a tube, we don't
+        // immediately overwrite the cleared panel by a component deselection call.
+        // The component deselection logic in canvasInteractions should ideally check
+        // if selectedTube is null before updating the panel.
+
+        // If NO tube was deselected and NO connection was cancelled, 
+        // then the click might be deselecting a component. Let the component
+        // deselection logic handle the sidebar update.
     }
 }); 
