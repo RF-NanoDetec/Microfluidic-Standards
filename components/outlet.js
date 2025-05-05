@@ -18,9 +18,6 @@ function createOutletPreview(x, y, width, height, svgDataUri) {
         svgDataUri: svgDataUri // Use passed-in URI
     });
 
-    // Image adding and drawing handled within addComponentVisual callback
-    // Let's add an explicit draw call here for the preview's layer
-    setTimeout(() => group.getLayer()?.draw(), 0); // Ensure draw happens after helper call
     return group;
 }
 

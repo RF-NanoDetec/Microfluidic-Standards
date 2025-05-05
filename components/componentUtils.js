@@ -39,16 +39,47 @@ function addComponentVisual(group, config) {
     } else if (config.type === 'image' && config.svgDataUri) {
         // Ensure name includes 'visual-shape'
         const name = (config.name || '') + ' visual-shape'; // Add visual-shape to image name
-        Konva.Image.fromURL(config.svgDataUri, (imageNode) => {
-            imageNode.setAttrs({
-                width: config.width,
-                height: config.height,
-                name: name, // Use the modified name
-                ...(config.shadowStyle || {}) // Apply shared shadow styles safely
+        
+        // Create a temporary image to get natural dimensions for aspect ratio calculation
+        const tempImg = new Image();
+        tempImg.onload = function() {
+            const naturalWidth = tempImg.width;
+            const naturalHeight = tempImg.height;
+            const aspectRatio = naturalWidth / naturalHeight;
+            
+            // Calculate dimensions that preserve aspect ratio
+            let finalWidth = config.width;
+            let finalHeight = config.height;
+            
+            // Use the smaller dimension to maintain aspect ratio within the container
+            if (config.width / config.height > aspectRatio) {
+                // Container is wider than needed, constrain by height
+                finalWidth = config.height * aspectRatio;
+            } else {
+                // Container is taller than needed, constrain by width
+                finalHeight = config.width / aspectRatio;
+            }
+            
+            // Center the image in the allocated space
+            const offsetX = (config.width - finalWidth) / 2;
+            const offsetY = (config.height - finalHeight) / 2;
+            
+            Konva.Image.fromURL(config.svgDataUri, (imageNode) => {
+                imageNode.setAttrs({
+                    width: finalWidth,
+                    height: finalHeight,
+                    x: offsetX,
+                    y: offsetY,
+                    name: name, // Use the modified name
+                    ...(config.shadowStyle || {}) // Apply shared shadow styles safely
+                });
+                group.add(imageNode);
+                group.getLayer()?.batchDraw();
             });
-            group.add(imageNode);
-            group.getLayer()?.batchDraw();
-        });
+        };
+        
+        // Start loading the image to get dimensions
+        tempImg.src = config.svgDataUri;
     } else {
         console.error("Invalid config for addComponentVisual:", config);
     }

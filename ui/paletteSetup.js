@@ -159,21 +159,14 @@ function setupPalette() {
     if (typeof createOutletPreview === 'function') {
         const outletKonvaContainer = document.getElementById('palette-outlet-konva');
         if (outletKonvaContainer) {
-            const padding = 10; // Padding inside the LOGICAL 64x64 area
-            const availableWidth = chipPreviewSize; // Restore: Use full width for scaling calc
-            const availableHeight = chipPreviewSize; // Restore: Use full height for scaling calc
-            // Restore: Scale based on height only to fill vertical space, allowing width cropping
-            let previewScale = availableHeight / outletHeight; 
-            // previewScale *= 0.85; // Keep commented: No extra shrink
-            const previewWidth = outletWidth * previewScale;
-            const previewHeight = outletHeight * previewScale; // This will be == availableHeight (64)
-            // Calculate X, Y relative to the top-left of the 64x64 logical area
-            // Keep: Align right edge with container, crop left side
-            const previewX = chipPreviewSize - previewWidth + 15; // Add 5px offset to move it back to the right
-            const previewY = -6; // Shift up slightly to crop the top (approx 10%)
+            // Simplify the outlet rendering approach for cross-browser consistency
+            // Use a consistent scale without complex calculations
+            const previewX = 0; // Center the outlet in the preview container
+            const previewY = 0;
+            const previewWidth = chipPreviewSize; // Use the full width of the preview area
+            const previewHeight = chipPreviewSize; // Use the full height of the preview area
 
-            // Pass calculated dimensions relative to 64x64. The createOutletPreview function positions the group,
-            // and setupPaletteItem centers that group using centeringOffset.
+            // Let the component utils handle aspect ratio preservation
             setupPaletteItem('outlet', 'outlet', createOutletPreview, previewX, previewY, previewWidth, previewHeight, outletSvgDataUri);
         } else {
             console.error("Palette container 'palette-outlet-konva' not found for scaling calculation!");
