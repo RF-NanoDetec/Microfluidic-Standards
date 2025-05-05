@@ -56,6 +56,9 @@
       // Create preview if not present yet
       createFloatingPreview(type);
       updateFloatingPreviewPos(touch);
+
+      const canvasContainer = document.getElementById('canvas-container');
+      if(canvasContainer){ canvasContainer.style.zIndex = '60'; }
     });
   });
 
@@ -171,6 +174,8 @@
     if (floatingPreview) { floatingPreview.destroy(); floatingPreview = null; }
     const layer = getLayer();
     if (layer) layer.batchDraw();
+    const canvasContainer = document.getElementById('canvas-container');
+    if(canvasContainer){ canvasContainer.style.zIndex = ''; }
   }
 
   // --------------------------

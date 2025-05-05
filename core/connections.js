@@ -186,7 +186,7 @@ function setupPortVisualsAndLogic(config) {
         strokeWidth: 1,
         portId: config.portId,
         id: config.uniqueId,
-        hitRadius: 24, // larger invisible touch target
+        hitRadius: 32, // larger invisible touch target
         mainGroupId: config.mainDraggableGroup.id(),
         name: 'connectionPort', // <<< Add name for reliable finding
         offsetX: -visualOffsetX,  // Offset the visual appearance only
