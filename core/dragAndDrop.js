@@ -11,6 +11,12 @@
 let dragChipType = null; // Tracks the type of chip being dragged
 
 function setupDragAndDropListeners() {
+    // Skip HTML5 DnD on touch devices – we will use tap-to-place in touchPlacement.js
+    if (window.isTouch) {
+        console.log('[DnD] Touch device detected → skipping desktop drag-and-drop listeners.');
+        return;
+    }
+
     // Select the inner konva divs which are now draggable
     document.querySelectorAll('[id$="-konva"][draggable="true"]').forEach(konvaDiv => {
         if (!konvaDiv) return;

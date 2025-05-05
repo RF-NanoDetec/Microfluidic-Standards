@@ -17,6 +17,10 @@ const layer = new Konva.Layer();
 // 3. Add the layer to the stage
 stage.add(layer);
 
+// Expose globally for other scripts (touchPlacement etc.)
+window.stage = stage;
+window.layer = layer;
+
 // 4. Initial Draw (optional, stage might resize later)
 layer.draw();
 console.log('Konva stage and layer initialized.'); 
