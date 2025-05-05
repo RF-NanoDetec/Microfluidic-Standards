@@ -7,6 +7,9 @@
 // - Helper functions (from core/simulationHelpers.js or app.js if not moved): getInternalNodeId, getSegmentId
 // - Konva objects: stage, layer
 
+// --- NEW: Global reference for the Konva pump pressure panel ---
+let currentPumpPanel = null; // Holds the Konva.Group of the currently displayed panel
+
 // --- DOM Element References ---
 const componentListContainer = document.getElementById('component-list-content');
 const propertiesContainer = document.getElementById('selected-component-properties');
@@ -15,6 +18,9 @@ const selectedBox = document.querySelector('.selected-component-box'); // Get re
 const selectedBoxTitle = selectedBox ? selectedBox.querySelector('h2') : null; // Get reference to the title
 
 function updatePropertiesPanel(component = selectedComponent, tubeId = null) {
+    // --- NEW: Remove any existing Konva pump panel ---
+    removePumpPanel(); // Clear the on-canvas panel whenever selection changes
+
     if (!propertiesContainer || !selectedBox || !selectedBoxTitle) {
         console.error("Sidebar elements (properties container, box, or title) not found!");
         return;
@@ -198,16 +204,20 @@ function updatePropertiesPanel(component = selectedComponent, tubeId = null) {
                 ports.forEach((port, index) => {
                     const portId = port.id();
                     const currentPressurePa = portPressuresPa[portId] || 0;
-                    const currentPressureMbar = currentPressurePa / MBAR_TO_PASCAL;
+                    const currentPressureMbar = Math.round(currentPressurePa / MBAR_TO_PASCAL).toString(); // Convert to rounded integer mbar string
 
                     propertiesHtml += `
                         <div class="property-item">
                             <label for="pressure_${portId}">Port ${index + 1}:</label>
-                            <input type="number" id="pressure_${portId}" data-port-id="${portId}" value="${currentPressureMbar.toFixed(1)}" step="1">
+                            <input type="number" id="pressure_${portId}" data-port-id="${portId}" value="${currentPressureMbar}" step="1">
                         </div>
                     `;
                 });
             }
+            // --- NEW: Create the Konva panel for the pump ---
+            // Ensure this happens *after* the sidebar HTML is potentially updated by handlePressureInputChange if needed
+            // Use a small timeout to ensure DOM/Konva state is stable after potential sidebar updates
+             setTimeout(() => createOrUpdatePumpPanel(component), 0);
         }
 
         if (simulationRan && (componentType === 't-type' || componentType === 'x-type')) {
@@ -410,4 +420,394 @@ if (!propertiesContainer.dataset.listenerAttached) {
         }
     });
     propertiesContainer.dataset.listenerAttached = 'true';
-} 
+}
+
+// --- NEW: Pump Panel Functions ---
+
+/**
+ * Removes the currently displayed Konva pump pressure panel from the stage.
+ */
+function removePumpPanel() {
+    if (currentPumpPanel) {
+        // Optional: Add fade-out animation later
+        currentPumpPanel.destroy(); // Remove the group and its children
+        currentPumpPanel = null;
+        // Ensure the layer redraws to reflect the removal
+        if (typeof layer !== 'undefined' && layer) { // Check if layer is defined
+             layer.batchDraw(); // Use batchDraw for efficiency
+        } else {
+            console.warn("Cannot redraw layer; 'layer' is not accessible in removePumpPanel.");
+        }
+    }
+}
+
+
+/**
+ * Creates or updates the Konva panel displaying pressure inputs near the selected pump.
+ * @param {Konva.Group} pumpGroup The selected pump group.
+ */
+function createOrUpdatePumpPanel(pumpGroup) {
+    // Check required globals exist
+    if (typeof layer === 'undefined' || !layer || typeof stage === 'undefined' || !stage) {
+        console.error("Konva layer or stage not available for pump panel.");
+        return;
+    }
+     // Check pumpGroup validity
+    if (!pumpGroup || typeof pumpGroup.getAttr !== 'function' || pumpGroup.getAttr('chipType') !== 'pump') {
+        console.warn("createOrUpdatePumpPanel called with invalid target:", pumpGroup);
+        return;
+    }
+
+
+    // --- Remove existing panel first (safety check) ---
+    removePumpPanel(); // Should be redundant if called correctly, but good practice
+
+    // --- Panel Configuration (More Minimal) ---
+    const panelPadding = 3; // Reduced
+    const labelHeight = 15; // Reduced
+    const valueWidth = 30; // Reduced (for ~4 digits)
+    const labelWidth = 15; // Reduced significantly ("X:")
+    const rowSpacing = 1;
+
+    // --- Get Pump Info ---
+    // Use getClientRect relative to the stage for reliable positioning
+    const pumpRect = pumpGroup.getClientRect({ relativeTo: stage });
+    const portPressuresPa = pumpGroup.getAttr('portPressures') || {};
+    const ports = pumpGroup.find('.connectionPort'); // Assumes ports have this class/name
+
+    if (ports.length === 0) return; // No ports, no panel needed
+
+    // --- Create Panel Group ---
+    const panelGroup = new Konva.Group({
+        // x: pumpRect.x + pumpRect.width + panelPadding, // Default Position to the right - Set later
+        // y: pumpRect.y + panelOffsetY,                  // Default Position slightly above - Set later
+        opacity: 0, // Start invisible for fade-in
+    });
+    panelGroup.name('pumpPressurePanel'); // Identify the panel
+
+    // --- Calculate Width First ---
+    const totalPanelWidth = labelWidth + valueWidth + (3 * panelPadding);
+
+    // --- Create Title Text (to get actual height) ---
+    const titleText = new Konva.Text({
+        x: panelPadding,
+        y: panelPadding,
+        text: "Pressures (mbar)",
+        fontSize: 9, // Smaller than values
+        fontFamily: 'Arial',
+        fontStyle: 'italic',
+        fill: '#000000', // Black
+        width: totalPanelWidth - 2 * panelPadding,
+        align: 'center'
+    });
+    const titleHeight = titleText.height() + panelPadding; // Actual height needed for the title + spacing below it
+
+    // --- Calculate Total Height based on Actual Title Height ---
+    const rowsHeight = ports.length * (labelHeight + rowSpacing) - rowSpacing;
+    const totalPanelHeight = titleHeight + rowsHeight + (2 * panelPadding);
+
+    // --- Create and Add Background FIRST ---
+    panelGroup.add(new Konva.Rect({
+        width: totalPanelWidth,
+        height: totalPanelHeight,
+        fill: 'rgba(255, 255, 255, 0.85)',
+        stroke: '#cccccc',
+        strokeWidth: 1,
+        cornerRadius: 3,
+        shadowColor: 'black',
+        shadowBlur: 5,
+        shadowOffset: { x: 2, y: 2 },
+        shadowOpacity: 0.3
+    }));
+
+    // --- Add Title NOW ---
+    panelGroup.add(titleText);
+
+    // --- Create Labels and Value Texts (Adjust Y positions for title) ---
+    ports.forEach((port, index) => {
+        const portId = port.id();
+        const currentPressurePa = portPressuresPa[portId] || 0;
+        const currentPressureMbar = Math.round(currentPressurePa / MBAR_TO_PASCAL).toString();
+
+        const yPos = titleHeight + panelPadding + index * (labelHeight + rowSpacing);
+
+        // Label Text (Simplified "X:")
+        const label = new Konva.Text({
+            x: panelPadding,
+            y: yPos + 2,
+            text: `${index + 1}:`, // Simplified Label
+            fontSize: 10, // Reduced font size
+            fontFamily: 'Arial',
+            fill: '#333',
+            width: labelWidth,
+            height: labelHeight
+        });
+        panelGroup.add(label);
+
+        // --- Create Background Highlight for Value (initially hidden) ---
+        const valueBgHighlight = new Konva.Rect({
+            x: panelPadding + labelWidth + panelPadding - 2, // Start slightly before text
+            y: yPos,
+            width: valueWidth + 4, // Slightly wider than text
+            height: labelHeight,
+            fill: 'rgba(0, 0, 0, 0.05)', // Very light grey highlight
+            cornerRadius: 2,
+            visible: false,
+            name: 'valueBgHighlight' // Name for finding later
+        });
+        panelGroup.add(valueBgHighlight); // Add BEHIND text
+
+        // Pressure Value Text (editable)
+        const valueText = new Konva.Text({
+            x: panelPadding + labelWidth + panelPadding,
+            y: yPos + 2,
+            text: currentPressureMbar, // Already rounded integer string
+            portId: portId,
+            fontSize: 10, // Reduced font size
+            fontFamily: 'Arial',
+            fill: '#0056b3', // Original blue color
+            width: valueWidth,
+            align: 'right',
+            height: labelHeight,
+            name: 'pressureValueText', // Name to find these elements
+            hitStrokeWidth: 6 // Make it easier to tap/click
+        });
+        panelGroup.add(valueText);
+
+        // --- NEW: Add Event Listener for Editing ---
+        valueText.on('click tap', (e) => {
+             // Prevent click from propagating to stage if needed (e.g., deselecting)
+            e.cancelBubble = true;
+
+            // Prevent creating multiple inputs if already editing
+            if (document.getElementById('konva-pump-pressure-input')) {
+                return;
+            }
+
+            createPumpPressureInput(valueText, pumpGroup);
+        });
+
+        // --- NEW: Add Hover Effects for Interactivity ---
+        const originalFill = valueText.fill(); // Store original color
+        const hoverFill = '#007bff'; // Brighter blue for hover
+
+        valueText.on('mouseenter', () => {
+            if (stage && !document.getElementById('konva-pump-pressure-input')) { // Only hover if not editing
+                stage.container().style.cursor = 'text';
+                valueText.fill(hoverFill);
+                valueBgHighlight.visible(true); // Show background highlight
+                if (layer) layer.batchDraw();
+            }
+        });
+
+        valueText.on('mouseleave', () => {
+            if (stage && !document.getElementById('konva-pump-pressure-input')) { // Only reset if not editing
+                stage.container().style.cursor = 'default';
+                valueText.fill(originalFill);
+                valueBgHighlight.visible(false); // Hide background highlight
+                 if (layer) layer.batchDraw();
+            }
+        });
+
+    });
+
+     // --- Adjust Position if Off-Screen (Default Top-Left) ---
+    const stageWidth = stage.width();
+    const stageHeight = stage.height(); // Needed for bottom check
+
+    // --- Adjust Position if Off-Screen (Default Top-Left) ---
+    let finalX = pumpRect.x - totalPanelWidth - panelPadding; // Default LEFT
+    let finalY = pumpRect.y; // Default TOP alignment
+
+    // Check left boundary
+    if (finalX < 0) {
+        finalX = pumpRect.x + pumpRect.width + panelPadding; // Move to RIGHT as fallback
+    }
+    // Check right boundary (if moved to right)
+    if (finalX + totalPanelWidth > stageWidth) {
+         // If right is also off-screen, try sticking to left edge first
+         if (pumpRect.x - totalPanelWidth - panelPadding >=0) {
+             finalX = pumpRect.x - totalPanelWidth - panelPadding;
+         } else {
+             finalX = panelPadding; // Stick to left edge as last resort if left fails
+         }
+         // Or stick to right edge? Let's stick to left for now.
+         // finalX = stageWidth - totalPanelWidth - panelPadding;
+    }
+
+    // Check top boundary
+    if (finalY < 0) {
+        finalY = pumpRect.y + pumpRect.height + panelPadding; // Move below
+    }
+     // Check bottom boundary (if moved below or initially placed)
+    if (finalY + totalPanelHeight > stageHeight) {
+        finalY = stageHeight - totalPanelHeight - panelPadding; // Stick near bottom edge
+        // Potentially re-check top boundary if stage is very short
+        if (finalY < 0) finalY = panelPadding;
+    }
+
+    panelGroup.x(finalX);
+    panelGroup.y(finalY);
+
+    // --- Add to Layer and Animate ---
+    layer.add(panelGroup);
+    currentPumpPanel = panelGroup; // Store reference
+
+    panelGroup.to({
+        opacity: 1,
+        duration: 0.2, // Short fade-in
+        onFinish: () => {
+             if (typeof layer !== 'undefined' && layer) layer.batchDraw(); // Draw after animation completes
+        }
+    });
+    // Initial draw might be needed if animation is very short or not perceived
+    if (typeof layer !== 'undefined' && layer) layer.batchDraw();
+}
+
+
+/**
+ * NEW: Creates and manages a temporary HTML input overlay for editing pump pressure on canvas.
+ * @param {Konva.Text} textNode The Konva.Text node that was clicked.
+ * @param {Konva.Group} pumpGroup The parent pump group.
+ */
+function createPumpPressureInput(textNode, pumpGroup) {
+    if (!stage || !layer) {
+        console.error("Stage or Layer not available for input creation.");
+        return;
+    }
+
+    const textPosition = textNode.getAbsolutePosition();
+    const stageBox = stage.container().getBoundingClientRect();
+    const areaPosition = {
+        x: stageBox.left + textPosition.x,
+        y: stageBox.top + textPosition.y,
+    };
+
+    // --- Create Input Element ---
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.step = '1'; // Only whole numbers
+    input.min = '0'; // Assume pressure can't be negative? Adjust if needed.
+    input.id = 'konva-pump-pressure-input'; // Unique ID for easy removal
+    input.value = textNode.text(); // Initial value from Konva text
+    input.style.position = 'absolute';
+    input.style.left = areaPosition.x + 'px';
+    input.style.top = areaPosition.y + 'px';
+    input.style.width = textNode.width() + 'px'; // Match Konva text width
+    input.style.height = textNode.height() + 'px'; // Match Konva text height
+    input.style.fontSize = textNode.fontSize() + 'px';
+    input.style.fontFamily = textNode.fontFamily();
+    input.style.border = '1px solid #666';
+    input.style.padding = '0px'; // Adjust as needed
+    input.style.margin = '0px';
+    input.style.textAlign = textNode.align();
+    input.style.boxSizing = 'border-box'; // Include border in width/height
+
+    // --- NEW: Add CSS to hide number input spinners ---
+    input.style.setProperty('-moz-appearance', 'textfield'); // Firefox
+    input.style.setProperty('appearance', 'textfield'); // Standard
+    const style = document.createElement('style');
+    style.id = 'konva-input-spinner-style'; // ID to prevent duplicates
+    style.textContent = `
+        #konva-pump-pressure-input::-webkit-outer-spin-button,
+        #konva-pump-pressure-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+    `;
+    if (!document.getElementById(style.id)) {
+        document.head.appendChild(style);
+    }
+    // --- End spinner hiding styles ---
+
+    document.body.appendChild(input);
+
+    // --- Visual Changes During Edit ---
+    // Ensure hover highlight is visible during edit
+    const bgHighlight = textNode.parent.findOne('.valueBgHighlight', (node) => node.y() === textNode.y()); // Find highlight by Y pos
+    if (bgHighlight) bgHighlight.visible(true);
+    textNode.hide();
+    if(stage) stage.container().style.cursor = 'text'; // Keep text cursor
+    layer.draw(); // Use simple draw as batchDraw might wait
+
+    input.focus();
+    input.select();
+
+    // --- Event Handlers for Input ---
+    const finishEdit = (saveChanges) => {
+        if (!document.body.contains(input)) return; // Already removed
+
+        if (saveChanges) {
+            const newValueMbar = parseInt(input.value, 10);
+
+            // Basic Validation
+            if (!isNaN(newValueMbar) && newValueMbar >= 0) { // Check if it's a non-negative integer
+                const portId = textNode.getAttr('portId');
+                const currentPressures = pumpGroup.getAttr('portPressures') || {};
+                const newPressurePa = newValueMbar * MBAR_TO_PASCAL;
+
+                // Update if value actually changed
+                if (currentPressures[portId] !== newPressurePa) {
+                    currentPressures[portId] = newPressurePa;
+                    pumpGroup.setAttr('portPressures', currentPressures);
+
+                    // Update Konva Text
+                    textNode.text(newValueMbar.toString());
+
+                    // Update Sidebar Input (if it exists)
+                    // Ensure propertiesContainer is accessible (might need to pass it or query DOM)
+                    const sidebarInput = document.getElementById(`pressure_${portId}`);
+                    if (sidebarInput) {
+                        sidebarInput.value = newValueMbar;
+                    }
+
+                    console.log(`Updated pressure (canvas) for ${pumpGroup.id()} port ${portId} to ${newValueMbar} mbar`);
+
+                    // Optional: Trigger simulation update here if needed
+                    // runSimulation();
+                }
+            } else {
+                console.warn("Invalid pressure input:", input.value);
+                // Revert Konva text (value didn't change)
+                 textNode.text(textNode.text()); // No change needed technically
+            }
+        } else {
+            // Cancelled (Escape key) - no changes needed
+            // Revert Konva text visual state only
+             textNode.text(textNode.text());
+        }
+
+        // Cleanup
+        document.body.removeChild(input);
+        // Remove the spinner style if no other inputs are active (optional, maybe keep it)
+        // if (!document.querySelector('input[id^="konva-pump-pressure-input"]')) {
+        //     const styleToRemove = document.getElementById('konva-input-spinner-style');
+        //     if (styleToRemove) styleToRemove.remove();
+        // }
+        textNode.show();
+        // Reset hover state explicitly
+        const bgHighlight = textNode.parent.findOne('.valueBgHighlight', (node) => node.y() === textNode.y());
+        if (bgHighlight) bgHighlight.visible(false);
+        textNode.fill(originalFill); // Use originalFill associated with this specific text node if needed
+        if (stage) stage.container().style.cursor = 'default';
+
+        layer.batchDraw(); // Redraw layer to show text again
+    };
+
+    input.addEventListener('blur', () => {
+        // Delay slightly to allow click on another valueText before blur finishes
+        setTimeout(() => finishEdit(true), 100);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault(); // Prevent form submission if applicable
+            finishEdit(true);
+        } else if (e.key === 'Escape') {
+            finishEdit(false);
+        }
+    });
+}
+
+
+// --- End NEW Pump Panel Functions --- 
