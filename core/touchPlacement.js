@@ -14,6 +14,8 @@
   let currentTool = null;      // e.g. 'pump', 'straight' …
   let floatingPreview = null;  // Konva.Group that follows the finger
 
+  const PREVIEW_OFFSET_Y = 40; // show object above finger
+
   // Cache references to global Konva stage/layer (initialised in konvaSetup.js)
   // We need to wait until they exist because this script loads before them.
   function getStage() {
@@ -125,10 +127,31 @@
     }
 
     preview.opacity(0.6);
-    preview.listening(false); // non-interactive
-    floatingPreview = preview;
-    layer.add(preview);
+    preview.listening(false);
+
+    // --- Add glowing halo around preview ---
+    const halo = new Konva.Rect({
+      x: -4,
+      y: -4,
+      width: preview.width() + 8,
+      height: preview.height() + 8,
+      stroke: '#00b0ff',
+      strokeWidth: 3,
+      cornerRadius: 6,
+      opacity: 0.8,
+      listening: false
+    });
+
+    const ghostGroup = new Konva.Group();
+    ghostGroup.add(halo);
+    ghostGroup.add(preview);
+
+    floatingPreview = ghostGroup;
+    layer.add(ghostGroup);
     layer.batchDraw();
+
+    // Light haptic feedback where supported
+    if (navigator.vibrate) navigator.vibrate(10);
   }
 
   function updateFloatingPreviewPos(touch) {
@@ -136,7 +159,7 @@
     if (floatingPreview) {
       floatingPreview.position({
         x: stagePos.x - floatingPreview.width() / 2,
-        y: stagePos.y - floatingPreview.height() / 2
+        y: stagePos.y - floatingPreview.height() / 2 - PREVIEW_OFFSET_Y
       });
       const layer = getLayer();
       if (layer) layer.batchDraw();
@@ -181,6 +204,8 @@
       if (typeof findFlowPathAndHighlight === 'function') findFlowPathAndHighlight();
 
       layer.draw();
+
+      if (navigator.vibrate) navigator.vibrate(10); // confirm placement
     }
   }
 })(); 

@@ -177,11 +177,13 @@ function setupPortVisualsAndLogic(config) {
         visualOffsetY = 6;   // Move down
     }
 
+    // Add this after determining visual offset and before creating connectionPort
+    const effectiveRadius = (window.isTouch ? portRadius + 6 : portRadius);
+
     // Add the center connection point (the actual interactive port)
-    // Keep the hit detection and connection point at (0,0)
     const connectionPort = new Konva.Circle({
-        x: 0, y: 0,  // Keep the actual port at center for connections
-        radius: portRadius,
+        x: 0, y: 0,
+        radius: effectiveRadius,
         fill: portColor,
         stroke: '#2c3e50', // Dark blue-grey outline
         strokeWidth: 1,

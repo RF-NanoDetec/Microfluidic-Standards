@@ -6,6 +6,31 @@
 // - UI Update Functions: updatePropertiesPanel, updateComponentList, calculateAndDisplayTubing
 // - Constants: chipStroke
 
+// Add global selection halo helpers near top after imports
+let currentSelectionHalo = null;
+function addSelectionHalo(group){
+    if(!layer || !group) return;
+    removeSelectionHalo();
+    const rect = group.getClientRect({ relativeTo: layer });
+    currentSelectionHalo = new Konva.Rect({
+        x: rect.x - 4,
+        y: rect.y - 4,
+        width: rect.width + 8,
+        height: rect.height + 8,
+        stroke: '#ff9800',
+        strokeWidth: 4,
+        dash: [6,4],
+        listening: false,
+        id: group.id() + '_halo'
+    });
+    layer.add(currentSelectionHalo);
+    currentSelectionHalo.moveToBottom();
+    currentSelectionHalo.to({ opacity: 0.2, duration: 0.6, yoyo: true, repeat: -1 });
+}
+function removeSelectionHalo(){
+    if(currentSelectionHalo){ currentSelectionHalo.destroy(); currentSelectionHalo = null; layer.batchDraw(); }
+}
+
 function setupCanvasEventListeners() {
     console.log("Setting up Canvas Event Listeners...");
 
@@ -66,6 +91,7 @@ function setupCanvasEventListeners() {
             if (selectedBox) selectedBox.style.display = 'none';
 
             layer.draw(); // Redraw layer to remove highlight
+            removeSelectionHalo();
             return; // Stop processing
         }
 
@@ -151,6 +177,8 @@ function setupCanvasEventListeners() {
                         backgroundShape.stroke(chipStroke);
                     }
                 }
+
+                addSelectionHalo(selectedComponent);
 
                 layer.draw(); // Redraw to show highlight
             }
