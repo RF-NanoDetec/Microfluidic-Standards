@@ -177,25 +177,28 @@ function setupPortVisualsAndLogic(config) {
         visualOffsetY = 6;   // Move down
     }
 
-    // Add this after determining visual offset and before creating connectionPort
-    const effectiveRadius = (window.isTouch ? portRadius + 6 : portRadius);
-
     // Add the center connection point (the actual interactive port)
     const connectionPort = new Konva.Circle({
         x: 0, y: 0,
-        radius: effectiveRadius,
+        radius: portRadius, // keep visual size consistent on all devices
         fill: portColor,
         stroke: '#2c3e50', // Dark blue-grey outline
         strokeWidth: 1,
         portId: config.portId,
         id: config.uniqueId,
-        hitRadius: 15,
+        hitRadius: 24, // larger invisible touch target
         mainGroupId: config.mainDraggableGroup.id(),
         name: 'connectionPort', // <<< Add name for reliable finding
         offsetX: -visualOffsetX,  // Offset the visual appearance only
         offsetY: -visualOffsetY   // Offset the visual appearance only
     });
     portVisualGroup.add(connectionPort);
+
+    // Ensure touch devices receive the same logic via 'tap'
+    connectionPort.on('tap', (ev) => {
+        // Re-dispatch as click to reuse the existing logic
+        connectionPort.fire('click', ev);
+    });
 
     // --- Attach Listeners to the INNER connectionPort ---
 

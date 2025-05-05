@@ -14,7 +14,7 @@
   let currentTool = null;      // e.g. 'pump', 'straight' …
   let floatingPreview = null;  // Konva.Group that follows the finger
 
-  const PREVIEW_OFFSET_Y = 40; // show object above finger
+  const PREVIEW_OFFSET_Y = 80; // show object well above finger
 
   // Cache references to global Konva stage/layer (initialised in konvaSetup.js)
   // We need to wait until they exist because this script loads before them.
@@ -131,14 +131,14 @@
 
     // --- Add glowing halo around preview ---
     const halo = new Konva.Rect({
-      x: -4,
-      y: -4,
-      width: preview.width() + 8,
-      height: preview.height() + 8,
-      stroke: '#00b0ff',
-      strokeWidth: 3,
-      cornerRadius: 6,
-      opacity: 0.8,
+      x: -6,
+      y: -6,
+      width: preview.width() + 12,
+      height: preview.height() + 12,
+      stroke: 'rgba(255,230,0,0.9)',
+      strokeWidth: 5,
+      cornerRadius: 8,
+      opacity: 1,
       listening: false
     });
 
