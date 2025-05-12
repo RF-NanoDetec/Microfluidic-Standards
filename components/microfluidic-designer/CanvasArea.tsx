@@ -31,8 +31,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Trash2, PlayCircle, RotateCcw } from 'lucide-react';
 import { KonvaEventObject } from 'konva/lib/Node';
-import { testSimulationWithSimpleSetup } from '@/lib/microfluidic-designer/simulationEngine';
 import FlowDisplayLegend from './canvas/FlowDisplayLegend';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 // NEW: Type for flow display mode
 export type FlowDisplayMode = 'velocity' | 'rate';
@@ -87,6 +88,11 @@ interface CanvasAreaProps {
   runSimulation: () => void;
   resetSimulation: () => void;
   simulationInProgress: boolean;
+  // New props for inspection/flow mode
+  inspectionMode: 'none' | 'pressure' | 'flow';
+  setInspectionMode: React.Dispatch<React.SetStateAction<'none' | 'pressure' | 'flow'>>;
+  flowDisplayMode: 'rate' | 'velocity';
+  setFlowDisplayMode: React.Dispatch<React.SetStateAction<'rate' | 'velocity'>>;
 }
 
 // Helper to convert flow rate in m³/s to µL/min for display
@@ -161,16 +167,17 @@ export default function CanvasArea({
   onClearCanvas,
   runSimulation,
   resetSimulation,
-  simulationInProgress
+  simulationInProgress,
+  inspectionMode,
+  setInspectionMode,
+  flowDisplayMode,
+  setFlowDisplayMode
 }: CanvasAreaProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [stageDimensions, setStageDimensions] = useState({ width: 100, height: 100 });
   const containerRef = useRef<HTMLDivElement>(null);
   const stageContainerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
-
-  // NEW: State for flow display mode
-  const [flowDisplayMode, setFlowDisplayMode] = useState<FlowDisplayMode>('rate'); // TEMP: Force rate mode
 
   // Calculate min/max flow velocities or rates from simulation results for dynamic scaling
   const minMaxFlowValues = useMemo(() => {
@@ -194,14 +201,14 @@ export default function CanvasArea({
       const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
 
       if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
-        if (flowDisplayMode === 'velocity') {
+        if (inspectionMode === 'flow' && flowDisplayMode === 'velocity') {
           const tubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === conn.tubingTypeId);
           if (tubingType && tubingType.innerRadiusMeters > 0) {
             const areaM2 = Math.PI * Math.pow(tubingType.innerRadiusMeters, 2);
             const velocity = flowRateM3s / areaM2;
             allValues.push(Math.abs(velocity));
           }
-        } else { // flowDisplayMode === 'rate'
+        } else if (inspectionMode === 'flow' && flowDisplayMode === 'rate') {
           allValues.push(Math.abs(flowRateM3s));
         }
       }
@@ -217,7 +224,7 @@ export default function CanvasArea({
         const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
 
         if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
-          if (flowDisplayMode === 'velocity') {
+          if (inspectionMode === 'flow' && flowDisplayMode === 'velocity') {
             if (item.currentChannelWidthMicrons > 0 && item.currentChannelDepthMicrons > 0) {
               const widthM = item.currentChannelWidthMicrons * 1e-6;
               const heightM = item.currentChannelDepthMicrons * 1e-6;
@@ -225,7 +232,7 @@ export default function CanvasArea({
               const velocity = flowRateM3s / areaM2;
               allValues.push(Math.abs(velocity));
             }
-          } else { // flowDisplayMode === 'rate'
+          } else if (inspectionMode === 'flow' && flowDisplayMode === 'rate') {
             allValues.push(Math.abs(flowRateM3s));
           }
         }
@@ -255,7 +262,7 @@ export default function CanvasArea({
       min: minValue, 
       max: maxValue, 
     };
-  }, [simulationResults, connections, droppedItems, flowDisplayMode]);
+  }, [simulationResults, connections, droppedItems, inspectionMode, flowDisplayMode]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -413,22 +420,22 @@ export default function CanvasArea({
         if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
           let displayValue: number | undefined = undefined;
           
-          if (flowDisplayMode === 'velocity') {
+          if (inspectionMode === 'flow' && flowDisplayMode === 'velocity') {
             if (item.currentChannelWidthMicrons > 0 && item.currentChannelDepthMicrons > 0) {
               const widthM = item.currentChannelWidthMicrons * 1e-6;
               const heightM = item.currentChannelDepthMicrons * 1e-6;
               const areaM2 = widthM * heightM;
               displayValue = flowRateM3s / areaM2;
             }
-          } else { // 'rate'
+          } else if (inspectionMode === 'flow' && flowDisplayMode === 'rate') {
             displayValue = flowRateM3s;
           }
           
           // Restore dynamic color calculation
-          const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
+          const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, inspectionMode === 'flow' ? 'velocity' : 'rate');
 
           const tooltipText = displayValue !== undefined 
-            ? (flowDisplayMode === 'velocity' ? formatFlowVelocityForDisplay(displayValue) : formatFlowRateForDisplay(flowRateM3s)) 
+            ? (inspectionMode === 'flow' ? formatFlowVelocityForDisplay(displayValue) : formatFlowRateForDisplay(flowRateM3s)) 
             : 'No flow data';
 
           flowElements.push(
@@ -490,23 +497,23 @@ export default function CanvasArea({
           
           let displayValue: number | undefined = undefined;
           if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
-            if (flowDisplayMode === 'velocity') {
+            if (inspectionMode === 'flow' && flowDisplayMode === 'velocity') {
               const widthM = (item.currentJunctionWidthMicrons || item.currentChannelWidthMicrons) * 1e-6;
               const heightM = (item.currentJunctionDepthMicrons || item.currentChannelDepthMicrons) * 1e-6;
               if (widthM > 0 && heightM > 0) {
                  const areaM2 = widthM * heightM;
                  displayValue = flowRateM3s / areaM2;
               }
-            } else { // 'rate'
+            } else if (inspectionMode === 'flow' && flowDisplayMode === 'rate') {
               displayValue = flowRateM3s;
             }
           }
 
           // Restore dynamic color calculation
-          const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
+          const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, inspectionMode === 'flow' ? 'velocity' : 'rate');
           
           const tooltipText = displayValue !== undefined 
-            ? (flowDisplayMode === 'velocity' ? formatFlowVelocityForDisplay(displayValue) : formatFlowRateForDisplay(flowRateM3s)) 
+            ? (inspectionMode === 'flow' ? formatFlowVelocityForDisplay(displayValue) : formatFlowRateForDisplay(flowRateM3s)) 
             : 'No flow data';
 
           const portAbsPos = { x: item.x + port.x, y: item.y + port.y };
@@ -567,7 +574,7 @@ export default function CanvasArea({
   };
 
   // Modify the renderSimulationVisuals function
-  const renderSimulationVisuals = () => {
+  const renderSimulationVisuals = (mode: 'none' | 'pressure' | 'flow' = inspectionMode) => {
     const flowVisuals: React.ReactNode[] = [];
     const pressureNodeVisuals: React.ReactNode[] = [];
 
@@ -605,7 +612,7 @@ export default function CanvasArea({
         // 3. Calculate Display Value (Velocity or Rate)
         let displayValueForTube: number | undefined = undefined;
         if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
-            if (flowDisplayMode === 'velocity') {
+            if (mode === 'flow') {
                 const tubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === conn.tubingTypeId);
                 if (tubingType && tubingType.innerRadiusMeters > 0) {
                     const areaM2 = Math.PI * Math.pow(tubingType.innerRadiusMeters, 2);
@@ -620,7 +627,7 @@ export default function CanvasArea({
 
         // 4. Calculate Tooltip Text
         const tooltipText = displayValueForTube !== undefined
-          ? (flowDisplayMode === 'velocity' ? formatFlowVelocityForDisplay(displayValueForTube) : formatFlowRateForDisplay(flowRateM3s ?? 0)) 
+          ? (mode === 'flow' ? formatFlowVelocityForDisplay(displayValueForTube) : formatFlowRateForDisplay(flowRateM3s ?? 0)) 
           : 'No flow data';
 
         // 5. Push the Hover Path onto flowVisuals
@@ -662,7 +669,7 @@ export default function CanvasArea({
     }
 
     // Next, collect all pressure node visualizations
-    if (simulationResults && simulationResults.nodePressures) {
+    if (mode === 'pressure' && simulationResults && simulationResults.nodePressures) {
       // Add debugging for number of nodes being processed
       console.log(`[CanvasArea] Processing ${Object.keys(simulationResults.nodePressures).length} node pressures`);
       
@@ -708,6 +715,15 @@ export default function CanvasArea({
                 text={`${pressureMbar.toFixed(1)} mbar`}
                 fontSize={PRESSURE_FONT_SIZE}
                 fill={PRESSURE_TEXT_COLOR}
+                padding={2}
+                align="left"
+                verticalAlign="middle"
+                listening={false}
+                shadowColor="#fff"
+                shadowBlur={2}
+                shadowOpacity={0.7}
+                background="rgba(255,255,255,0.7)"
+                cornerRadius={2}
               />
             );
             
@@ -829,6 +845,15 @@ export default function CanvasArea({
             text={`${pressureMbar.toFixed(1)} mbar`}
             fontSize={PRESSURE_FONT_SIZE}
             fill={PRESSURE_TEXT_COLOR}
+            padding={2}
+            align="left"
+            verticalAlign="middle"
+            listening={false}
+            shadowColor="#fff"
+            shadowBlur={2}
+            shadowOpacity={0.7}
+            background="rgba(255,255,255,0.7)"
+            cornerRadius={2}
           />
         );
 
@@ -842,6 +867,29 @@ export default function CanvasArea({
 
   return (
     <div ref={containerRef} className="relative w-full h-full flex flex-col bg-white border-r border-zinc-200">
+      {/* Inspection Toggle UI */}
+      {simulationResults && (Object.keys(simulationResults.nodePressures || {}).length > 0 || Object.keys(simulationResults.segmentFlows || {}).length > 0) && (
+        <div className="absolute top-4 left-4 z-20 w-full flex flex-row items-center justify-between pointer-events-none">
+          <div className="pointer-events-auto">
+            <ToggleGroup type="single" value={inspectionMode} onValueChange={v => {
+              setInspectionMode((v as any) || 'pressure');
+              if (v !== 'flow') setFlowDisplayMode('rate'); // Reset to rate if not in flow
+            }} className="bg-white/90 shadow rounded-md">
+              <ToggleGroupItem value="pressure" aria-label="Show Pressures" className="text-xs px-2 min-w-[64px] h-7">Pressure</ToggleGroupItem>
+              <ToggleGroupItem value="flow" aria-label="Show Flow" className="text-xs px-2 min-w-[64px] h-7">Flow</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          {/* Secondary toggle for flow display mode */}
+          {inspectionMode === 'flow' && (
+            <div className="pointer-events-auto ml-2">
+              <ToggleGroup type="single" value={flowDisplayMode} onValueChange={v => setFlowDisplayMode((v as any) || 'rate')} className="bg-white/90 shadow rounded-md">
+                <ToggleGroupItem value="rate" aria-label="Show Rate" className="text-xs px-2 min-w-[64px] h-7">Rate</ToggleGroupItem>
+                <ToggleGroupItem value="velocity" aria-label="Show Velocity" className="text-xs px-2 min-w-[64px] h-7">Velocity</ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+          )}
+        </div>
+      )}
       {/* Main content area - Stage */}
       <div 
         ref={stageContainerRef}
@@ -934,19 +982,19 @@ export default function CanvasArea({
 
                   let displayValueForTube: number | undefined = undefined;
                   if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
-                      if (flowDisplayMode === 'velocity') {
+                      if (inspectionMode === 'flow' && flowDisplayMode === 'velocity') {
                           const tubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === conn.tubingTypeId);
                           if (tubingType && tubingType.innerRadiusMeters > 0) {
                               const areaM2 = Math.PI * Math.pow(tubingType.innerRadiusMeters, 2);
                               displayValueForTube = flowRateM3s / areaM2;
                           }
-                      } else { // 'rate'
+                      } else if (inspectionMode === 'flow' && flowDisplayMode === 'rate') {
                           displayValueForTube = flowRateM3s;
                       }
                   }
 
                   if (displayValueForTube !== undefined) {
-                    tubeFillColor = getDynamicFlowColor(displayValueForTube, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
+                    tubeFillColor = getDynamicFlowColor(displayValueForTube, minMaxFlowValues.min, minMaxFlowValues.max, inspectionMode === 'flow' ? 'velocity' : 'rate');
                   }
                   // Optionally change outline too, or keep it standard
                   // tubeOutlineColor = getDynamicFlowColor(displayValueForTube, minMaxFlowValues.min, minMaxFlowValues.max); 
@@ -1051,7 +1099,7 @@ export default function CanvasArea({
             
             {/* Separate top Layer for simulation visuals (HOVER PATHS AND PRESSURE NODES) */}
             <Layer>
-              {simulationResults && renderSimulationVisuals()} 
+              {simulationResults && inspectionMode !== 'none' && renderSimulationVisuals(inspectionMode)}
             </Layer>
           </Stage>
         ) : (
@@ -1059,21 +1107,7 @@ export default function CanvasArea({
             Loading Canvas...
           </div>
         )}
-        {/* Flow Display Legend Overlay - UPDATED */}
-        {isMounted && simulationResults && simulationResults.segmentFlows && Object.keys(simulationResults.segmentFlows).length > 0 && (
-          <FlowDisplayLegend 
-            minDisplayValue={minMaxFlowValues.min} 
-            maxDisplayValue={minMaxFlowValues.max} 
-            displayMode={flowDisplayMode} // Pass the current mode
-            getDynamicFlowColor={getDynamicFlowColor} 
-            formatValueForDisplay={(value: number, mode: FlowDisplayMode) => 
-              mode === 'velocity' 
-                ? formatFlowVelocityForDisplay(value) 
-                : formatFlowRateForDisplay(value) 
-            }
-          />
-        )}
-        <div className="absolute top-4 left-4 text-xs text-slate-300 pointer-events-none">
+        <div className="absolute top-20 left-4 text-xs text-slate-300 pointer-events-none">
           Drop components here
         </div>
       </div>
@@ -1090,34 +1124,11 @@ export default function CanvasArea({
             <Trash2 className="h-4 w-4 mr-1" />
             Clear Canvas
           </Button>
-          {/* NEW: Toggle button for flow display mode */} 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setFlowDisplayMode(prev => prev === 'velocity' ? 'rate' : 'velocity')}
-            className="h-8 text-xs px-2 py-1 leading-tight w-28" // Adjusted for smaller text and fixed width
-            title={`Switch to ${flowDisplayMode === 'velocity' ? 'Flow Rate' : 'Flow Velocity'}`}
-          >
-            Show: {flowDisplayMode === 'velocity' ? 'Velocity' : 'Flow Rate'}
-          </Button>
         </div>
         <div className="flex flex-1 justify-center">
           <h3 className="text-sm font-medium">Design Canvas</h3>
         </div>
         <div className="flex flex-1 justify-end gap-2">
-          {process.env.NODE_ENV === 'development' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                console.log("Running simulation test...");
-                testSimulationWithSimpleSetup();
-              }}
-              className="h-8"
-            >
-              Test Sim
-            </Button>
-          )}
           <Button
             variant="outline"
             size="sm"

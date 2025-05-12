@@ -35,6 +35,7 @@ import {
   runFluidSimulationLogic, 
   resetSimulationStateLogic 
 } from '@/lib/microfluidic-designer/simulationEngine'; // Import simulation engine functions
+import SimulationSummaryPanel from '@/components/microfluidic-designer/SimulationSummaryPanel';
 
 const CanvasArea = dynamic(() => import('@/components/microfluidic-designer/CanvasArea'), {
   ssr: false,
@@ -74,6 +75,10 @@ export default function MicrofluidicDesignerPage() {
   const [runButtonState, setRunButtonState] = useState<{text: string; color?: string; disabled?: boolean}>(
     { text: "Run Simulation", disabled: false }
   );
+
+  // Add state for inspectionMode and flowDisplayMode at the top of the component
+  const [inspectionMode, setInspectionMode] = useState<'none' | 'pressure' | 'flow'>('none');
+  const [flowDisplayMode, setFlowDisplayMode] = useState<'rate' | 'velocity'>('rate');
 
   // Simulation callback functions
   const handleUpdateSimulationResults = useCallback((results: SimulationResults) => {
@@ -474,9 +479,11 @@ export default function MicrofluidicDesignerPage() {
   const currentSelectedItem = droppedItems.find(item => item.id === selectedItemId);
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 80px)', padding: '1rem', gap: '1rem' }}>
-      <PaletteSidebar />
-      <div className="relative flex flex-col flex-1 h-full">
+    <div className="flex h-screen w-full bg-zinc-50">
+      <div className="w-64 p-4 bg-zinc-50 border-r border-zinc-200 overflow-y-auto">
+        <PaletteSidebar />
+      </div>
+      <div className="flex-grow h-full overflow-hidden">
         <CanvasArea
           droppedItems={droppedItems}
           onDrop={handleDrop}
@@ -494,17 +501,22 @@ export default function MicrofluidicDesignerPage() {
           simulationResults={simulationResults}
           simulationVisualsKey={simulationVisualsKey}
           
-          // New props for simulation controls in CanvasArea
           onClearCanvas={handleClearCanvas}
           runSimulation={handleRunSimulation}
           resetSimulation={handleResetSimulation}
           simulationInProgress={runButtonState.disabled || false}
+          inspectionMode={inspectionMode}
+          setInspectionMode={setInspectionMode}
+          flowDisplayMode={flowDisplayMode}
+          setFlowDisplayMode={setFlowDisplayMode}
         />
       </div>
-      <DetailsSidebar 
-        selectedItem={currentSelectedItem} 
-        onItemPropertyChange={handleItemPropertyChange}
-      />
+      <div className="w-64 p-4 bg-zinc-50 border-l border-zinc-200 overflow-y-auto">
+        <DetailsSidebar
+          selectedItem={currentSelectedItem}
+          onItemPropertyChange={handleItemPropertyChange}
+        />
+      </div>
     </div>
   );
 } 

@@ -49,7 +49,7 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({
         <div className="text-center">
           <div
             className="h-3 w-full mb-1 rounded-sm"
-            style={{ backgroundColor: getDynamicFlowColor(0, 0, 0, displayMode) }} // Use zero flow color
+            style={{ backgroundColor: '#64b5f6' }} // Always blue for zero flow
           ></div>
           <span>Zero Flow</span>
         </div>
@@ -58,7 +58,7 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({
         <div className="text-center">
           <div
             className="h-3 w-full mb-1 rounded-sm"
-            style={{ backgroundColor: getDynamicFlowColor(maxDisplayValue, minDisplayValue, maxDisplayValue, displayMode) }} // Should return FLOW_COLOR_LOW
+            style={{ backgroundColor: '#64b5f6' }} // Always blue for uniform flow
           ></div>
           <span>Uniform: {formatValueForDisplay(maxDisplayValue, displayMode)}</span>
         </div>

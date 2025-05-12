@@ -22,28 +22,18 @@ export default function PaletteSidebar() {
   const categories = Object.keys(groupedItems);
 
   return (
-    <aside className="w-[220px] flex flex-col bg-white border border-gray-300 overflow-y-auto">
+    <aside className="h-full flex flex-col overflow-y-auto">
       {categories.map((category, idx) => (
         <div key={category} className="w-full" draggable={false}>
-          <div className="p-2 bg-white border-b border-gray-300" draggable={false}>
-            <h2 className="font-medium text-gray-800 text-base">{category}</h2>
+          <div className="p-3 bg-zinc-200 border-b border-zinc-300" draggable={false}>
+            <h2 className="font-roboto-condensed-semibold text-base text-[#003C7E]">{category}</h2>
           </div>
-          <div className="grid grid-cols-2" draggable={false}>
+          <div className="grid grid-cols-2 gap-2 p-2" draggable={false}>
             {groupedItems[category].map((item, itemIdx) => {
-              // Calculate border classes to create the table-like grid
-              const isEven = itemIdx % 2 === 0;
-              const isLast = itemIdx === groupedItems[category].length - 1 || 
-                            itemIdx === groupedItems[category].length - 2;
-              
               return (
                 <div 
                   key={item.id} 
-                  className={`
-                    h-[110px] flex flex-col items-center justify-center 
-                    ${isEven ? 'border-r border-gray-300' : ''}
-                    ${!isLast ? 'border-b border-gray-300' : ''}
-                    p-1
-                  `}
+                  className="h-[110px] flex flex-col items-center justify-center p-1"
                   draggable={false}
                 >
                   <div 
@@ -52,7 +42,7 @@ export default function PaletteSidebar() {
                   >
                     <PaletteItem item={item} />
                   </div>
-                  <div className="text-center text-xs text-gray-700 mt-1">{item.name}</div>
+                  <div className="text-center text-xs text-zinc-500 mt-1">{item.name}</div>
                 </div>
               );
             })}

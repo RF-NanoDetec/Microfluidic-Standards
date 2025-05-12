@@ -10,6 +10,7 @@ interface PaletteItemProps {
 
 export default function PaletteItem({ item }: PaletteItemProps) {
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [isHovered, setIsHovered] = useState<boolean>(false);
   const itemRef = useRef<HTMLDivElement>(null);
 
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>) => {
@@ -54,26 +55,27 @@ export default function PaletteItem({ item }: PaletteItemProps) {
       draggable={true}
       onDragStart={handleDragStart}
       onDrag={handleDragBehavior}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className="w-full h-full cursor-grab relative"
       title={item.title}
       style={{ opacity: isDragging ? 0.5 : 1 }}
     >
-      {/* Konva Preview Container - increased size to fit the larger stage and shadows */}
+      {/* Konva Preview Container - Apply hover styles here */}
       <div
         id={item.konvaPreviewId}
-        className="w-[80px] h-[80px] mx-auto mb-0 transition-all duration-200 ease-in-out hover:shadow-xl hover:transform hover:scale-[1.08] hover:z-10 rounded-md"
+        className="w-[80px] h-[80px] mx-auto"
         style={{ 
           display: 'flex', 
           justifyContent: 'center', 
           alignItems: 'center', 
           border: 'none',
           overflow: 'visible',
-          // Make parent non-draggable to avoid interference with child draggability
           pointerEvents: isDragging ? 'none' : 'auto'
         }}
         draggable={false}
       >
-        <KonvaChipPreview chipType={item.chipType} />
+        <KonvaChipPreview chipType={item.chipType} isHovered={isHovered} />
       </div>
     </div>
   );

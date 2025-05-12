@@ -246,7 +246,7 @@ export const PALETTE_ITEMS: PaletteItemData[] = [
     title: 'Flow Outlet: Exit at atmospheric pressure.',
     category: 'Other',
     defaultPorts: [
-      { id: 'in1', name: 'Inlet', x: CHIP_WIDTH / 2, y: 0, type: 'universal', orientation: 'top', simulationRole: 'inlet' },
+      { id: 'in1', name: 'Inlet', x: CHIP_WIDTH / 2, y: 18, type: 'universal', orientation: 'top', simulationRole: 'inlet' },
     ],
     defaultWidth: CHIP_WIDTH, 
     defaultHeight: CHIP_HEIGHT,

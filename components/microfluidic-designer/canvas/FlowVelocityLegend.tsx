@@ -18,6 +18,7 @@ interface FlowDisplayLegendProps { // Renamed props interface
   ) => string;
   // Helper functions to format the display values based on mode
   formatValueForDisplay: (value: number, mode: 'velocity' | 'rate') => string;
+  className?: string;
 }
 
 const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({ // Renamed component
@@ -26,6 +27,7 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({ // Renamed compon
   displayMode,
   getDynamicFlowColor,
   formatValueForDisplay,
+  className,
 }) => {
   const numberOfSteps = 10; // Number of segments in the gradient bar
   const gradientSegments = [];
@@ -78,34 +80,21 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({ // Renamed compon
 
   return (
     <div
-      style={{
-        position: 'absolute',
-        bottom: '70px', // Position above canvas control buttons
-        left: '20px',
-        padding: '8px',
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        borderRadius: '4px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        width: '220px', // Slightly wider for potentially longer µL/min text
-        fontSize: '10px',
-        fontFamily: 'sans-serif',
-        color: '#333',
-        zIndex: 100, 
-      }}
+      className={`p-2 bg-white/90 rounded shadow border border-zinc-200 w-56 text-[10px] font-sans text-zinc-800 z-30 ${className || ''}`}
     >
-      <div style={{ marginBottom: '4px', fontWeight: '600', textAlign: 'center' }}>{title}</div>
-      <div style={{ display: 'flex', flexDirection: 'row', marginBottom: '4px', border: '1px solid #eee' }}>
+      <div className="mb-1 font-semibold text-center text-xs">{title}</div>
+      <div className="flex flex-row mb-1 border border-zinc-100">
         {gradientSegments}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px' }}>
+      <div className="flex justify-between text-[9px]">
         <span>{minLabel}</span>
         <span>{maxLabel}</span>
       </div>
       {isEffectivelyNoFlow && (
-         <div style={{textAlign: 'center', marginTop: '3px', fontSize: '9px'}}> (No significant flow)</div>
+         <div className="text-center mt-1 text-[9px]"> (No significant flow)</div>
       )}
        {isRangeTooSmall && (
-         <div style={{textAlign: 'center', marginTop: '3px', fontSize: '9px'}}> (Uniform low flow)</div>
+         <div className="text-center mt-1 text-[9px]"> (Uniform low flow)</div>
       )}
     </div>
   );

@@ -31,15 +31,13 @@ import { useEffect, useState } from 'react';
 
 interface KonvaChipPreviewProps {
   chipType: string;
+  isHovered?: boolean;
 }
 
-export default function KonvaChipPreview({ chipType }: KonvaChipPreviewProps) {
+export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaChipPreviewProps) {
   // Increased stage size to accommodate shadows (was 50x50)
   const stageWidth = 70;
   const stageHeight = 70;
-  
-  // Add hover state for shadowing
-  const [isHovered, setIsHovered] = useState(false);
   
   // Use the visual styles from the original site
   const fillColor = PREVIEW_RECT_STYLE.fill;
@@ -52,7 +50,9 @@ export default function KonvaChipPreview({ chipType }: KonvaChipPreviewProps) {
   const [outletImage, setOutletImage] = useState<HTMLImageElement | null>(null);
   
   // Calculate scale factor to fit the components within the stage
-  const scale = Math.min(stageWidth / CHIP_WIDTH, stageHeight / CHIP_HEIGHT) * 0.6; // Reduced from 0.75 to make room for shadows
+  // If hovered, scale up
+  const scaleBase = Math.min(stageWidth / CHIP_WIDTH, stageHeight / CHIP_HEIGHT) * 0.6;
+  const scale = isHovered ? scaleBase * 1.08 : scaleBase;
   
   // Get the appropriate shadow style based on hover state
   const shadowStyle = isHovered ? SHADOW_STYLE_STRONG : SHADOW_STYLE_DEFAULT;
@@ -405,11 +405,11 @@ export default function KonvaChipPreview({ chipType }: KonvaChipPreviewProps) {
     case 'pump':
       // Use the original SVG image but scale it down for preview
       shapes = pumpImage ? (
-        <Group x={stageWidth/2} y={stageHeight/2}>
+        <Group x={stageWidth/2} y={stageHeight/2} scaleX={scale} scaleY={scale}>
           <Image 
             image={pumpImage} 
-            width={stageWidth * 0.7} // Reduced from 0.85 to make room for shadows
-            height={stageHeight * 0.7} // Reduced from 0.85 to make room for shadows
+            width={stageWidth * 0.7}
+            height={stageHeight * 0.7}
             offsetX={stageWidth * 0.7 / 2}
             offsetY={stageHeight * 0.7 / 2}
             {...shadowStyle}
@@ -479,8 +479,6 @@ export default function KonvaChipPreview({ chipType }: KonvaChipPreviewProps) {
     <Stage 
       width={stageWidth} 
       height={stageHeight}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       <Layer>{shapes}</Layer>
     </Stage>
