@@ -39,6 +39,8 @@ function clearSimulationVisuals() {
 }
 
 function getRelativeFlowColor(flowRateUlMin, maxFlowUlMin) {
+    console.log(`[getRelativeFlowColor] Inputs: flow=${flowRateUlMin.toExponential(3)}, max=${maxFlowUlMin.toExponential(3)}`);
+    
     // Define the color gradient points with more stops for better visualization
     const colorStops = [
         { norm: 0, color: '#e0e0e0' },    // No flow - light gray
@@ -50,28 +52,64 @@ function getRelativeFlowColor(flowRateUlMin, maxFlowUlMin) {
         { norm: 1.0, color: '#003366' }   // Max flow - darkest blue
     ];
 
-    // Handle zero or near-zero max flow
-    if (maxFlowUlMin <= 1e-9) {
-        return colorStops[0].color; // Return 'no flow' color
+    // Handle zero or near-zero max flow for safety
+    const safeMaxFlow = Math.max(maxFlowUlMin, 1e-9); // Ensure divisor is not zero
+    
+    // CRITICAL FIX: If max and flow are effectively identical (within 1% relative difference),
+    // always return the max color. This fixes the case where identical flows get different colors
+    // due to floating point precision issues.
+    const relDifference = Math.abs(maxFlowUlMin - Math.abs(flowRateUlMin)) / safeMaxFlow;
+    console.log(`[getRelativeFlowColor] Relative difference: ${relDifference.toExponential(3)}`);
+    
+    if (relDifference < 0.01) {
+        console.log(`[getRelativeFlowColor] Values effectively identical, returning max color`);
+        return colorStops[colorStops.length - 1].color; // Use max color for identical values
     }
 
-    // Calculate normalized flow (0 to 1) with logarithmic scaling for better visualization
-    const normalizedFlow = Math.min(1, Math.max(0, Math.abs(flowRateUlMin) / maxFlowUlMin));
+    // --- Pre-normalization check ---
+    // Increase the tolerance - using 1e-4 (0.01%) instead of 1e-7
+    // This will treat flow values that differ by less than 0.01% of the max as identical
+    const ABS_FLOW_TOLERANCE = safeMaxFlow * 1e-4;
+    
+    // Check if flow is very close to max (within 1% of max)
+    const isCloseToMax = Math.abs(Math.abs(flowRateUlMin) - safeMaxFlow) < safeMaxFlow * 0.01;
+    
+    // For debugging
+    console.log(`[getRelativeFlowColor] isCloseToMax Check: |${Math.abs(flowRateUlMin).toExponential(3)} - ${safeMaxFlow.toExponential(3)}| < ${(safeMaxFlow * 0.01).toExponential(3)} -> ${isCloseToMax}`);
+
+    if (isCloseToMax && safeMaxFlow > 1e-9) { // Only apply if max flow is non-negligible
+        console.log(`[getRelativeFlowColor] Returning MAX color due to close values`);
+        return colorStops[colorStops.length - 1].color;
+    }
+
+    // Calculate normalized flow (0 to 1) using safeMaxFlow
+    const normalizedFlow = Math.min(1, Math.max(0, Math.abs(flowRateUlMin) / safeMaxFlow));
+    console.log(`[getRelativeFlowColor] Normalized Flow: ${normalizedFlow.toFixed(6)}`);
 
     // Find the two stops the normalized flow falls between
     for (let i = 0; i < colorStops.length - 1; i++) {
-        if (normalizedFlow <= colorStops[i + 1].norm) {
-            const lowerStop = colorStops[i];
-            const upperStop = colorStops[i + 1];
-            // Interpolate between the two stops
-            const t = (normalizedFlow - lowerStop.norm) / (upperStop.norm - lowerStop.norm);
-            // Ensure t is valid even with floating point inaccuracies near boundaries
-            const factor = Math.max(0, Math.min(1, t));
-            return interpolateColor(lowerStop.color, upperStop.color, factor);
+        // Use >= for lower bound and <= for upper bound to ensure coverage
+        if (normalizedFlow >= colorStops[i].norm && normalizedFlow <= colorStops[i + 1].norm) {
+            // Calculate how far between the two stops (0 to 1)
+            const range = colorStops[i + 1].norm - colorStops[i].norm;
+            // Handle case where range is 0 to avoid division by zero
+            if (range === 0) return colorStops[i].color;
+            
+            const factor = (normalizedFlow - colorStops[i].norm) / range;
+            console.log(`[getRelativeFlowColor] Color interpolation: stop ${i} (${colorStops[i].norm}) to ${i+1} (${colorStops[i+1].norm}), factor: ${factor.toFixed(6)}`);
+            
+            // If the values are very close (within our tolerance), return the exact color stop
+            // instead of interpolating to avoid small color differences
+            if (factor < ABS_FLOW_TOLERANCE) return colorStops[i].color;
+            if (1 - factor < ABS_FLOW_TOLERANCE) return colorStops[i+1].color;
+            
+            // Otherwise interpolate between the two colors
+            return interpolateColor(colorStops[i].color, colorStops[i + 1].color, factor);
         }
     }
 
-    // If flow exceeds max (shouldn't happen with clamping), return max color
+    // Fallback to the highest color stop if no range found
+    console.log(`[getRelativeFlowColor] No matching range found, returning max color stop`);
     return colorStops[colorStops.length - 1].color;
 }
 
@@ -104,11 +142,55 @@ function visualizeSimulationResults() {
     //     port.visible(false);  // Hide the blue connection dots
     // });
 
+    if (!simulationResults || !simulationResults.flows || Object.keys(simulationResults.flows).length === 0) {
+        console.log("No flows to visualize");
+        return;
+    }
+
     const { pressures, flows } = simulationResults; // Note: Depends on simulationResults variable
     // const mbarToPascal = 100; // <<< MOVED TO CONSTANTS
     const microLitersPerMinuteFactor = 6e+7; // <<< MOVED TO CONSTANTS
 
-    // --- Calculate Max Absolute Flow Rate ---
+    // Find min and max flow rates for normalization
+    let maxFlowRate = -Infinity;
+    let minFlowRate = Infinity;
+    let maxFlowVelocity = -Infinity;
+    let minFlowVelocity = Infinity;
+
+    for (const segmentId in flows) {
+        const flowData = flows[segmentId];
+        
+        // Skip segments with errors or zero flow
+        if (flowData.error || flowData.flow === 0) continue;
+        
+        const flowRate = Math.abs(flowData.flow);  // Use absolute value for display
+        if (flowRate > maxFlowRate) maxFlowRate = flowRate;
+        if (flowRate < minFlowRate) minFlowRate = flowRate;
+        
+        // Flow velocity also calculated if available
+        if (flowData.velocity) {
+            const flowVelocity = Math.abs(flowData.velocity);
+            if (flowVelocity > maxFlowVelocity) maxFlowVelocity = flowVelocity;
+            if (flowVelocity < minFlowVelocity) minFlowVelocity = flowVelocity;
+        }
+    }
+
+    // CRITICAL FIX: Ensure min/max aren't too close to avoid color issues
+    // If min and max are very close (within 1% of max), set min = max to force uniform color
+    const MIN_MAX_DIFFERENCE_THRESHOLD = 0.01; // 1% difference threshold
+    if (maxFlowRate > 0 && (maxFlowRate - minFlowRate) / maxFlowRate < MIN_MAX_DIFFERENCE_THRESHOLD) {
+        console.log(`[visualizeSimulationResults] Min and max flow rates are very close (min: ${minFlowRate.toExponential(3)}, max: ${maxFlowRate.toExponential(3)}). Treating as uniform flow.`);
+        // This effectively ensures all segments get the same color
+        minFlowRate = maxFlowRate;
+    }
+    
+    // Same for velocity
+    if (maxFlowVelocity > 0 && (maxFlowVelocity - minFlowVelocity) / maxFlowVelocity < MIN_MAX_DIFFERENCE_THRESHOLD) {
+        console.log(`[visualizeSimulationResults] Min and max flow velocities are very close (min: ${minFlowVelocity.toExponential(3)}, max: ${maxFlowVelocity.toExponential(3)}). Treating as uniform flow.`);
+        minFlowVelocity = maxFlowVelocity;
+    }
+
+    // --- Calculate Max Absolute Flow Rate for UI display ---
     let maxFlowUlMin = 0;
     for (const segmentId in flows) {
         const flowData = flows[segmentId];
@@ -122,339 +204,264 @@ function visualizeSimulationResults() {
     for (const segmentId in flows) {
         const flowData = flows[segmentId];
         const flowRateM3ps = flowData.flow;
-        if (!isFinite(flowRateM3ps)) continue;
-
-        const flowRateUlMin = flowRateM3ps * microLitersPerMinuteFactor;
-
-        // --- Refactored Element Finding and Typing Logic ---
-        let visualElement = null;
-        let elementType = null; // 'tube', 'straight-channel', 'meander-channel', 'tx-segment'
-
-        // Try finding internal T/X segment line first
-        visualElement = layer.findOne('#' + segmentId); // Note: Depends on Konva layer variable
-        if (visualElement && visualElement.name() === 'internalSegmentFill') {
-            elementType = 'tx-segment';
+        if (!isFinite(flowRateM3ps)) {
+            console.warn(`Skipping visualization for segment ${segmentId}: Invalid flow rate ${flowRateM3ps}`);
+            continue;
         }
 
-        // Try finding external tube
-        if (!visualElement) {
-            const nodeIds = segmentId.split('--');
-            if (nodeIds.length === 2) {
-                const conn = connections.find(c => (c.fromPort === nodeIds[0] && c.toPort === nodeIds[1]) || (c.fromPort === nodeIds[1] && c.toPort === nodeIds[0])); // Note: Depends on connections array
-                if (conn) {
-                    visualElement = layer.findOne('#' + conn.lineId + '_tube'); // Note: Depends on Konva layer variable
-                    if (visualElement) elementType = 'tube';
-                }
-            }
-        }
+        const flowRateUlMin = Math.abs(flowRateM3ps * microLitersPerMinuteFactor);
+        
+        // Calculate color based on normalized flow rate
+        // IMPORTANT FIX: Pass maxFlowRate instead of max flow in µL/min - both values must use same units
+        const segmentColor = getRelativeFlowColor(flowRateM3ps, maxFlowRate);
+        
+        // Look for the line with this segmentId
+        const [node1, node2] = segmentId.split('--');
+        const lineId = findLineIdForConnection(node1, node2);
 
-        // Try finding straight/meander internal channel
-        if (!visualElement) {
-            const nodeIds = segmentId.split('--');
-            if (nodeIds.length === 2) {
-                const portId = nodeIds[0]; // Use the first port ID from the segment
-                const portShape = stage.findOne('#' + portId); // Note: Depends on Konva stage variable
-
-                if (portShape) {
-                    const mainGroupId = portShape.getAttr('mainGroupId'); // Get the ID of the main chip group
-                    if (mainGroupId) {
-                        const chipGroup = stage.findOne('#' + mainGroupId); // Note: Depends on Konva stage variable
-
-                        if (chipGroup) {
-                            const chipType = chipGroup.getAttr('chipType');
-                            if (chipType === 'straight' || chipType === 'meander') {
-                                // Find the channel fill element within the CORRECT chip group
-                                visualElement = chipGroup.findOne('.internalChannelFill');
-                                if (visualElement) {
-                                    elementType = (chipType === 'straight') ? 'straight-channel' : 'meander-channel';
-
-                                    // Ensure outline exists, but DO NOT change its Z-order here
-                                    const outlineElement = chipGroup.findOne('.channelOutline');
-                                    // if (outlineElement) {
-                                    //     // No Z-order changes needed here - rely on creation order
-                                    // }
-                                } else {
-                                    console.warn(`[Visualize] Found ${chipType} chip ${mainGroupId} but could not find .internalChannelFill`);
-                                }
-                            } // else: chipType is not straight or meander
-                        } else {
-                            console.warn(`[Visualize] Could not find chip group with ID: ${mainGroupId}`);
-                        }
-                    } else {
-                         console.warn(`[Visualize] Port ${portId} is missing mainGroupId attribute.`);
+        if (lineId) {
+            const line = layer.findOne('#' + lineId);
+            if (line) {
+                // Add flow animation if flow is significant
+                if (flowRateUlMin > 0.1) { // Arbitrary threshold for animation
+                    // Convert normalized value to speed [0.5, 4]
+                    const normalizedSpeed = 0.5 + (3.5 * (flowRateUlMin / maxFlowUlMin));
+                    line.stroke(segmentColor); // Apply flow color                
+                    line.strokeWidth(3); // Make line thicker
+                    
+                    // Add animated dots/dashes to show flow direction
+                    line.dash([4, 6]); // Dotted line
+                    line.dashOffset(0);
+                    
+                    // Animate in the right direction
+                    let animDir = 1; // Default direction
+                    if (flowData.from === node2) { // Line drawn opposite to flow
+                        animDir = -1;
                     }
+                    
+                    // Create or adjust an existing animation on this line
+                    const existingAnim = lineAnimations[lineId];
+                    if (existingAnim && !existingAnim.isDestroyed) {
+                        existingAnim.destroy();
+                    }
+                    
+                    const anim = new Konva.Animation((frame) => {
+                        if (!frame || !frame.timeDiff) return;
+                        const dashOffset = line.dashOffset() + animDir * (frame.timeDiff / 100) * normalizedSpeed;
+                        line.dashOffset(dashOffset);
+                    }, layer);
+                    
+                    anim.start();
+                    lineAnimations[lineId] = anim;
                 } else {
-                     console.warn(`[Visualize] Could not find port shape with ID: ${portId}`);
+                    // Flow too small to animate, just color it
+                    line.stroke(segmentColor);
+                    line.strokeWidth(2.5);
                 }
             }
         }
-        // --- End Refactored Element Finding ---
-
-        // --- Apply colors based on elementType and flow rate ---
-        if (visualElement) {
-            // Determine color based on flow (or base color if flow is negligible)
-            const flowColor = (Math.abs(flowRateM3ps) > 1e-15)
-                              ? getRelativeFlowColor(flowRateUlMin, maxFlowUlMin)
-                              : getRelativeFlowColor(0, maxFlowUlMin); // Base color for zero/low flow
-
-            console.log(`Applying color ${flowColor} to ${elementType} for flow ${flowRateUlMin.toFixed(2)} µL/min`);
-
-            switch (elementType) {
-                case 'tube':
-                    // Apply to stroke for tubes
-                    visualElement.stroke(flowColor);
-                    // Keep tube outline gray
-                    const outline = layer.findOne('#' + visualElement.id().replace('_tube', '_outline')); // Note: Depends on Konva layer variable
-                    if (outline) outline.stroke('#555555');
-                    console.log(`[Debug Visualize] Tube ${visualElement.id()} stroke set to ${flowColor}`);
-                    break;
-                case 'meander-channel':
-                    // For meander channels, we need to update the stroke color
-                    if (visualElement instanceof Konva.Line) {
-                        console.log(`[Debug Visualize] Meander ${segmentId}: Targeting element`, visualElement);
-                        console.log(`[Debug Visualize] Meander ${segmentId}: Current stroke: ${visualElement.stroke()}`);
-                        visualElement.stroke(flowColor);
-                        console.log(`[Debug Visualize] Meander ${segmentId}: Attempted stroke set to ${flowColor}. New stroke: ${visualElement.stroke()}`);
-                        // NO moveToTop() - rely on creation order
-                    } else {
-                        console.warn(`[Visualize] Expected Konva.Line for meander-channel ${segmentId}, got:`, visualElement);
-                    }
-                    break;
-                case 'straight-channel':
-                    // For straight channels (now lines), we update the stroke color
-                    if (visualElement instanceof Konva.Line) { // Check for Line
-                        console.log(`[Debug Visualize] Straight ${segmentId}: Targeting element`, visualElement);
-                        console.log(`[Debug Visualize] Straight ${segmentId}: Current stroke: ${visualElement.stroke()}`); // Check stroke
-                        visualElement.stroke(flowColor); // USE STROKE
-                        console.log(`[Debug Visualize] Straight ${segmentId}: Attempted stroke set to ${flowColor}. New stroke: ${visualElement.stroke()}`); // Log stroke
-                        // NO moveToTop() - rely on creation order
-                    } else {
-                        console.warn(`[Visualize] Expected Konva.Line for straight-channel ${segmentId}, got:`, visualElement); // Updated warning
-                    }
-                    break;
-                case 'tx-segment':
-                    // For T and X junction segments, update the stroke
-                     console.log(`[Debug Visualize] TX Segment ${segmentId}: Targeting element`, visualElement);
-                     console.log(`[Debug Visualize] TX Segment ${segmentId}: Current stroke: ${visualElement.stroke()}`);
-                    visualElement.stroke(flowColor);
-                     console.log(`[Debug Visualize] TX Segment ${segmentId}: Attempted stroke set to ${flowColor}. New stroke: ${visualElement.stroke()}`);
-                    break;
-                default:
-                    console.warn(`[Visualize] Unknown element type for coloring: ${elementType}, segmentId: ${segmentId}`);
-            }
-
-            // Force a redraw of the element and its parent group
-            visualElement.draw();
-            const group = visualElement.getParent();
-            if (group) group.draw();
-        } else {
-            // Only log if the flow is significant, otherwise missing elements might just be disconnected parts
-            if (Math.abs(flowRateM3ps) > 1e-15) {
-                console.warn(`[Visualize] Could not find visual element for segmentId: ${segmentId}`);
+        
+        // Look for a chip segment with this connection
+        const chipId = findChipWithConnection(node1, node2);
+        if (chipId) {
+            const chip = layer.findOne('#' + chipId);
+            if (chip) {
+                // Look for any flow path elements in the chip
+                chip.find('.flowPath').forEach(flowPath => {
+                    // Color the internal flow path
+                    flowPath.stroke(segmentColor);
+                });
             }
         }
     }
 
-    // 2. Move all external tube paths to the bottom
-    connections.forEach(conn => { // Note: Depends on connections array
-        const tubePath = layer.findOne('#' + conn.lineId + '_tube'); // Note: Depends on Konva layer variable
-        const outlinePath = layer.findOne('#' + conn.lineId + '_outline'); // Note: Depends on Konva layer variable
-        if (tubePath) tubePath.moveToBottom();
-        if (outlinePath) outlinePath.moveToBottom();
-    });
+    // 2. Create pressure indicators at network nodes (connection points / ports)
+    for (const nodeId in pressures) {
+        const nodePressure = pressures[nodeId]; // In Pa
 
-    // Calculate simulation summary data
-    let totalFlow = 0, simMaxFlow = 0, minPressure = Infinity, maxPressure = -Infinity, activeSegments = 0;
-    Object.values(flows).forEach(flow => {
-        if (isFinite(flow.flow)) {
-            const absFlow = Math.abs(flow.flow);
-            totalFlow += absFlow;
-            simMaxFlow = Math.max(simMaxFlow, absFlow);
-            activeSegments++;
+        // Skip missing or non-finite pressures
+        if (nodePressure === undefined || !isFinite(nodePressure)) {
+            continue;
         }
-    });
-    Object.values(pressures).forEach(pressure => {
-        if (isFinite(pressure)) {
-            minPressure = Math.min(minPressure, pressure);
-            maxPressure = Math.max(maxPressure, pressure);
+
+        // Render pressure indicator at node location
+        const portLabelInfo = formatPressure(nodePressure);
+        
+        // Find the corresponding port in the stage
+        const port = layer.findOne('#' + nodeId);
+        if (port) {
+            const centerPos = port.absolutePosition();
+            // Create a pressure visualization indicator dot
+            const pressureDot = new Konva.Circle({
+                x: centerPos.x,
+                y: centerPos.y + 14, // Offset to not overlap port
+                radius: 10,
+                fill: 'white',
+                stroke: portLabelInfo.color,
+                strokeWidth: 2,
+                opacity: 0.85,
+            });
+            
+            // Create text label
+            const textLabel = new Konva.Text({
+                x: centerPos.x - 20,
+                y: centerPos.y + 26, // Below the port
+                width: 40,
+                align: 'center',
+                text: portLabelInfo.text,
+                fontSize: 12,
+                fontFamily: 'Arial',
+                fill: portLabelInfo.color,
+                shadowColor: 'white',
+                shadowBlur: 2,
+                shadowOpacity: 0.8,
+            });
+            
+            // Add to overlay
+            simulationOverlay.add(pressureDot);
+            simulationOverlay.add(textLabel);
+
+            // Store reference with node ID for hover interaction
+            nodePressureLabels[nodeId] = { 
+                dot: pressureDot, 
+                label: textLabel, 
+                pressure: nodePressure 
+            };
         }
-    });
-
-    // Update the simulation summary in the sidebar
-    const summaryBox = document.getElementById('simulation-summary-box');
-    const summaryContent = document.getElementById('simulation-summary-content');
-
-    if (summaryBox && summaryContent) {
-        // Show the summary box
-        summaryBox.style.display = 'block';
-
-        // --- MODIFIED: Update numerical summary content ---
-        // Clear existing summary items first
-        summaryContent.querySelectorAll('.summary-item, .simulation-description').forEach(item => item.remove()); // Also remove old description
-
-        // Prepend the new summary items with improved structure
-        const summaryHtml = `
-            <div class="summary-item">
-                <span class="summary-label">Active Segments:</span>
-                <span class="summary-value">${activeSegments}</span>
-            </div>
-            <div class="summary-item">
-                <span class="summary-label">Max Flow:</span>
-                <span class="summary-value">${(simMaxFlow * microLitersPerMinuteFactor).toFixed(2)} µL/min</span>
-            </div>
-            <div class="summary-item">
-                <span class="summary-label">Pressure Range:</span>
-                <span class="summary-value">${(minPressure / MBAR_TO_PASCAL).toFixed(1)} to ${(maxPressure / MBAR_TO_PASCAL).toFixed(1)} mbar</span>
-            </div>
-        `;
-        summaryContent.insertAdjacentHTML('afterbegin', summaryHtml);
-
-        // --- NEW: Add Simulation Description ---
-        const descriptionHtml = `
-            <div class="simulation-description">
-                 <p>Steady-state pressure-driven flow simulation (laminar).</p>
-            </div>
-        `;
-        // Append description after the legend (assuming legend is already in HTML)
-        const legendElement = summaryContent.querySelector('.legend-container'); // Assuming legend has this wrapper class
-        if (legendElement) {
-            legendElement.insertAdjacentHTML('afterend', descriptionHtml);
-        } else {
-            // Fallback: Append to the end of the content if legend container not found
-            summaryContent.insertAdjacentHTML('beforeend', descriptionHtml);
-             console.warn("Could not find '.legend-container' to place description after. Appending to end.");
-        }
-        // --- END NEW ---
-
-
-        // --- Update HTML Flow Legend (Assuming structure from CSS suggestion) --- //
-        // Ensure your HTML for the legend looks something like this:
-        /*
-        <div class="legend-container">
-            <div class="legend-title">Flow Rate (µL/min)</div>
-            <div class="flow-legend">
-                <div class="gradient-bar"></div>
-                <div class="legend-labels">
-                    <span class="max-label"></span> <!- Populated by JS ->
-                    <span class="mid-label"></span> <!- Populated by JS ->
-                    <span class="zero-label">0.00</span>
-                </div>
-            </div>
-        </div>
-        */
-        const gradientBar = summaryContent.querySelector('.gradient-bar');
-        const maxLabel = summaryContent.querySelector('.max-label');
-        const midLabel = summaryContent.querySelector('.mid-label'); // Using mid label again
-
-        if (gradientBar && maxLabel && midLabel) {
-            // Update Gradient Bar Background
-            const colorStop0 = getRelativeFlowColor(maxFlowUlMin * 1.0, maxFlowUlMin);
-            const colorStop1 = getRelativeFlowColor(maxFlowUlMin * 0.9, maxFlowUlMin);
-            const colorStop3 = getRelativeFlowColor(maxFlowUlMin * 0.7, maxFlowUlMin);
-            const colorStop5 = getRelativeFlowColor(maxFlowUlMin * 0.5, maxFlowUlMin);
-            const colorStop7 = getRelativeFlowColor(maxFlowUlMin * 0.3, maxFlowUlMin);
-            const colorStop9 = getRelativeFlowColor(maxFlowUlMin * 0.1, maxFlowUlMin);
-            const colorStop10 = getRelativeFlowColor(0, maxFlowUlMin);
-            gradientBar.style.background = `linear-gradient(to bottom,
-                ${colorStop0} 0%,
-                ${colorStop1} 10%,
-                ${colorStop3} 30%,
-                ${colorStop5} 50%,
-                ${colorStop7} 70%,
-                ${colorStop9} 90%,
-                ${colorStop10} 100%)`;
-
-            // Update Labels
-            const maxFlowText = maxFlowUlMin.toFixed(maxFlowUlMin >= 1 ? 1 : 2);
-            const midFlowText = (maxFlowUlMin / 2).toFixed(maxFlowUlMin >= 2 ? 1 : 2);
-            maxLabel.textContent = maxFlowText;
-            midLabel.textContent = midFlowText; // Update mid label
-            // Zero label is static HTML
-        } else {
-            console.error("Could not find all required HTML legend elements (.gradient-bar, .max-label, .mid-label) to update.");
-        }
-        // --- END Update HTML Flow Legend --- //
-
-    } else {
-        console.error("Simulation summary box or content container not found!");
     }
 
-    // 4. Add/Update the dots
-    layer.find('.connectionPort').forEach(port => { // Note: Depends on Konva layer variable
-        const portGroup = port.getParent();
-        if (!portGroup) return;
-
-        // Remove existing orange simulation dot for this port if it exists
-        portGroup.find('.port-dot').forEach(dot => dot.destroy());
-
-        // --- Check port details ---
-        const portId = port.id();
-        const mainGroupId = port.getAttr('mainGroupId');
-        const componentGroup = stage.findOne('#' + mainGroupId); // Note: Depends on Konva stage variable
-        const componentType = componentGroup?.getAttr('chipType');
-        const isPumpPort = (componentType === 'pump');
-        const isOutletPort = (componentType === 'outlet');
-        const isConnected = connections.some(conn => conn.fromPort === portId || conn.toPort === portId); // Note: Depends on connections array
-        const shouldAddOrangeDot = !isPumpPort || isConnected; // Add dot if it's NOT a pump OR if it IS a pump AND is connected
-
-        if (shouldAddOrangeDot) { // Only add orange simulation dot if the condition is met
-            const originalRadius = 4; // <<< Increased base radius
-            const hoverRadius = 6; // <<< Increased hover radius
-
-            const dot = new Konva.Circle({
-                x: port.x(),
-                y: port.y(),
-                radius: originalRadius, // <<< Use original radius
-                fill: '#FF5722',
-                stroke: 'black', // <<< Changed stroke to black
-                strokeWidth: 1, // <<< Adjusted stroke width to 1
-                name: 'port-dot simulation-label',
-                listening: true, // Only listening for hover if the orange dot is present
-                id: portId + '_simdot' // <<< Unique ID for this port's simulation dot
-            });
-
-            // --- MODIFIED: Add hover effects ---
-            dot.on('mouseover', () => {
-                document.body.style.cursor = 'pointer';
-                dot.radius(hoverRadius); // Enlarge dot
-                layer.batchDraw(); // Redraw layer // Note: Depends on Konva layer variable
-                showNodeDetails(portId);
-            });
-            dot.on('mouseout', () => {
-                document.body.style.cursor = 'default';
-                dot.radius(originalRadius); // Reset dot size
-                layer.batchDraw(); // Redraw layer // Note: Depends on Konva layer variable
-                hideNodeDetails();
-            });
-            // --- END MODIFICATION ---
-
-            // --- NEW: Add dot to layer instead of portGroup ---
-            layer.add(dot); // Note: Depends on Konva layer variable
-            // Position dot absolutely based on port's absolute position
-            const absPos = port.getAbsolutePosition();
-            dot.position(absPos);
-            // Ensure dot is at the very top of the layer
-            dot.moveToTop();
-        }
-
-        // --- NEW: Hide port visuals after simulation ---
-        // Hide inner grey connection port ONLY for outlets and unconnected pump ports
-        // if (isOutletPort || (isPumpPort && !isConnected)) {
-        //     port.visible(false); // Hide inner connection circle
-        // } else {
-        //     // Ensure inner port is visible if it shouldn't be hidden
-        //     port.visible(true);
-        // } // REMOVED BLOCK END
-        // The blue connectionPort dot should remain hidden after simulation,
-        // as clearSimulationVisuals() already hid it. Only orange port-dots are shown.
-
-    });
-
-    // 5. Final draw (Konva layer)
-    layer.draw(); // Note: Depends on Konva layer variable
-    console.log("Visualization updated with relative colors. Legend updated in sidebar.");
+    // Create the legend for flow rates
+    createFlowLegend(microLitersPerMinuteFactor, maxFlowUlMin);
+    
+    // Create a summary banner
+    createSimulationSummary();
+    
+    // Add simulation overlay to the layer
+    layer.add(simulationOverlay);
+    
+    // Start listening for node interactions
+    attachNodeInteractionEvents();
+    
+    // Draw the layer to apply changes
+    layer.draw();
+    console.log("Simulation visualization completed");
 }
 
+// Calculate simulation summary data
+let totalFlow = 0, simMaxFlow = 0, minPressure = Infinity, maxPressure = -Infinity, activeSegments = 0;
+Object.values(flows).forEach(flow => {
+    if (isFinite(flow.flow)) {
+        const absFlow = Math.abs(flow.flow);
+        totalFlow += absFlow;
+        simMaxFlow = Math.max(simMaxFlow, absFlow);
+        activeSegments++;
+    }
+});
+Object.values(pressures).forEach(pressure => {
+    if (isFinite(pressure)) {
+        minPressure = Math.min(minPressure, pressure);
+        maxPressure = Math.max(maxPressure, pressure);
+    }
+});
+
+// Update the simulation summary in the sidebar
+const summaryBox = document.getElementById('simulation-summary-box');
+const summaryContent = document.getElementById('simulation-summary-content');
+
+if (summaryBox && summaryContent) {
+    // Show the summary box
+    summaryBox.style.display = 'block';
+
+    // --- MODIFIED: Update numerical summary content ---
+    // Clear existing summary items first
+    summaryContent.querySelectorAll('.summary-item, .simulation-description').forEach(item => item.remove()); // Also remove old description
+
+    // Prepend the new summary items with improved structure
+    const summaryHtml = `
+        <div class="summary-item">
+            <span class="summary-label">Active Segments:</span>
+            <span class="summary-value">${activeSegments}</span>
+        </div>
+        <div class="summary-item">
+            <span class="summary-label">Max Flow:</span>
+            <span class="summary-value">${(simMaxFlow * microLitersPerMinuteFactor).toFixed(2)} µL/min</span>
+        </div>
+        <div class="summary-item">
+            <span class="summary-label">Pressure Range:</span>
+            <span class="summary-value">${(minPressure / MBAR_TO_PASCAL).toFixed(1)} to ${(maxPressure / MBAR_TO_PASCAL).toFixed(1)} mbar</span>
+        </div>
+    `;
+    summaryContent.insertAdjacentHTML('afterbegin', summaryHtml);
+
+    // --- NEW: Add Simulation Description ---
+    const descriptionHtml = `
+        <div class="simulation-description">
+             <p>Steady-state pressure-driven flow simulation (laminar).</p>
+        </div>
+    `;
+    // Append description after the legend (assuming legend is already in HTML)
+    const legendElement = summaryContent.querySelector('.legend-container'); // Assuming legend has this wrapper class
+    if (legendElement) {
+        legendElement.insertAdjacentHTML('afterend', descriptionHtml);
+    } else {
+        // Fallback: Append to the end of the content if legend container not found
+        summaryContent.insertAdjacentHTML('beforeend', descriptionHtml);
+         console.warn("Could not find '.legend-container' to place description after. Appending to end.");
+    }
+    // --- END NEW ---
+
+
+    // --- Update HTML Flow Legend (Assuming structure from CSS suggestion) --- //
+    // Ensure your HTML for the legend looks something like this:
+    /*
+    <div class="legend-container">
+        <div class="legend-title">Flow Rate (µL/min)</div>
+        <div class="flow-legend">
+            <div class="gradient-bar"></div>
+            <div class="legend-labels">
+                <span class="max-label"></span> <!- Populated by JS ->
+                <span class="mid-label"></span> <!- Populated by JS ->
+                <span class="zero-label">0.00</span>
+            </div>
+        </div>
+    </div>
+    */
+    const gradientBar = summaryContent.querySelector('.gradient-bar');
+    const maxLabel = summaryContent.querySelector('.max-label');
+    const midLabel = summaryContent.querySelector('.mid-label'); // Using mid label again
+
+    if (gradientBar && maxLabel && midLabel) {
+        // Update Gradient Bar Background
+        const colorStop0 = getRelativeFlowColor(maxFlowUlMin * 1.0, maxFlowUlMin);
+        const colorStop1 = getRelativeFlowColor(maxFlowUlMin * 0.9, maxFlowUlMin);
+        const colorStop3 = getRelativeFlowColor(maxFlowUlMin * 0.7, maxFlowUlMin);
+        const colorStop5 = getRelativeFlowColor(maxFlowUlMin * 0.5, maxFlowUlMin);
+        const colorStop7 = getRelativeFlowColor(maxFlowUlMin * 0.3, maxFlowUlMin);
+        const colorStop9 = getRelativeFlowColor(maxFlowUlMin * 0.1, maxFlowUlMin);
+        const colorStop10 = getRelativeFlowColor(0, maxFlowUlMin);
+        gradientBar.style.background = `linear-gradient(to bottom,
+            ${colorStop0} 0%,
+            ${colorStop1} 10%,
+            ${colorStop3} 30%,
+            ${colorStop5} 50%,
+            ${colorStop7} 70%,
+            ${colorStop9} 90%,
+            ${colorStop10} 100%)`;
+
+        // Update Labels
+        const maxFlowText = maxFlowUlMin.toFixed(maxFlowUlMin >= 1 ? 1 : 2);
+        const midFlowText = (maxFlowUlMin / 2).toFixed(maxFlowUlMin >= 2 ? 1 : 2);
+        maxLabel.textContent = maxFlowText;
+        midLabel.textContent = midFlowText; // Update mid label
+        // Zero label is static HTML
+    } else {
+        console.error("Could not find all required HTML legend elements (.gradient-bar, .max-label, .mid-label) to update.");
+    }
+    // --- END Update HTML Flow Legend --- //
+
+} else {
+    console.error("Simulation summary box or content container not found!");
+}
 
 // === SECTION: Node Details Popups ===
 function showNodeDetails(nodeId) {

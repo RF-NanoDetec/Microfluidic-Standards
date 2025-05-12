@@ -5,10 +5,18 @@ import dynamic from 'next/dynamic';
 // import CanvasArea from "@/components/microfluidic-designer/CanvasArea";
 import DetailsSidebar from "@/components/microfluidic-designer/DetailsSidebar";
 import PaletteSidebar from "@/components/microfluidic-designer/PaletteSidebar";
-import type { PaletteItemData, CanvasItemData, Port, Connection, TubingTypeDefinition, MicrofluidicProductData } from "@/lib/microfluidic-designer/types";
+import type { 
+  PaletteItemData, 
+  CanvasItemData, 
+  Port, 
+  Connection, 
+  TubingTypeDefinition, 
+  SimulationResults // Import from types
+} from "@/lib/microfluidic-designer/types";
 import { AVAILABLE_TUBING_TYPES } from "@/lib/microfluidic-designer/types"; // Import available tubing types
 import { calculateTubePathData } from "@/lib/microfluidic-designer/utils/pathUtils";
 import { 
+  calculateRectangularChannelResistance,
   calculateChipResistance, 
   calculateTubingResistance 
 } from "@/lib/microfluidic-designer/resistanceUtils";
@@ -23,6 +31,10 @@ import {
   RESISTANCE_X_JUNCTION_SEGMENT_PAS_M3,
   RESISTANCE_MEANDER_CHIP_PAS_M3,
 } from "@/lib/microfluidic-designer/constants";
+import { 
+  runFluidSimulationLogic, 
+  resetSimulationStateLogic 
+} from '@/lib/microfluidic-designer/simulationEngine'; // Import simulation engine functions
 
 const CanvasArea = dynamic(() => import('@/components/microfluidic-designer/CanvasArea'), {
   ssr: false,
@@ -37,6 +49,14 @@ function isPortConnected(itemId: string, portId: string, connections: Connection
   );
 }
 
+const initialSimulationResults: SimulationResults = {
+  nodePressures: {},
+  segmentFlows: {},
+  detailedFlows: {},
+  warnings: [],
+  errors: [],
+};
+
 export default function MicrofluidicDesignerPage() {
   const [droppedItems, setDroppedItems] = useState<CanvasItemData[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -47,6 +67,100 @@ export default function MicrofluidicDesignerPage() {
     sourcePort: Port;
     targetMousePos: { x: number; y: number };
   } | null>(null);
+
+  // State for simulation
+  const [simulationResults, setSimulationResults] = useState<SimulationResults>(initialSimulationResults);
+  const [simulationVisualsKey, setSimulationVisualsKey] = useState<number>(0); // Used to trigger re-render/clear for visuals
+  const [runButtonState, setRunButtonState] = useState<{text: string; color?: string; disabled?: boolean}>(
+    { text: "Run Simulation", disabled: false }
+  );
+
+  // Simulation callback functions
+  const handleUpdateSimulationResults = useCallback((results: SimulationResults) => {
+    console.log("Simulation results updated:", results);
+    setSimulationResults(results);
+  }, []);
+
+  const handleClearVisualization = useCallback(() => {
+    console.log("Clearing simulation visuals...");
+    // This could involve setting simulationResults to empty or passing a specific prop to CanvasArea
+    // For now, we can bump a key that CanvasArea might use to reset its internal visual state
+    setSimulationResults(prev => ({ ...prev, detailedFlows: {}, nodePressures: {} })); // Clear relevant parts
+    setSimulationVisualsKey(prev => prev + 1); 
+  }, []);
+
+  const handleVisualizeResults = useCallback(() => {
+    console.log("Triggering simulation results visualization...");
+    // This is implicitly handled by CanvasArea re-rendering when simulationResults prop changes.
+    // We might need a more explicit trigger if CanvasArea manages its own Konva shapes for results.
+    setSimulationVisualsKey(prev => prev + 1); // Force re-render of canvas area if needed
+  }, []);
+
+  const handleShowNotification = useCallback((message: string, type: 'error' | 'warning' | 'info') => {
+    // TODO: Integrate with a proper toast notification system (e.g., react-hot-toast)
+    console.log(`[${type.toUpperCase()}] Notification: ${message}`);
+    if (type === 'error') {
+      // alert(`Error: ${message}`); // Basic alert for now
+    } else if (type === 'warning') {
+      // alert(`Warning: ${message}`);
+    }
+  }, []);
+
+  const handleSetRunButtonState = useCallback((text: string, color?: string, disabled?: boolean) => {
+    setRunButtonState({ text, color, disabled });
+  }, []);
+  
+  // --- Simulation Control Functions ---
+  const handleRunSimulation = useCallback(async () => {
+    if (runButtonState.disabled) return;
+
+    console.log("Initiating simulation run...");
+    runFluidSimulationLogic(
+      droppedItems,
+      connections,
+      handleUpdateSimulationResults,
+      handleClearVisualization, // Clears previous visuals before new run
+      handleVisualizeResults,   // Triggers visualization of new results
+      handleShowNotification,
+      handleSetRunButtonState
+    );
+  }, [
+    droppedItems, 
+    connections, 
+    handleUpdateSimulationResults, 
+    handleClearVisualization, 
+    handleVisualizeResults, 
+    handleShowNotification,
+    handleSetRunButtonState,
+    runButtonState.disabled
+  ]);
+
+  const handleResetSimulation = useCallback(() => {
+    console.log("Initiating simulation reset...");
+    resetSimulationStateLogic(
+      handleUpdateSimulationResults, // This will set results to empty
+      handleClearVisualization,    // Clear visuals
+      () => { /* Placeholder for findFlowPathAndHighlight, if needed for general reset */ },
+      handleSetRunButtonState
+    );
+    // Optionally, also reset local selection state if desired after simulation reset
+    // setSelectedItemId(null);
+    // setSelectedConnectionId(null);
+  }, [
+    handleUpdateSimulationResults, 
+    handleClearVisualization, 
+    handleSetRunButtonState
+  ]);
+
+  const handleClearCanvas = useCallback(() => {
+    console.log("Clearing canvas...");
+    setDroppedItems([]);
+    setConnections([]);
+    setInProgressConnection(null);
+    setSelectedItemId(null);
+    setSelectedConnectionId(null);
+    handleResetSimulation(); // Also reset simulation state
+  }, [handleResetSimulation]);
 
   const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>, containerRef: React.RefObject<HTMLDivElement | null>) => {
     event.preventDefault();
@@ -59,73 +173,81 @@ export default function MicrofluidicDesignerPage() {
 
     if (itemDataString) {
       try {
-        // Assume paletteItem might be a subset of MicrofluidicProductData or similar enough for now
-        const paletteItem = JSON.parse(itemDataString) as PaletteItemData & Partial<MicrofluidicProductData>; 
+        const paletteItem = JSON.parse(itemDataString) as PaletteItemData;
 
         const newItemId = `${paletteItem.chipType || 'item'}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-        
-        // Default physical properties, to be overridden by paletteItem if present
-        const channelWidth = paletteItem.channelWidthMicrons || DEFAULT_CHANNEL_WIDTH_MICRONS;
-        const channelDepth = paletteItem.channelDepthMicrons || DEFAULT_CHANNEL_DEPTH_MICRONS;
-        // channelLengthMm would ideally also come from paletteItem or product data
-        // For now, we might need to use a placeholder or derive it based on chipType if not directly available.
-        // Let's assume a placeholder or that it's part of `baseResistancePasM3` calculation for now.
-        const channelLength = paletteItem.channelLengthMm || 5; // Defaulting to 5mm for example
+
+        // Use dimensions from paletteItem, with fallbacks to global defaults
+        const initialChannelWidth = paletteItem.channelWidthMicrons || DEFAULT_CHANNEL_WIDTH_MICRONS;
+        const initialChannelDepth = paletteItem.channelDepthMicrons || DEFAULT_CHANNEL_DEPTH_MICRONS;
+        // For straight/meander, paletteItem.channelLengthMm is the total length.
+        // For T/X junctions, if paletteItem.channelLengthMm is set, it might be an overall dimension.
+        // We need a *segment* length for the representative resistance calculation.
+        // If not specified, use a small default (e.g., 2.5mm) or derive (e.g., paletteItem.channelLengthMm / 2 if that makes sense for the product definition).
+        const initialChannelLength = paletteItem.channelLengthMm || 
+                                   ( (paletteItem.chipType === 't-type' || paletteItem.chipType === 'x-type') ? 2.5 : 5 ); // Default segment length for T/X, or overall for others
 
         let calculatedResistance: number;
-        // TODO: Refine this resistance calculation based on actual product data and chip type
-        // This is a simplified fallback logic using pre-calculated constants.
-        switch (paletteItem.chipType) {
-          case 'straight':
-            calculatedResistance = paletteItem.baseResistancePasM3 || RESISTANCE_STRAIGHT_CHIP_PAS_M3;
-            break;
-          case 't-type':
-            calculatedResistance = paletteItem.baseResistancePasM3 || RESISTANCE_T_JUNCTION_SEGMENT_PAS_M3;
-            break;
-          case 'x-type':
-            calculatedResistance = paletteItem.baseResistancePasM3 || RESISTANCE_X_JUNCTION_SEGMENT_PAS_M3;
-            break;
-          case 'meander':
-            calculatedResistance = paletteItem.baseResistancePasM3 || RESISTANCE_MEANDER_CHIP_PAS_M3;
-            break;
-          case 'pump':
-          case 'outlet':
-            calculatedResistance = 0; // Pumps and outlets are sources/sinks, no resistance themselves
-            break;
-          default:
-            console.warn(`Unknown chipType for resistance calculation: ${paletteItem.chipType}`);
-            calculatedResistance = 1e18; // Fallback high resistance
+
+        if (paletteItem.chipType === 'straight' || paletteItem.chipType === 'meander') {
+          calculatedResistance = calculateRectangularChannelResistance(
+            initialChannelLength * 1e-3, // mm to m
+            initialChannelWidth * 1e-6,  // µm to m
+            initialChannelDepth * 1e-6,  // µm to m
+            FLUID_VISCOSITY_PAS
+          );
+        } else if (paletteItem.chipType === 't-type' || paletteItem.chipType === 'x-type') {
+          // For junctions, the representative resistance is for one of its internal segments.
+          // The dimensions for these segments come from the general channel dimensions of the palette item.
+          const segmentLengthMm = initialChannelLength; // Using the derived/defaulted initialChannelLength as the segment length for T/X initial R calc.
+          const segmentWidthMicrons = initialChannelWidth;
+          const segmentDepthMicrons = initialChannelDepth;
+          
+          calculatedResistance = calculateRectangularChannelResistance(
+            segmentLengthMm * 1e-3,
+            segmentWidthMicrons * 1e-6,
+            segmentDepthMicrons * 1e-6,
+            FLUID_VISCOSITY_PAS
+          );
+        } else if (paletteItem.chipType === 'pump' || paletteItem.chipType === 'outlet') {
+          calculatedResistance = 0;
+        } else {
+          console.warn(`Unknown chipType for dynamic resistance calculation on drop: ${paletteItem.chipType}. Using high default.`);
+          calculatedResistance = 1e18; // Fallback for unknown types
         }
-        // If you have calculateChipResistance ready for all types:
-        // calculatedResistance = calculateChipResistance(
-        //   paletteItem.chipType,
-        //   (channelLength || 5) / 1000, // mm to m
-        //   channelWidth / 1e6, // µm to m
-        //   channelDepth / 1e6, // µm to m
-        // );
+        console.log(`[Drop] Initial calculated resistance for ${newItemId} (${paletteItem.chipType}): ${calculatedResistance.toExponential(3)}`);
 
         const newItem: CanvasItemData = {
-          // Core properties from PaletteItemData that are part of CanvasItemData
           id: newItemId,
-          productId: paletteItem.id, // Assuming paletteItem.id is the product ID
+          productId: paletteItem.id,
           name: paletteItem.name,
           chipType: paletteItem.chipType,
-          x: dropX - (paletteItem.previewWidth || 80) / 2, // Use paletteItem.previewWidth or default
-          y: dropY - (paletteItem.previewHeight || 40) / 2, // Use paletteItem.previewHeight or default
-          width: paletteItem.previewWidth || 80, // Use actual item width from product later
-          height: paletteItem.previewHeight || 40, // Use actual item height from product later
-          ports: paletteItem.ports.map(p => ({...p, id: `${newItemId}_${p.id}`})), // Ensure port IDs are unique to this canvas item
+          x: dropX - (paletteItem.defaultWidth || 80) / 2,
+          y: dropY - (paletteItem.defaultHeight || 40) / 2,
+          width: paletteItem.defaultWidth || 80,
+          height: paletteItem.defaultHeight || 40,
+          ports: paletteItem.defaultPorts.map((p: Port) => ({...p, id: `${newItemId}_${p.id}`})),
           
-          // Physical properties for this instance
-          currentChannelWidthMicrons: channelWidth,
-          currentChannelDepthMicrons: channelDepth,
-          currentChannelLengthMm: channelLength, 
-          material: paletteItem.material || 'Glass', // Example default
+          currentChannelWidthMicrons: initialChannelWidth,
+          currentChannelDepthMicrons: initialChannelDepth,
+          currentChannelLengthMm: initialChannelLength, // This will be the overall length for S/M, or the segment length for T/X for now
+          
+          // Initialize specific junction dimensions from general channel dimensions if not directly on PaletteItemData
+          // (No specific junction dimension properties on PaletteItemData, so these will typically be undefined unless added to types.ts for palette items)
+          currentJunctionSegmentLengthMm: (paletteItem.chipType === 't-type' || paletteItem.chipType === 'x-type') ? initialChannelLength : undefined,
+          currentJunctionWidthMicrons: (paletteItem.chipType === 't-type' || paletteItem.chipType === 'x-type') ? initialChannelWidth : undefined,
+          currentJunctionDepthMicrons: (paletteItem.chipType === 't-type' || paletteItem.chipType === 'x-type') ? initialChannelDepth : undefined,
+          
+          material: paletteItem.material || 'Glass',
           resistance: calculatedResistance,
           portPressures: paletteItem.chipType === 'pump' ? (paletteItem.defaultPortPressures || {}) : undefined,
-          // internalConnections will be defined by the specific KonvaCanvasItem or derived by chipType
-          // For now, we assume it's on paletteItem if needed, or handled by component drawing logic.
-          internalConnections: (paletteItem as any).internalConnections, // Cast if not strictly on PaletteItemData
+          internalConnections: paletteItem.internalConnections,
+
+          temperatureRange: paletteItem.temperatureRange,
+          pressureRating: paletteItem.pressureRating,
+          chemicalResistance: paletteItem.chemicalResistance,
+          isBiocompatible: paletteItem.isBiocompatible,
+          isAutoclavable: paletteItem.isAutoclavable,
         };
 
         setDroppedItems(prevItems => [...prevItems, newItem]);
@@ -322,27 +444,67 @@ export default function MicrofluidicDesignerPage() {
     };
   }, [selectedItemId, selectedConnectionId, inProgressConnection, handleDeleteItem, handleDeleteConnection]);
 
+  const handleItemPropertyChange = useCallback((itemId: string, propertyName: keyof CanvasItemData, value: any) => {
+    setDroppedItems(prevItems => 
+      prevItems.map(item => {
+        if (item.id === itemId) {
+          const updatedItem = { ...item, [propertyName]: value };
+
+          // If a dimension changed for a relevant chip, recalculate its resistance
+          if ((propertyName === 'currentChannelWidthMicrons' || 
+               propertyName === 'currentChannelDepthMicrons' || 
+               propertyName === 'currentChannelLengthMm') && 
+              (updatedItem.chipType === 'straight' || updatedItem.chipType === 'meander')) {
+            
+            updatedItem.resistance = calculateRectangularChannelResistance(
+              updatedItem.currentChannelLengthMm * 1e-3,      // mm to m
+              updatedItem.currentChannelWidthMicrons * 1e-6,  // µm to m
+              updatedItem.currentChannelDepthMicrons * 1e-6,  // µm to m
+              FLUID_VISCOSITY_PAS // Default fluid viscosity (water). If different fluids are supported later, this might come from a fluid property on the item or a global canvas setting.
+            );
+            console.log(`[PropsChange] Recalculated resistance for ${itemId}: ${updatedItem.resistance.toExponential(3)}`);
+          }
+          return updatedItem;
+        }
+        return item;
+      })
+    );
+  }, []);
+
   const currentSelectedItem = droppedItems.find(item => item.id === selectedItemId);
 
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 80px)', padding: '1rem', gap: '1rem' }}>
       <PaletteSidebar />
-      <CanvasArea
-        droppedItems={droppedItems}
-        onDrop={handleDrop}
-        onItemDragEnd={handleItemDragEnd}
-        selectedItemId={selectedItemId}
-        selectedConnectionId={selectedConnectionId}
-        connections={connections}
-        inProgressConnection={inProgressConnection}
-        onStageClick={handleStageClick}
-        onStageContextMenu={handleStageContextMenu}
-        onPortClick={handlePortClick}
-        onTubeClick={handleTubeClick}
-        onDeleteConnection={handleDeleteConnection}
-        onStagePointerMove={handleStageMouseMove}
+      <div className="relative flex flex-col flex-1 h-full">
+        <CanvasArea
+          droppedItems={droppedItems}
+          onDrop={handleDrop}
+          onItemDragEnd={handleItemDragEnd}
+          selectedItemId={selectedItemId}
+          selectedConnectionId={selectedConnectionId}
+          connections={connections}
+          inProgressConnection={inProgressConnection}
+          onStageClick={handleStageClick}
+          onStageContextMenu={handleStageContextMenu}
+          onPortClick={handlePortClick}
+          onTubeClick={handleTubeClick}
+          onDeleteConnection={handleDeleteConnection}
+          onStagePointerMove={handleStageMouseMove}
+          simulationResults={simulationResults}
+          simulationVisualsKey={simulationVisualsKey}
+          
+          // New props for simulation controls in CanvasArea
+          onClearCanvas={handleClearCanvas}
+          runSimulation={handleRunSimulation}
+          resetSimulation={handleResetSimulation}
+          simulationInProgress={runButtonState.disabled || false}
+        />
+      </div>
+      <DetailsSidebar 
+        selectedItem={currentSelectedItem} 
+        onItemPropertyChange={handleItemPropertyChange}
       />
-      <DetailsSidebar selectedItem={currentSelectedItem} />
     </div>
   );
 } 

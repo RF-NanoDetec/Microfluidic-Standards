@@ -98,9 +98,9 @@ export default function HomePage() {
                   <Image
                     src="/images/product-placeholder.webp"
                     alt="Pumps & Flow Control Category"
-                    layout="fill"
-                    objectFit="cover"
-                    className="bg-gray-200"
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="bg-gray-200 object-cover"
                     loading="lazy"
                   />
                 </div>
@@ -119,9 +119,9 @@ export default function HomePage() {
                   <Image
                     src="/images/product-placeholder.webp"
                     alt="Mixers & Reactors Category"
-                    layout="fill"
-                    objectFit="cover"
-                    className="bg-gray-200"
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="bg-gray-200 object-cover"
                     loading="lazy"
                   />
                 </div>

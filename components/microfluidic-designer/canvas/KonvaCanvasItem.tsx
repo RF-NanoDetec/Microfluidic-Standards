@@ -38,6 +38,7 @@ interface KonvaCanvasItemProps {
   isSelected: boolean; // Still needed for visual styling if selected
   onPortClick?: (itemId: string, port: Port, event: any) => void; // For left-click on port
   connections?: Connection[]; 
+  isSimulationActive?: boolean; // New prop to indicate if simulation is active
 }
 
 export default function KonvaCanvasItem({ 
@@ -45,7 +46,8 @@ export default function KonvaCanvasItem({
   onDragEnd, 
   isSelected, 
   onPortClick,
-  connections 
+  connections,
+  isSimulationActive // Destructure the new prop
 }: KonvaCanvasItemProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -574,7 +576,7 @@ export default function KonvaCanvasItem({
               fill={PORT_COLOR}
               stroke={PORT_STROKE_COLOR}
               strokeWidth={PORT_STROKE_WIDTH}
-              visible={!isConnected} // Remove special case for outlets
+              visible={!isSimulationActive && !isConnected} // Updated visibility logic
               opacity={isConnected ? 0.3 : 0.9}
               name="connectionPort"
               hitRadius={PORT_HIT_RADIUS} // Larger invisible touch target

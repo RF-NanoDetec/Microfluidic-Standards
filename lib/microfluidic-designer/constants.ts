@@ -143,7 +143,9 @@ export const MBAR_TO_PASCAL: number = 100;
 /** Converts Pascals (Pa) to millibar (mbar) */
 export const PASCAL_TO_MBAR: number = 0.01;
 /** Converts cubic meters per second (m³/s) to microliters per minute (µL/min) */
-export const M3S_TO_ULMIN: number = 6e7; 
+export const M3S_TO_ULMIN: number = 6e10;
+/** Converts cubic meters per second (m³/s) to nanoliters per minute (nL/min) */
+export const M3S_TO_NLMIN: number = 6e13;
 
 // === SECTION: Canvas Visual Defaults === 
 // (Example: these might live elsewhere or be more extensive)

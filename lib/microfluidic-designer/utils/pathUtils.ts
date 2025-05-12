@@ -1,8 +1,8 @@
 import type { CanvasItemData, Port } from '@/lib/microfluidic-designer/types';
 
 // Tuning parameters for better path visualization
-const DEFAULT_CONNECTION_STUB_LENGTH = 12; // Reduced from 25 to 12 for shorter stubs
-const MIN_CONTROL_POINT_EXTENSION = 20; // Reduced from 30 to 20 to match shorter stubs
+const DEFAULT_CONNECTION_STUB_LENGTH = 6; // Reduced from 25 to 12 for shorter stubs
+const MIN_CONTROL_POINT_EXTENSION = 10; // Reduced from 30 to 20 to match shorter stubs
 const DYNAMIC_CONTROL_POINT_FACTOR = 0.5; // How much to scale control points based on distance
 
 /**

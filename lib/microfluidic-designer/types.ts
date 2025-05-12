@@ -43,6 +43,7 @@ export interface MicrofluidicProductData {
   defaultPorts: Port[]; 
   defaultWidth?: number; // Visual width on canvas
   defaultHeight?: number; // Visual height on canvas
+  internalConnections?: string[][]; // Needed for simulation graph for complex chips
 
   // Pump specific
   defaultPortPressures?: { [portId: string]: number }; // Initial pressures in Pascals for pump ports
@@ -71,7 +72,13 @@ export interface CanvasItemData {
   // Current physical properties for this instance, can be modified from product defaults by user later
   currentChannelWidthMicrons: number;
   currentChannelDepthMicrons: number;
-  currentChannelLengthMm: number; // Might be fixed by chipType or configurable for some
+  currentChannelLengthMm: number; // For straight/meander: total length
+  
+  // NEW: Specific dimensions for T/X junction segments
+  currentJunctionSegmentLengthMm?: number; // Length of each segment from port to junction center
+  currentJunctionWidthMicrons?: number;    // Width of junction segments (if different from channel)
+  currentJunctionDepthMicrons?: number;    // Depth of junction segments (if different from channel)
+  
   material?: string;
 
   // Operational and compatibility properties for this instance
@@ -203,6 +210,10 @@ export const PALETTE_ITEMS: PaletteItemData[] = [
     konvaPreviewId: 'palette-meander-chip-konva',
     title: 'Meander Structure: Increases path length.',
     category: 'Microfluidic Chips',
+    channelWidthMicrons: 100,
+    channelDepthMicrons: 100,
+    channelLengthMm: 1000,
+    material: 'Glass',
     defaultPorts: [
       { id: 'port_left', name: 'Left', x: 0, y: CHIP_HEIGHT / 2, type: 'universal', orientation: 'left', simulationRole: 'inlet' }, 
       { id: 'port_right', name: 'Right', x: CHIP_WIDTH, y: CHIP_HEIGHT / 2, type: 'universal', orientation: 'right', simulationRole: 'outlet' }, 
@@ -243,30 +254,79 @@ export const PALETTE_ITEMS: PaletteItemData[] = [
 ];
 
 // Simulation-specific types, to be used by simulationEngine.ts
-export interface NodeData {
+// These types were previously defined locally in simulationEngine.ts
+
+/**
+ * Represents a node in the hydraulic network graph.
+ * Nodes can be pumps, outlets, internal points within a chip, junctions between chips, or chip ports.
+ */
+export interface SimulationNode {
+  id: string; // Unique identifier for the node (e.g., canvasItemId_portId, or canvasItemId_internalNodeX)
   type: 'pump' | 'outlet' | 'internal' | 'junction' | 'port';
-  pressure?: number; // in Pascals
-  id: string;
-  chipType?: string; 
-  portPressures?: { [portId: string]: number };
-  internalConnections?: string[][]; // Should match CanvasItemData.internalConnections
-  resistance?: number; // Chip's own resistance, if applicable (e.g. straight, meander)
+  canvasItemId?: string; // Reference to the CanvasItemData.id this node belongs to or represents
+  portId?: string; // Reference to the Port.id if this node represents a specific port
+  pressure?: number; // Applied pressure in Pascals (e.g., for pumps or fixed pressure outlets)
+  isGround?: boolean; // True if this node is a ground/reference pressure (e.g., atmospheric outlet)
 }
 
-export interface SegmentData {
-  resistance: number;
-  node1: string; // ID of NodeData
-  node2: string; // ID of NodeData
-  id: string; // Unique segment ID (e.g., node1Id--node2Id)
+/**
+ * Represents a segment (connection or internal path) in the hydraulic network graph.
+ * Segments have a hydraulic resistance and connect two nodes.
+ */
+export interface SimulationSegment {
+  id: string; // Unique identifier for the segment (e.g., connectionId, or canvasItemId_internalPathX)
+  node1Id: string; // ID of the first SimulationNode
+  node2Id: string; // ID of the second SimulationNode
+  resistance: number; // Hydraulic resistance of the segment in Pa·s/m³
+  type: 'tubing' | 'internal_chip_path';
+  canvasConnectionId?: string; // If this segment represents a Connection
+  canvasItemId?: string; // If this segment represents an internal path within a CanvasItemData
 }
 
-export interface Graph {
-  nodes: { [nodeId: string]: NodeData };
-  segments: { [segmentId: string]: SegmentData };
-  adj: { [nodeId: string]: string[] }; // Adjacency list: nodeId -> array of neighborNodeIds
+/**
+ * Represents the entire hydraulic network graph for simulation.
+ */
+export interface SimulationGraph {
+  nodes: { [nodeId: string]: SimulationNode };
+  segments: { [segmentId: string]: SimulationSegment };
+  // Adjacency list: nodeId -> array of connected segmentIds
+  // This is useful for traversing the graph in the solver
+  adjacency: { [nodeId: string]: string[] }; 
 }
 
+/**
+ * Stores the results of a hydraulic simulation.
+ */
 export interface SimulationResults {
-  pressures: { [nodeId: string]: number }; // nodeId: pressureInPascals
-  flows: { [segmentId: string]: { flow: number; from: string; to: string } }; // segmentId: { flow: flowRateInM3ps, from: nodeId, to: nodeId }
-} 
+  /** Pressures at each node in Pascals. Key is SimulationNode.id. */
+  nodePressures: { [nodeId: string]: number };
+  /** Flow rates through each segment in m³/s. Key is SimulationSegment.id.
+   *  Positive flow indicates flow from node1 to node2 of the segment.
+   */
+  segmentFlows: { [segmentId: string]: number };
+  /**
+   * Optional: Detailed flow information including direction if needed for visualization.
+   * Key is SimulationSegment.id.
+   */
+  detailedFlows?: { 
+    [segmentId: string]: { 
+      flowRateM3s: number; 
+      fromNodeId: string; 
+      toNodeId: string; 
+    } 
+  };
+  warnings?: string[]; // Any warnings generated during simulation
+  errors?: string[];   // Any errors that occurred
+}
+
+// Type for the function that will run the simulation
+export type SimulationFunction = (
+  graph: SimulationGraph
+) => Promise<SimulationResults>;
+
+
+// Helper type for functions that build the graph from canvas items and connections
+export type GraphBuilderFunction = (
+  items: CanvasItemData[],
+  connections: Connection[],
+) => SimulationGraph; 
