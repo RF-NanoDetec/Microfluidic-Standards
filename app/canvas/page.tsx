@@ -479,11 +479,13 @@ export default function MicrofluidicDesignerPage() {
   const currentSelectedItem = droppedItems.find(item => item.id === selectedItemId);
 
   return (
-    <div className="flex h-screen w-full bg-zinc-50">
-      <div className="w-64 p-4 bg-zinc-50 border-r border-zinc-200 overflow-y-auto">
+    <div className="flex h-full min-h-0 w-full bg-zinc-50">
+      {/* Palette Sidebar */}
+      <div className="min-w-[180px] max-w-[220px] w-full h-full border-r border-zinc-200 overflow-y-auto flex-shrink-0">
         <PaletteSidebar />
       </div>
-      <div className="flex-grow h-full overflow-hidden">
+      {/* Canvas Area */}
+      <div className="flex flex-col flex-1 min-w-0 h-full min-h-0 overflow-hidden">
         <CanvasArea
           droppedItems={droppedItems}
           onDrop={handleDrop}
@@ -500,7 +502,6 @@ export default function MicrofluidicDesignerPage() {
           onStagePointerMove={handleStageMouseMove}
           simulationResults={simulationResults}
           simulationVisualsKey={simulationVisualsKey}
-          
           onClearCanvas={handleClearCanvas}
           runSimulation={handleRunSimulation}
           resetSimulation={handleResetSimulation}
@@ -511,11 +512,23 @@ export default function MicrofluidicDesignerPage() {
           setFlowDisplayMode={setFlowDisplayMode}
         />
       </div>
-      <div className="w-64 p-4 bg-zinc-50 border-l border-zinc-200 overflow-y-auto">
-        <DetailsSidebar
-          selectedItem={currentSelectedItem}
-          onItemPropertyChange={handleItemPropertyChange}
-        />
+      {/* Right Sidebar: Properties + Simulation Summary */}
+      <div className="min-w-[220px] max-w-[260px] w-full h-full border-l border-zinc-200 flex flex-col flex-shrink-0">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <DetailsSidebar
+            selectedItem={currentSelectedItem}
+            onItemPropertyChange={handleItemPropertyChange}
+          />
+        </div>
+        <div className="flex-shrink-0 min-h-[280px] max-h-[360px] overflow-y-auto">
+          <SimulationSummaryPanel
+            results={simulationResults}
+            inspectionMode={inspectionMode}
+            flowDisplayMode={flowDisplayMode}
+            droppedItems={droppedItems}
+            connections={connections}
+          />
+        </div>
       </div>
     </div>
   );

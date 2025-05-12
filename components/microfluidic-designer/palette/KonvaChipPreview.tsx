@@ -434,7 +434,7 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
       
     case 'outlet':
       // Use the exact SVG image from the original, but scaled down for preview
-      const outletImageScaleFactor = 1.4; // Increased from 1.0 to make outlet more visible
+      const outletImageScaleFactor = 1.26; // Reduced by 10% from 1.4 for better fit
       shapes = outletImage ? (
         <Group x={offsetX} y={offsetY} scaleX={scale} scaleY={scale}>
           <Rect

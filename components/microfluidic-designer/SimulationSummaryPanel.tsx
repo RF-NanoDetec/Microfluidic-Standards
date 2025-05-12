@@ -2,7 +2,6 @@
 
 import React from 'react';
 import type { SimulationResults, CanvasItemData, Connection } from '@/lib/microfluidic-designer/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import FlowDisplayLegend from './canvas/FlowVelocityLegend';
 import { getDynamicFlowColor, getPressureIndicatorColor, formatFlowVelocityForDisplay, formatFlowRateForDisplay } from '@/lib/microfluidic-designer/utils/visualizationUtils';
@@ -25,16 +24,15 @@ const formatNumber = (num: number | undefined): string => {
 };
 
 const SimulationSummaryPanel: React.FC<SimulationSummaryPanelProps> = ({ results, inspectionMode, flowDisplayMode, droppedItems, connections }) => {
+  // Early return for no results
   if (!results) {
     return (
-      <Card className="w-full mt-4">
-        <CardHeader>
-          <CardTitle className="text-base">Simulation Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">No simulation has been run yet.</p>
-        </CardContent>
-      </Card>
+      <aside className="min-w-[220px] max-w-[260px] w-full flex flex-col bg-gradient-to-b from-[#F5F7FA] to-[#E1E4E8] border-l border-zinc-200 mt-2">
+        <div className="flex flex-col flex-1 overflow-y-auto px-4 pt-4 pb-2">
+          <h2 className="text-xl font-bold text-[#003C7E] tracking-tight mb-1">Simulation Summary</h2>
+          <p className="text-xs text-zinc-500 mb-4">No simulation has been run yet.</p>
+        </div>
+      </aside>
     );
   }
 
@@ -118,80 +116,76 @@ const SimulationSummaryPanel: React.FC<SimulationSummaryPanelProps> = ({ results
   }
 
   return (
-    <Card className="w-full mt-4 flex-shrink-0">
-      <CardHeader>
-        <CardTitle className="text-base">Simulation Summary</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[320px] pr-4"> {/* Increased height for legends */}
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="font-medium">Status:</span>
-              <span className={statusColor}>{statusText}</span>
-            </div>
-            {hasResults && (
-              <>
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium">Min Pressure (Pa):</span>
-                  <span>{formatNumber(minPressure)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium">Max Pressure (Pa):</span>
-                  <span>{formatNumber(maxPressure)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium">Min Flow (m³/s):</span>
-                  <span>{formatNumber(minFlow)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium">Max Flow (m³/s):</span>
-                  <span>{formatNumber(maxFlow)}</span>
-                </div>
-              </>
-            )}
-            {/* Legends Section */}
-            <div className="mt-2 space-y-2">
-              {inspectionMode === 'flow' && flowDisplayMode === 'velocity' && (
-                <FlowDisplayLegend
-                  minDisplayValue={minVelocity ?? 0}
-                  maxDisplayValue={maxVelocity ?? 1}
-                  displayMode="velocity"
-                  getDynamicFlowColor={getDynamicFlowColor}
-                  formatValueForDisplay={formatFlowVelocityForDisplay}
-                  className="w-full"
-                />
-              )}
-              {inspectionMode === 'flow' && flowDisplayMode === 'rate' && (
-                <FlowDisplayLegend
-                  minDisplayValue={minRate ?? 0}
-                  maxDisplayValue={maxRate ?? 1}
-                  displayMode="rate"
-                  getDynamicFlowColor={getDynamicFlowColor}
-                  formatValueForDisplay={formatFlowRateForDisplay}
-                  className="w-full"
-                />
-              )}
-            </div>
-            {hasWarnings && (
-              <div className="mt-2">
-                <p className="text-sm font-medium text-orange-600">Warnings:</p>
-                <ul className="list-disc list-inside text-xs text-orange-500">
-                  {results.warnings?.map((warn, index) => <li key={`warn-${index}`}>{warn}</li>)}
-                </ul>
+    <aside className="min-w-[220px] max-w-[260px] w-full flex flex-col bg-gradient-to-b from-[#F5F7FA] to-[#E1E4E8] border-l border-zinc-200 mt-2">
+      <div className="flex flex-col flex-1 overflow-y-auto px-4 pt-4 pb-2">
+        <h2 className="text-xl font-bold text-[#003C7E] tracking-tight mb-1">Simulation Summary</h2>
+        <div className="space-y-3">
+          <div className="flex justify-between text-sm">
+            <span className="font-medium">Status:</span>
+            <span className={statusColor}>{statusText}</span>
+          </div>
+          {hasResults && (
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">Min Pressure (Pa):</span>
+                <span>{formatNumber(minPressure)}</span>
               </div>
-            )}
-            {hasErrors && (
-              <div className="mt-2">
-                <p className="text-sm font-medium text-red-600">Errors:</p>
-                <ul className="list-disc list-inside text-xs text-red-500">
-                  {results.errors?.map((err, index) => <li key={`err-${index}`}>{err}</li>)}
-                </ul>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">Max Pressure (Pa):</span>
+                <span>{formatNumber(maxPressure)}</span>
               </div>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">Min Flow (m³/s):</span>
+                <span>{formatNumber(minFlow)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">Max Flow (m³/s):</span>
+                <span>{formatNumber(maxFlow)}</span>
+              </div>
+            </>
+          )}
+          {/* Legends Section */}
+          <div className="mt-2 space-y-2">
+            {inspectionMode === 'flow' && flowDisplayMode === 'velocity' && (
+              <FlowDisplayLegend
+                minDisplayValue={minVelocity ?? 0}
+                maxDisplayValue={maxVelocity ?? 1}
+                displayMode="velocity"
+                getDynamicFlowColor={getDynamicFlowColor}
+                formatValueForDisplay={formatFlowVelocityForDisplay}
+                className="w-full"
+              />
+            )}
+            {inspectionMode === 'flow' && flowDisplayMode === 'rate' && (
+              <FlowDisplayLegend
+                minDisplayValue={minRate ?? 0}
+                maxDisplayValue={maxRate ?? 1}
+                displayMode="rate"
+                getDynamicFlowColor={getDynamicFlowColor}
+                formatValueForDisplay={formatFlowRateForDisplay}
+                className="w-full"
+              />
             )}
           </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+          {hasWarnings && (
+            <div className="mt-2">
+              <p className="text-sm font-medium text-orange-600">Warnings:</p>
+              <ul className="list-disc list-inside text-xs text-orange-500">
+                {results.warnings?.map((warn, index) => <li key={`warn-${index}`}>{warn}</li>)}
+              </ul>
+            </div>
+          )}
+          {hasErrors && (
+            <div className="mt-2">
+              <p className="text-sm font-medium text-red-600">Errors:</p>
+              <ul className="list-disc list-inside text-xs text-red-500">
+                {results.errors?.map((err, index) => <li key={`err-${index}`}>{err}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </aside>
   );
 };
 

@@ -44,7 +44,7 @@ export default function RootLayout({
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${roboto_condensed.variable} h-full antialiased`}>
       <body className="flex flex-col min-h-full">
         <Header />
-        <main className="flex-grow">
+        <main className="flex flex-col flex-1 min-h-0 h-full">
           {children}
         </main>
         <Toaster richColors position="top-right" />

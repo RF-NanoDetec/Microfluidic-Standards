@@ -57,18 +57,15 @@ export default function PaletteItem({ item }: PaletteItemProps) {
       onDrag={handleDragBehavior}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="w-full h-full cursor-grab relative"
+      className="w-full h-full flex flex-col items-center justify-center cursor-grab relative"
       title={item.title}
       style={{ opacity: isDragging ? 0.5 : 1 }}
     >
       {/* Konva Preview Container - Apply hover styles here */}
       <div
         id={item.konvaPreviewId}
-        className="w-[80px] h-[80px] mx-auto"
-        style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
+        className="w-full h-full max-w-[40px] max-h-[40px] flex items-center justify-center mx-auto"
+        style={{
           border: 'none',
           overflow: 'visible',
           pointerEvents: isDragging ? 'none' : 'auto'

@@ -29,7 +29,7 @@ import {
   formatFlowVelocityForDisplay
 } from '@/lib/microfluidic-designer/utils/visualizationUtils';
 import { Button } from '@/components/ui/button';
-import { Trash2, PlayCircle, RotateCcw } from 'lucide-react';
+import { Trash2, PlayCircle, RotateCcw, SquareDashedMousePointer } from 'lucide-react';
 import { KonvaEventObject } from 'konva/lib/Node';
 import FlowDisplayLegend from './canvas/FlowDisplayLegend';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -147,6 +147,25 @@ const formatFlowVelocityForDisplay = (flowVelocityMps: number): string => {
   // ... function body ...
 };
 */
+
+function EmptyCanvasPrompt() {
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none bg-transparent z-10">
+      <SquareDashedMousePointer
+        size={48}
+        strokeWidth={2}
+        className="text-[#003C7E] mb-4 animate-fade-in"
+        aria-hidden="true"
+      />
+      <div className="text-center">
+        <h2 className="font-roboto-condensed font-bold text-2xl text-[#003C7E] mb-2">Start Designing</h2>
+        <p className="font-inter text-base text-[#003C7E] max-w-md mx-auto">
+          Drag a component from the <span className="font-semibold">left palette</span> and drop it here to build your microfluidic system.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function CanvasArea({ 
   droppedItems,
@@ -358,7 +377,7 @@ export default function CanvasArea({
     const { width, height } = stageDimensions;
     
     // Draw vertical grid lines
-    for (let x = GRID_SIZE; x < width; x += GRID_SIZE) {
+    for (let x = 0; x < width; x += GRID_SIZE) {
       gridLines.push(
         <Line
           key={`v-${x}`}
@@ -371,7 +390,7 @@ export default function CanvasArea({
     }
     
     // Draw horizontal grid lines
-    for (let y = GRID_SIZE; y < height; y += GRID_SIZE) {
+    for (let y = 0; y < height; y += GRID_SIZE) {
       gridLines.push(
         <Line
           key={`h-${y}`}
@@ -866,7 +885,9 @@ export default function CanvasArea({
   };
 
   return (
-    <div ref={containerRef} className="relative w-full h-full flex flex-col bg-white border-r border-zinc-200">
+    <div ref={containerRef} className="relative w-full h-full flex flex-col flex-1 bg-[#F5F7FA] overflow-hidden" onDrop={e => onDrop(e, containerRef)} onDragOver={e => e.preventDefault()}>
+      {/* Show prompt if canvas is empty */}
+      {droppedItems.length === 0 && <EmptyCanvasPrompt />}
       {/* Inspection Toggle UI */}
       {simulationResults && (Object.keys(simulationResults.nodePressures || {}).length > 0 || Object.keys(simulationResults.segmentFlows || {}).length > 0) && (
         <div className="absolute top-4 left-4 z-20 w-full flex flex-row items-center justify-between pointer-events-none">
@@ -893,22 +914,62 @@ export default function CanvasArea({
       {/* Main content area - Stage */}
       <div 
         ref={stageContainerRef}
-        className="flex-grow w-full h-full overflow-hidden"
+        className="flex-1 min-h-0 min-w-0 w-full h-full relative p-0 m-0"
         onDragOver={handleDragOver}
         onDrop={localHandleDrop}
       >
+        {/* Floating action buttons (bottom overlay) */}
+        <div className="absolute bottom-4 left-4 right-4 z-30 flex flex-row items-end justify-between pointer-events-none w-auto">
+          {/* Left: Clear button */}
+          <div className="pointer-events-auto">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onClearCanvas} 
+              className="h-8"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          </div>
+          {/* Right: Run and Reset buttons */}
+          <div className="flex flex-row gap-2 pointer-events-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={runSimulation}
+              className="h-8"
+              disabled={simulationInProgress}
+            >
+              <PlayCircle className="h-4 w-4 mr-1" />
+              Run
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetSimulation}
+              className="h-8"
+              disabled={!simulationResults}
+            >
+              <RotateCcw className="h-4 w-4 mr-1" />
+              Reset
+            </Button>
+          </div>
+        </div>
+        {/* End floating action buttons */}
         {isMounted ? (
           <Stage 
             ref={stageRef}
-            width={stageDimensions.width} 
+            width={stageDimensions.width}
             height={stageDimensions.height}
+            x={0}
+            y={0}
             onClick={onStageClick}
             onContextMenu={onStageContextMenu}
             onMouseMove={internalHandleStageMouseMove}
-            className="w-full h-full"
           >
             {/* Base Layer: background grid, connections, etc. */}
-            <Layer>
+            <Layer x={0} y={0}>
               {/* Background */}
               <Rect 
                 x={0}
@@ -1098,7 +1159,7 @@ export default function CanvasArea({
             </Layer>
             
             {/* Separate top Layer for simulation visuals (HOVER PATHS AND PRESSURE NODES) */}
-            <Layer>
+            <Layer x={0} y={0}>
               {simulationResults && inspectionMode !== 'none' && renderSimulationVisuals(inspectionMode)}
             </Layer>
           </Stage>
@@ -1107,49 +1168,6 @@ export default function CanvasArea({
             Loading Canvas...
           </div>
         )}
-        <div className="absolute top-20 left-4 text-xs text-slate-300 pointer-events-none">
-          Drop components here
-        </div>
-      </div>
-      
-      {/* Buttons at the bottom */}
-      <div className="flex w-full justify-between items-center p-2 bg-zinc-50 border-t border-zinc-200">
-        <div className="flex flex-1 justify-start gap-2 items-center">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={onClearCanvas} 
-            className="h-8"
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            Clear Canvas
-          </Button>
-        </div>
-        <div className="flex flex-1 justify-center">
-          <h3 className="text-sm font-medium">Design Canvas</h3>
-        </div>
-        <div className="flex flex-1 justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={runSimulation}
-            className="h-8"
-            disabled={simulationInProgress}
-          >
-            <PlayCircle className="h-4 w-4 mr-1" />
-            Run Simulation
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={resetSimulation}
-            className="h-8"
-            disabled={!simulationResults}
-          >
-            <RotateCcw className="h-4 w-4 mr-1" />
-            Reset Simulation
-          </Button>
-        </div>
       </div>
     </div>
   );
