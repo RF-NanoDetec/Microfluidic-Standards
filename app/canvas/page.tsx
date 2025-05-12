@@ -122,6 +122,8 @@ export default function MicrofluidicDesignerPage() {
     if (runButtonState.disabled) return;
 
     console.log("Initiating simulation run...");
+    setInspectionMode('flow'); // Set inspection mode to flow after simulation
+    setFlowDisplayMode('velocity'); // Set to velocity by default after simulation
     runFluidSimulationLogic(
       droppedItems,
       connections,

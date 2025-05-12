@@ -4,6 +4,7 @@ import { formatFlowRateForDisplay, formatFlowVelocityForDisplay } from '@/lib/mi
 
 // Import the epsilon value for consistency
 import { RELATIVE_EPSILON } from '@/lib/microfluidic-designer/utils/visualizationUtils';
+import TooltipBox from '@/components/ui/TooltipBox';
 
 interface FlowDisplayLegendProps {
   minDisplayValue: number;
@@ -39,16 +40,16 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({
   const numberOfSteps = 10; // Number of segments in the gradient bar
 
   return (
-    <div
-      className="absolute bottom-4 left-4 bg-white bg-opacity-90 p-3 rounded shadow-md border border-gray-200 text-xs text-gray-700 pointer-events-auto"
+    <TooltipBox
+      className="absolute bottom-4 left-4 text-xs text-gray-700 pointer-events-auto"
     >
-      <div className="font-semibold mb-2 text-center">{legendTitle}</div>
+      <div className="font-semibold mb-2 text-center whitespace-nowrap">{legendTitle}</div>
 
       {isZeroFlow ? (
         // Special case: Max value is essentially zero
         <div className="text-center">
           <div
-            className="h-3 w-full mb-1 rounded-sm"
+            className="h-3 mb-1 rounded-sm min-w-[80px]"
             style={{ backgroundColor: '#64b5f6' }} // Always blue for zero flow
           ></div>
           <span>Zero Flow</span>
@@ -57,7 +58,7 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({
         // Uniform Flow Case
         <div className="text-center">
           <div
-            className="h-3 w-full mb-1 rounded-sm"
+            className="h-3 mb-1 rounded-sm min-w-[80px]"
             style={{ backgroundColor: '#64b5f6' }} // Always blue for uniform flow
           ></div>
           <span>Uniform: {formatValueForDisplay(maxDisplayValue, displayMode)}</span>
@@ -65,7 +66,7 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({
       ) : (
         // Gradient Flow Case
         <>
-          <div className="flex h-3 mb-1">
+          <div className="flex h-3 mb-1 min-w-[80px]">
             {Array.from({ length: numberOfSteps }).map((_, i) => {
               const value = minDisplayValue + (range / numberOfSteps) * (i + 0.5); // Midpoint of segment
               const color = getDynamicFlowColor(
@@ -93,7 +94,7 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({
           )}
         </>
       )}
-    </div>
+    </TooltipBox>
   );
 };
 

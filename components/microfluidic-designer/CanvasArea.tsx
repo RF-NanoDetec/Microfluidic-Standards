@@ -34,6 +34,7 @@ import { KonvaEventObject } from 'konva/lib/Node';
 import FlowDisplayLegend from './canvas/FlowDisplayLegend';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import TooltipBox from '@/components/ui/TooltipBox';
 
 // NEW: Type for flow display mode
 export type FlowDisplayMode = 'velocity' | 'rate';
@@ -218,7 +219,8 @@ export default function CanvasArea({
   const containerRef = useRef<HTMLDivElement>(null);
   const stageContainerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
-  const [hoveredPressureNode, setHoveredPressureNode] = useState<string | null>(null);
+  const [hoveredPressureNode, setHoveredPressureNode] = useState<null | { nodeId: string; x: number; y: number; content: string }>(null);
+  const [tooltip, setTooltip] = useState<{ visible: boolean, x: number, y: number, content: string } | null>(null);
 
   // Calculate min/max flow velocities or rates from simulation results for dynamic scaling
   const minMaxFlowValues = useMemo(() => {
@@ -423,8 +425,20 @@ export default function CanvasArea({
     return calculateTemporaryConnectionPath(sourceItem, sourcePort, mousePos);
   };
 
+  // Helper to get relative mouse position in the canvas container
+  const getRelativeMousePos = (evt: any) => {
+    if (!containerRef.current) return { x: 0, y: 0 };
+    const rect = containerRef.current.getBoundingClientRect();
+    return {
+      x: evt.evt.clientX - rect.left,
+      y: evt.evt.clientY - rect.top,
+    };
+  };
+
   // Process internal segments for T-type and X-type junctions
   const renderInternalSegmentFlows = () => {
+    // Only render segment overlays in flow mode
+    if (inspectionMode !== 'flow') return [];
     const flowElements: React.ReactNode[] = [];
     if (!simulationResults || !simulationResults.segmentFlows) return flowElements;
     
@@ -473,44 +487,26 @@ export default function CanvasArea({
               key={`${item.id}-internal-flow`}
               points={[port1Pos.x, port1Pos.y, port2Pos.x, port2Pos.y]}
               stroke={color}
-              strokeWidth={CONNECTION_FILL_WIDTH} // Using connection width for visibility
+              strokeWidth={CONNECTION_FILL_WIDTH}
               lineCap="round"
               lineJoin="round"
               listening={false}
             />,
-            // Add invisible line for hover detection
             <Line
               key={`${item.id}-internal-hover`}
               points={[port1Pos.x, port1Pos.y, port2Pos.x, port2Pos.y]}
               stroke="transparent"
-              strokeWidth={10} // Hit area
+              strokeWidth={10}
               listening={true}
               onMouseEnter={e => {
-                const stage = e.target.getStage();
-                if (!stage) return;
-                const container = stage.container();
-                container.style.cursor = 'help';
-                const tooltip = new Konva.Text({
-                  text: tooltipText,
-                  fontSize: 10, fill: 'black', padding: 5,
-                  background: 'lightgray', cornerRadius: 3, visible: true,
-                  x: e.evt.offsetX + 5,
-                  y: e.evt.offsetY + 5,
-                });
-                e.target.getLayer()?.add(tooltip);
-                e.target.setAttr('tooltip', tooltip);
+                const pos = getRelativeMousePos(e);
+                setTooltip({ visible: true, x: pos.x, y: pos.y, content: tooltipText });
               }}
-              onMouseLeave={e => {
-                const stage = e.target.getStage();
-                if (!stage) return;
-                const container = stage.container();
-                container.style.cursor = 'default';
-                const tooltip = e.target.getAttr('tooltip');
-                if (tooltip) {
-                  tooltip.destroy();
-                  e.target.setAttr('tooltip', null);
-                }
+              onMouseMove={e => {
+                const pos = getRelativeMousePos(e);
+                setTooltip(t => t ? { ...t, x: pos.x, y: pos.y } : null);
               }}
+              onMouseLeave={() => setTooltip(null)}
             />
           );
           // Optionally, add text for flow rate/velocity
@@ -564,39 +560,21 @@ export default function CanvasArea({
               lineJoin="round"
               listening={false}
             />,
-            // Add invisible line for hover detection
             <Line
               key={`${item.id}-${port.id}-internal-hover`}
               points={[portAbsPos.x, portAbsPos.y, approxJunctionCenterX, approxJunctionCenterY]}
               stroke="transparent"
-              strokeWidth={10} // Hit area
+              strokeWidth={10}
               listening={true}
               onMouseEnter={e => {
-                const stage = e.target.getStage();
-                if (!stage) return;
-                const container = stage.container();
-                container.style.cursor = 'help';
-                const tooltip = new Konva.Text({
-                  text: tooltipText,
-                  fontSize: 10, fill: 'black', padding: 5,
-                  background: 'lightgray', cornerRadius: 3, visible: true,
-                  x: e.evt.offsetX + 5,
-                  y: e.evt.offsetY + 5,
-                });
-                e.target.getLayer()?.add(tooltip);
-                e.target.setAttr('tooltip', tooltip);
+                const pos = getRelativeMousePos(e);
+                setTooltip({ visible: true, x: pos.x, y: pos.y, content: tooltipText });
               }}
-              onMouseLeave={e => {
-                const stage = e.target.getStage();
-                if (!stage) return;
-                const container = stage.container();
-                container.style.cursor = 'default';
-                const tooltip = e.target.getAttr('tooltip');
-                if (tooltip) {
-                  tooltip.destroy();
-                  e.target.setAttr('tooltip', null);
-                }
+              onMouseMove={e => {
+                const pos = getRelativeMousePos(e);
+                setTooltip(t => t ? { ...t, x: pos.x, y: pos.y } : null);
               }}
+              onMouseLeave={() => setTooltip(null)}
             />
           );
         });
@@ -610,81 +588,65 @@ export default function CanvasArea({
     const flowVisuals: React.ReactNode[] = [];
     const pressureNodeVisuals: React.ReactNode[] = [];
 
-    console.log("[CanvasArea] Rendering simulation visuals", simulationResults);
+    // Only add flow visuals in flow mode
+    if (mode === 'flow') {
+      // Add internal segment flow visualizations
+      const internalSegmentVisuals = renderInternalSegmentFlows();
+      flowVisuals.push(...internalSegmentVisuals);
 
-    // First, collect all flow-related visualizations
-
-    // Add internal segment flow visualizations
-    const internalSegmentVisuals = renderInternalSegmentFlows();
-    flowVisuals.push(...internalSegmentVisuals);
-
-    // Add flow visualizations for connections (tubes)
-    if (mode === 'flow' && simulationResults && simulationResults.segmentFlows) {
-      connections.forEach(conn => {
-        // --- Start Calculation for this Connection --- 
-        const getBasePortId = (fullPortId: string, itemId: string): string => {
-          const prefix = itemId + '_';
-          if (fullPortId.startsWith(prefix)) {
-            return fullPortId.substring(prefix.length);
-          }
-          return fullPortId; 
-        };
-        const port1BaseId = getBasePortId(conn.fromPortId, conn.fromItemId);
-        const port2BaseId = getBasePortId(conn.toPortId, conn.toItemId);
-        const node1Id = `${conn.fromItemId}_${port1BaseId}`;
-        const node2Id = `${conn.toItemId}_${port2BaseId}`;
-        const segmentIdKey = [node1Id, node2Id].sort().join('--');
-        const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
-        let displayValueForTube: number | undefined = undefined;
-        let tooltipText = 'No flow data';
-        if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
-          if (flowDisplayMode === 'velocity') {
-            const tubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === conn.tubingTypeId);
-            if (tubingType && tubingType.innerRadiusMeters > 0) {
-              const areaM2 = Math.PI * Math.pow(tubingType.innerRadiusMeters, 2);
-              displayValueForTube = flowRateM3s / areaM2;
-              tooltipText = `Velocity: ${formatFlowVelocityForDisplay(displayValueForTube)}`;
+      // Add flow visualizations for connections (tubes)
+      if (simulationResults && simulationResults.segmentFlows) {
+        connections.forEach(conn => {
+          // --- Start Calculation for this Connection --- 
+          const getBasePortId = (fullPortId: string, itemId: string): string => {
+            const prefix = itemId + '_';
+            if (fullPortId.startsWith(prefix)) {
+              return fullPortId.substring(prefix.length);
             }
-          } else { // 'rate'
-            displayValueForTube = flowRateM3s;
-            tooltipText = `Flow Rate: ${formatFlowRateForDisplay(flowRateM3s)}`;
-          }
-        }
-        flowVisuals.push(
-          <Path
-            key={`${conn.id}-flow-overlay`}
-            data={conn.pathData}
-            stroke={'transparent'}
-            strokeWidth={10}
-            listening={true}
-            onMouseEnter={e => {
-              if (!stageRef.current) return;
-              const container = stageRef.current.container();
-              container.style.cursor = 'help';
-              const tooltip = new Konva.Text({
-                text: tooltipText,
-                fontSize: 10, fill: 'black', padding: 5,
-                background: 'lightgray', cornerRadius: 3, visible: true,
-                x: e.evt.offsetX + 5, 
-                y: e.evt.offsetY + 5,
-              });
-              e.target.getLayer()?.add(tooltip);
-              e.target.setAttr('tooltip', tooltip); 
-            }}
-            onMouseLeave={e => {
-              if (!stageRef.current) return;
-              const container = stageRef.current.container();
-              container.style.cursor = 'default';
-              const tooltip = e.target.getAttr('tooltip');
-              if (tooltip) {
-                tooltip.destroy();
-                e.target.setAttr('tooltip', null);
+            return fullPortId; 
+          };
+          const port1BaseId = getBasePortId(conn.fromPortId, conn.fromItemId);
+          const port2BaseId = getBasePortId(conn.toPortId, conn.toItemId);
+          const node1Id = `${conn.fromItemId}_${port1BaseId}`;
+          const node2Id = `${conn.toItemId}_${port2BaseId}`;
+          const segmentIdKey = [node1Id, node2Id].sort().join('--');
+          const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
+          let displayValueForTube: number | undefined = undefined;
+          let tooltipText = 'No flow data';
+          if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
+            if (flowDisplayMode === 'velocity') {
+              const tubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === conn.tubingTypeId);
+              if (tubingType && tubingType.innerRadiusMeters > 0) {
+                const areaM2 = Math.PI * Math.pow(tubingType.innerRadiusMeters, 2);
+                displayValueForTube = flowRateM3s / areaM2;
+                tooltipText = `Velocity: ${formatFlowVelocityForDisplay(displayValueForTube)}`;
               }
-            }}
-          />
-        );
-        // --- End Calculation/Push for this Connection ---
-      });
+            } else { // 'rate'
+              displayValueForTube = flowRateM3s;
+              tooltipText = `Flow Rate: ${formatFlowRateForDisplay(flowRateM3s)}`;
+            }
+          }
+          flowVisuals.push(
+            <Path
+              key={`${conn.id}-flow-overlay`}
+              data={conn.pathData}
+              stroke={'transparent'}
+              strokeWidth={10}
+              listening={true}
+              onMouseEnter={e => {
+                const pos = getRelativeMousePos(e);
+                setTooltip({ visible: true, x: pos.x, y: pos.y, content: tooltipText });
+              }}
+              onMouseMove={e => {
+                const pos = getRelativeMousePos(e);
+                setTooltip(t => t ? { ...t, x: pos.x, y: pos.y } : null);
+              }}
+              onMouseLeave={() => setTooltip(null)}
+            />
+          );
+          // --- End Calculation/Push for this Connection ---
+        });
+      }
     }
 
     // Next, collect all pressure node visualizations
@@ -721,7 +683,21 @@ export default function CanvasArea({
                 role="button"
                 aria-label={`Pressure node: ${pressurePa.toFixed(1)} mbar`}
                 className="cursor-pointer focus:outline-none"
-                onMouseEnter={() => setHoveredPressureNode(nodeId)}
+                onMouseEnter={e => {
+                  // Get absolute position for tooltip
+                  const stage = e.target.getStage();
+                  if (stage) {
+                    const pointerPos = stage.getPointerPosition();
+                    if (pointerPos) {
+                      setHoveredPressureNode({
+                        nodeId,
+                        x: pointerPos.x,
+                        y: pointerPos.y,
+                        content: `Pressure: ${pressurePa.toFixed(2)} mbar${item ? `\nType: ${item.chipType}` : ''}`
+                      });
+                    }
+                  }
+                }}
                 onMouseLeave={() => setHoveredPressureNode(null)}
               >
                 <Circle
@@ -730,34 +706,11 @@ export default function CanvasArea({
                   stroke="#000"
                   strokeWidth={1}
                   shadowColor={getPressureIndicatorColor(pressurePa)}
-                  shadowBlur={hoveredPressureNode === nodeId ? 12 : 8}
-                  shadowOpacity={hoveredPressureNode === nodeId ? 0.6 : 0.4}
-                  scaleX={hoveredPressureNode === nodeId ? 1.15 : 1}
-                  scaleY={hoveredPressureNode === nodeId ? 1.15 : 1}
+                  shadowBlur={hoveredPressureNode?.nodeId === nodeId ? 12 : 8}
+                  shadowOpacity={hoveredPressureNode?.nodeId === nodeId ? 0.6 : 0.4}
+                  scaleX={hoveredPressureNode?.nodeId === nodeId ? 1.15 : 1}
+                  scaleY={hoveredPressureNode?.nodeId === nodeId ? 1.15 : 1}
                 />
-                {hoveredPressureNode === nodeId && (
-                  <Group x={PRESSURE_NODE_RADIUS + 8} y={-32}>
-                    <Rect
-                      width={110}
-                      height={38}
-                      fill="#fff"
-                      stroke="#003C7E"
-                      cornerRadius={6}
-                      shadowBlur={6}
-                      shadowOpacity={0.18}
-                    />
-                    <Text
-                      text={`Pressure: ${pressurePa.toFixed(2)} mbar${item ? `\nType: ${item.chipType}` : ''}`}
-                      fontSize={10}
-                      fill="#003C7E"
-                      x={8}
-                      y={6}
-                      width={94}
-                      height={26}
-                      listening={false}
-                    />
-                  </Group>
-                )}
               </Group>
             );
             
@@ -866,7 +819,21 @@ export default function CanvasArea({
             role="button"
             aria-label={`Pressure node: ${pressurePa.toFixed(1)} mbar`}
             className="cursor-pointer focus:outline-none"
-            onMouseEnter={() => setHoveredPressureNode(nodeId)}
+            onMouseEnter={e => {
+              // Get absolute position for tooltip
+              const stage = e.target.getStage();
+              if (stage) {
+                const pointerPos = stage.getPointerPosition();
+                if (pointerPos) {
+                  setHoveredPressureNode({
+                    nodeId,
+                    x: pointerPos.x,
+                    y: pointerPos.y,
+                    content: `Pressure: ${pressurePa.toFixed(2)} mbar${item ? `\nType: ${item.chipType}` : ''}`
+                  });
+                }
+              }
+            }}
             onMouseLeave={() => setHoveredPressureNode(null)}
           >
             <Circle
@@ -875,34 +842,11 @@ export default function CanvasArea({
               stroke="#000"
               strokeWidth={1}
               shadowColor={getPressureIndicatorColor(pressurePa)}
-              shadowBlur={hoveredPressureNode === nodeId ? 12 : 8}
-              shadowOpacity={hoveredPressureNode === nodeId ? 0.6 : 0.4}
-              scaleX={hoveredPressureNode === nodeId ? 1.15 : 1}
-              scaleY={hoveredPressureNode === nodeId ? 1.15 : 1}
+              shadowBlur={hoveredPressureNode?.nodeId === nodeId ? 12 : 8}
+              shadowOpacity={hoveredPressureNode?.nodeId === nodeId ? 0.6 : 0.4}
+              scaleX={hoveredPressureNode?.nodeId === nodeId ? 1.15 : 1}
+              scaleY={hoveredPressureNode?.nodeId === nodeId ? 1.15 : 1}
             />
-            {hoveredPressureNode === nodeId && (
-              <Group x={PRESSURE_NODE_RADIUS + 8} y={-32}>
-                <Rect
-                  width={110}
-                  height={38}
-                  fill="#fff"
-                  stroke="#003C7E"
-                  cornerRadius={6}
-                  shadowBlur={6}
-                  shadowOpacity={0.18}
-                />
-                <Text
-                  text={`Pressure: ${pressurePa.toFixed(2)} mbar${item ? `\nType: ${item.chipType}` : ''}`}
-                  fontSize={10}
-                  fill="#003C7E"
-                  x={8}
-                  y={6}
-                  width={94}
-                  height={26}
-                  listening={false}
-                />
-              </Group>
-            )}
           </Group>
         );
 
@@ -1199,6 +1143,41 @@ export default function CanvasArea({
           </div>
         )}
       </div>
+      {/* Tooltip Popover */}
+      {tooltip?.visible && (
+        <Popover open={true}>
+          <div
+            style={{
+              position: 'absolute',
+              left: tooltip.x + 12,
+              top: tooltip.y - 8,
+              pointerEvents: 'none',
+              zIndex: 1000,
+            }}
+          >
+            <TooltipBox className="select-none" aria-live="polite">
+              {tooltip.content}
+            </TooltipBox>
+          </div>
+        </Popover>
+      )}
+      {hoveredPressureNode && (
+        <Popover open={true}>
+          <div
+            style={{
+              position: 'absolute',
+              left: hoveredPressureNode.x + 12,
+              top: hoveredPressureNode.y - 8,
+              pointerEvents: 'none',
+              zIndex: 1000,
+            }}
+          >
+            <TooltipBox className="select-none" aria-live="polite">
+              {hoveredPressureNode.content}
+            </TooltipBox>
+          </div>
+        </Popover>
+      )}
     </div>
   );
 } 
