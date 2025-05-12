@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 // import CanvasArea from "@/components/microfluidic-designer/CanvasArea";
 import DetailsSidebar from "@/components/microfluidic-designer/DetailsSidebar";
@@ -59,6 +59,8 @@ const initialSimulationResults: SimulationResults = {
 };
 
 export default function MicrofluidicDesignerPage() {
+  const mainContainerRef = useRef<HTMLDivElement>(null);
+
   const [droppedItems, setDroppedItems] = useState<CanvasItemData[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
@@ -478,8 +480,15 @@ export default function MicrofluidicDesignerPage() {
 
   const currentSelectedItem = droppedItems.find(item => item.id === selectedItemId);
 
+  useEffect(() => {
+    if (mainContainerRef.current) {
+      const height = mainContainerRef.current.offsetHeight;
+      console.log(`[Page] Main container computed height: ${height}px`);
+    }
+  }, []);
+
   return (
-    <div className="flex h-full min-h-0 w-full bg-zinc-50">
+    <div ref={mainContainerRef} className="flex h-full min-h-0 w-full bg-zinc-50" style={{ height: "calc(100vh - 60px)" }}>
       {/* Palette Sidebar */}
       <div className="min-w-[180px] max-w-[220px] w-full h-full border-r border-zinc-200 overflow-y-auto flex-shrink-0">
         <PaletteSidebar />

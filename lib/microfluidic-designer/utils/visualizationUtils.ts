@@ -76,21 +76,69 @@ export const getDynamicFlowColor = (
 };
 
 export const getPressureIndicatorColor = (pressurePa: number | undefined): string => {
-  if (pressurePa === undefined || !isFinite(pressurePa)) return '#888888';
+  if (pressurePa === undefined || !isFinite(pressurePa)) return '#8A929B'; // Mid Grey for invalid
   const pressureMbar = pressurePa * PASCAL_TO_MBAR;
-  if (Math.abs(pressureMbar) < 1) return '#a0a0a0';
-  if (pressureMbar > 0) {
-    const normalizedPressure = Math.min(pressureMbar / 1000, 1);
-    if (normalizedPressure < 0.33) return '#90caf9';
-    if (normalizedPressure < 0.66) return '#2196f3';
-    return '#1565c0';
-  } else {
-    const normalizedPressure = Math.min(Math.abs(pressureMbar) / 1000, 1);
-    if (normalizedPressure < 0.33) return '#ffcc80';
-    if (normalizedPressure < 0.66) return '#ff9800';
-    return '#e65100';
+  const absPressure = Math.abs(pressureMbar);
+
+  // Thresholds (tune as needed for your domain)
+  const ZERO_THRESHOLD = 1; // mbar
+  const LOW_THRESHOLD = 50; // mbar
+  const MID_THRESHOLD = 500; // mbar
+  const HIGH_THRESHOLD = 2000; // mbar
+
+  // Brand colors
+  const COLOR_ZERO = '#8A929B'; // Mid Grey
+  const COLOR_LOW = '#003C7E'; // Brand Blue
+  const COLOR_MID = '#E1E4E8'; // Light Grey 2
+  const COLOR_HIGH = '#B91C1C'; // Scientific Deep Red
+
+  if (absPressure < ZERO_THRESHOLD) return COLOR_ZERO;
+  if (absPressure < LOW_THRESHOLD) {
+    // Interpolate between zero and low
+    const t = absPressure / LOW_THRESHOLD;
+    return interpolateColor(COLOR_ZERO, COLOR_LOW, t);
   }
+  if (absPressure < MID_THRESHOLD) {
+    // Interpolate between low and mid
+    const t = (absPressure - LOW_THRESHOLD) / (MID_THRESHOLD - LOW_THRESHOLD);
+    return interpolateColor(COLOR_LOW, COLOR_MID, t);
+  }
+  if (absPressure < HIGH_THRESHOLD) {
+    // Interpolate between mid and high
+    const t = (absPressure - MID_THRESHOLD) / (HIGH_THRESHOLD - MID_THRESHOLD);
+    return interpolateColor(COLOR_MID, COLOR_HIGH, t);
+  }
+  return COLOR_HIGH;
 };
+
+/**
+ * Linearly interpolate between two hex colors.
+ */
+function interpolateColor(hex1: string, hex2: string, t: number): string {
+  // Clamp t
+  t = Math.max(0, Math.min(1, t));
+  // Convert hex to RGB
+  const rgb1 = hexToRgb(hex1);
+  const rgb2 = hexToRgb(hex2);
+  if (!rgb1 || !rgb2) return hex1;
+  const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * t);
+  const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * t);
+  const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * t);
+  return `rgb(${r},${g},${b})`;
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  // Remove # if present
+  hex = hex.replace('#', '');
+  if (hex.length === 3) {
+    hex = hex.split('').map(x => x + x).join('');
+  }
+  if (hex.length !== 6) return null;
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  return { r, g, b };
+}
 
 export const formatFlowRateForDisplay = (flowRateM3s: number): string => {
   const absFlowRate = Math.abs(flowRateM3s);

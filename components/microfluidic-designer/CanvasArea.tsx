@@ -167,6 +167,27 @@ function EmptyCanvasPrompt() {
   );
 }
 
+function getContrastTextColor(bgColor: string): string {
+  // Simple luminance check
+  const rgb = hexToRgb(bgColor.replace('rgb(', '').replace(')', ''));
+  if (!rgb) return '#fff';
+  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+  return luminance > 0.6 ? '#003C7E' : '#fff';
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  // Remove # if present
+  hex = hex.replace('#', '');
+  if (hex.length === 3) {
+    hex = hex.split('').map(x => x + x).join('');
+  }
+  if (hex.length !== 6) return null;
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  return { r, g, b };
+}
+
 export default function CanvasArea({ 
   droppedItems,
   onDrop,
@@ -197,6 +218,7 @@ export default function CanvasArea({
   const containerRef = useRef<HTMLDivElement>(null);
   const stageContainerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
+  const [hoveredPressureNode, setHoveredPressureNode] = useState<string | null>(null);
 
   // Calculate min/max flow velocities or rates from simulation results for dynamic scaling
   const minMaxFlowValues = useMemo(() => {
@@ -286,49 +308,36 @@ export default function CanvasArea({
   useEffect(() => {
     setIsMounted(true);
     
-    const updateStageDimensions = () => {
-      if (stageContainerRef.current) {
-        const rect = stageContainerRef.current.getBoundingClientRect();
-        const width = rect.width;
-        const height = rect.height;
-        
-        console.log(`Updating stage dimensions: ${width}x${height}`);
-        
+    // Use ResizeObserver to get accurate dimensions of the flex container for the stage
+    const resizeObserver = new ResizeObserver(entries => {
+      // We expect only one entry since we are observing a single element
+      const entry = entries[0];
+      if (entry && entry.contentRect) {
+        const { width, height } = entry.contentRect;
+        console.log(`[CanvasArea] ResizeObserver detected size: ${width}x${height}`);
         setStageDimensions({
           width,
-          height: height > 100 ? height : 100, // Minimum height of 100px
+          height,
         });
       }
-    };
-    
-    // Initial sizing after a small delay to ensure container is rendered
-    setTimeout(updateStageDimensions, 100);
-    
-    // Update on window resize
-    const handleResize = () => {
-      updateStageDimensions();
-    };
-    
-    window.addEventListener('resize', handleResize);
-    
-    // Also set up a ResizeObserver to detect container size changes
-    const resizeObserver = new ResizeObserver(() => {
-      updateStageDimensions();
     });
     
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-    
+    // Start observing the stage container div
     if (stageContainerRef.current) {
       resizeObserver.observe(stageContainerRef.current);
+      console.log("[CanvasArea] Started observing stageContainerRef");
     }
     
+    // Cleanup function to disconnect the observer when the component unmounts
     return () => {
-      window.removeEventListener('resize', handleResize);
+      if (stageContainerRef.current) {
+         resizeObserver.unobserve(stageContainerRef.current);
+         console.log("[CanvasArea] Stopped observing stageContainerRef");
+      }
       resizeObserver.disconnect();
+       setIsMounted(false); // Optionally reset mounted state
     };
-  }, []);
+  }, []); // Empty dependency array means this effect runs only once on mount and cleans up on unmount
 
   // Log when simulation results or key change
   useEffect(() => {
@@ -454,7 +463,9 @@ export default function CanvasArea({
           const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, inspectionMode === 'flow' ? 'velocity' : 'rate');
 
           const tooltipText = displayValue !== undefined 
-            ? (inspectionMode === 'flow' ? formatFlowVelocityForDisplay(displayValue) : formatFlowRateForDisplay(flowRateM3s)) 
+            ? (flowDisplayMode === 'velocity' 
+                ? `Velocity: ${formatFlowVelocityForDisplay(displayValue)}` 
+                : `Flow Rate: ${formatFlowRateForDisplay(flowRateM3s)}`)
             : 'No flow data';
 
           flowElements.push(
@@ -532,7 +543,9 @@ export default function CanvasArea({
           const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, inspectionMode === 'flow' ? 'velocity' : 'rate');
           
           const tooltipText = displayValue !== undefined 
-            ? (inspectionMode === 'flow' ? formatFlowVelocityForDisplay(displayValue) : formatFlowRateForDisplay(flowRateM3s)) 
+            ? (flowDisplayMode === 'velocity' 
+                ? `Velocity: ${formatFlowVelocityForDisplay(displayValue)}` 
+                : `Flow Rate: ${formatFlowRateForDisplay(flowRateM3s)}`)
             : 'No flow data';
 
           const portAbsPos = { x: item.x + port.x, y: item.y + port.y };
@@ -606,17 +619,14 @@ export default function CanvasArea({
     flowVisuals.push(...internalSegmentVisuals);
 
     // Add flow visualizations for connections (tubes)
-    if (simulationResults && simulationResults.segmentFlows) {
+    if (mode === 'flow' && simulationResults && simulationResults.segmentFlows) {
       connections.forEach(conn => {
         // --- Start Calculation for this Connection --- 
-        
-        // 1. Construct Node IDs and Segment Key (Consistent logic)
         const getBasePortId = (fullPortId: string, itemId: string): string => {
           const prefix = itemId + '_';
           if (fullPortId.startsWith(prefix)) {
             return fullPortId.substring(prefix.length);
           }
-          console.warn(`[getBasePortId] Port ID ${fullPortId} for item ${itemId} did not have expected prefix.`);
           return fullPortId; 
         };
         const port1BaseId = getBasePortId(conn.fromPortId, conn.fromItemId);
@@ -624,39 +634,29 @@ export default function CanvasArea({
         const node1Id = `${conn.fromItemId}_${port1BaseId}`;
         const node2Id = `${conn.toItemId}_${port2BaseId}`;
         const segmentIdKey = [node1Id, node2Id].sort().join('--');
-
-        // 2. Get Flow Rate
         const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
-        
-        // 3. Calculate Display Value (Velocity or Rate)
         let displayValueForTube: number | undefined = undefined;
+        let tooltipText = 'No flow data';
         if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
-            if (mode === 'flow') {
-                const tubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === conn.tubingTypeId);
-                if (tubingType && tubingType.innerRadiusMeters > 0) {
-                    const areaM2 = Math.PI * Math.pow(tubingType.innerRadiusMeters, 2);
-                    displayValueForTube = flowRateM3s / areaM2;
-                }
-            } else { // 'rate'
-                displayValueForTube = flowRateM3s;
+          if (flowDisplayMode === 'velocity') {
+            const tubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === conn.tubingTypeId);
+            if (tubingType && tubingType.innerRadiusMeters > 0) {
+              const areaM2 = Math.PI * Math.pow(tubingType.innerRadiusMeters, 2);
+              displayValueForTube = flowRateM3s / areaM2;
+              tooltipText = `Velocity: ${formatFlowVelocityForDisplay(displayValueForTube)}`;
             }
-        } else {
-             console.warn(`[TubeRender] No flow data found for segment key: ${segmentIdKey}. Tube ${conn.id} used for hover.`);
+          } else { // 'rate'
+            displayValueForTube = flowRateM3s;
+            tooltipText = `Flow Rate: ${formatFlowRateForDisplay(flowRateM3s)}`;
+          }
         }
-
-        // 4. Calculate Tooltip Text
-        const tooltipText = displayValueForTube !== undefined
-          ? (mode === 'flow' ? formatFlowVelocityForDisplay(displayValueForTube) : formatFlowRateForDisplay(flowRateM3s ?? 0)) 
-          : 'No flow data';
-
-        // 5. Push the Hover Path onto flowVisuals
         flowVisuals.push(
-          <Path // This is JUST the hover/tooltip path
+          <Path
             key={`${conn.id}-flow-overlay`}
             data={conn.pathData}
-            stroke={'transparent'} // Invisible
-            strokeWidth={10} // Hit area
-            listening={true} 
+            stroke={'transparent'}
+            strokeWidth={10}
+            listening={true}
             onMouseEnter={e => {
               if (!stageRef.current) return;
               const container = stageRef.current.container();
@@ -713,37 +713,52 @@ export default function CanvasArea({
             
             // Create pressure node for internal junction
             pressureNodeVisuals.push(
-              <Circle
-                key={`pressure-${nodeId}`}
+              <Group
+                key={`pressure-node-${nodeId}`}
                 x={centerX}
                 y={centerY}
-                radius={PRESSURE_NODE_RADIUS}
-                fill={getPressureIndicatorColor(pressurePa)}
-                stroke="#000"
-                strokeWidth={1}
-              />
-            );
-            
-            // Add pressure text
-            const pressureMbar = pressurePa * PASCAL_TO_MBAR;
-            pressureNodeVisuals.push(
-              <Text
-                key={`pressure-text-${nodeId}`}
-                x={centerX + PRESSURE_NODE_RADIUS + 2}
-                y={centerY - 5}
-                text={`${pressureMbar.toFixed(1)} mbar`}
-                fontSize={PRESSURE_FONT_SIZE}
-                fill={PRESSURE_TEXT_COLOR}
-                padding={2}
-                align="left"
-                verticalAlign="middle"
-                listening={false}
-                shadowColor="#fff"
-                shadowBlur={2}
-                shadowOpacity={0.7}
-                background="rgba(255,255,255,0.7)"
-                cornerRadius={2}
-              />
+                tabIndex={0}
+                role="button"
+                aria-label={`Pressure node: ${pressurePa.toFixed(1)} mbar`}
+                className="cursor-pointer focus:outline-none"
+                onMouseEnter={() => setHoveredPressureNode(nodeId)}
+                onMouseLeave={() => setHoveredPressureNode(null)}
+              >
+                <Circle
+                  radius={PRESSURE_NODE_RADIUS}
+                  fill={getPressureIndicatorColor(pressurePa)}
+                  stroke="#000"
+                  strokeWidth={1}
+                  shadowColor={getPressureIndicatorColor(pressurePa)}
+                  shadowBlur={hoveredPressureNode === nodeId ? 12 : 8}
+                  shadowOpacity={hoveredPressureNode === nodeId ? 0.6 : 0.4}
+                  scaleX={hoveredPressureNode === nodeId ? 1.15 : 1}
+                  scaleY={hoveredPressureNode === nodeId ? 1.15 : 1}
+                />
+                {hoveredPressureNode === nodeId && (
+                  <Group x={PRESSURE_NODE_RADIUS + 8} y={-32}>
+                    <Rect
+                      width={110}
+                      height={38}
+                      fill="#fff"
+                      stroke="#003C7E"
+                      cornerRadius={6}
+                      shadowBlur={6}
+                      shadowOpacity={0.18}
+                    />
+                    <Text
+                      text={`Pressure: ${pressurePa.toFixed(2)} mbar${item ? `\nType: ${item.chipType}` : ''}`}
+                      fontSize={10}
+                      fill="#003C7E"
+                      x={8}
+                      y={6}
+                      width={94}
+                      height={26}
+                      listening={false}
+                    />
+                  </Group>
+                )}
+              </Group>
             );
             
             console.log(`[CanvasArea] Added internal junction pressure visual at (${centerX}, ${centerY}) for ${nodeId}`);
@@ -843,37 +858,52 @@ export default function CanvasArea({
 
         // Create pressure node
         pressureNodeVisuals.push(
-          <Circle
-            key={`pressure-${nodeId}`}
+          <Group
+            key={`pressure-node-${nodeId}`}
             x={portX}
             y={portY}
-            radius={PRESSURE_NODE_RADIUS}
-            fill={getPressureIndicatorColor(pressurePa)}
-            stroke="#000"
-            strokeWidth={1}
-          />
-        );
-
-        // Add pressure text
-        const pressureMbar = pressurePa * PASCAL_TO_MBAR;
-        pressureNodeVisuals.push(
-          <Text
-            key={`pressure-text-${nodeId}`}
-            x={portX + PRESSURE_NODE_RADIUS + 2}
-            y={portY - 5}
-            text={`${pressureMbar.toFixed(1)} mbar`}
-            fontSize={PRESSURE_FONT_SIZE}
-            fill={PRESSURE_TEXT_COLOR}
-            padding={2}
-            align="left"
-            verticalAlign="middle"
-            listening={false}
-            shadowColor="#fff"
-            shadowBlur={2}
-            shadowOpacity={0.7}
-            background="rgba(255,255,255,0.7)"
-            cornerRadius={2}
-          />
+            tabIndex={0}
+            role="button"
+            aria-label={`Pressure node: ${pressurePa.toFixed(1)} mbar`}
+            className="cursor-pointer focus:outline-none"
+            onMouseEnter={() => setHoveredPressureNode(nodeId)}
+            onMouseLeave={() => setHoveredPressureNode(null)}
+          >
+            <Circle
+              radius={PRESSURE_NODE_RADIUS}
+              fill={getPressureIndicatorColor(pressurePa)}
+              stroke="#000"
+              strokeWidth={1}
+              shadowColor={getPressureIndicatorColor(pressurePa)}
+              shadowBlur={hoveredPressureNode === nodeId ? 12 : 8}
+              shadowOpacity={hoveredPressureNode === nodeId ? 0.6 : 0.4}
+              scaleX={hoveredPressureNode === nodeId ? 1.15 : 1}
+              scaleY={hoveredPressureNode === nodeId ? 1.15 : 1}
+            />
+            {hoveredPressureNode === nodeId && (
+              <Group x={PRESSURE_NODE_RADIUS + 8} y={-32}>
+                <Rect
+                  width={110}
+                  height={38}
+                  fill="#fff"
+                  stroke="#003C7E"
+                  cornerRadius={6}
+                  shadowBlur={6}
+                  shadowOpacity={0.18}
+                />
+                <Text
+                  text={`Pressure: ${pressurePa.toFixed(2)} mbar${item ? `\nType: ${item.chipType}` : ''}`}
+                  fontSize={10}
+                  fill="#003C7E"
+                  x={8}
+                  y={6}
+                  width={94}
+                  height={26}
+                  listening={false}
+                />
+              </Group>
+            )}
+          </Group>
         );
 
         console.log(`[CanvasArea] Added port pressure visual at (${portX}, ${portY}) for ${nodeId}`);
@@ -885,12 +915,12 @@ export default function CanvasArea({
   };
 
   return (
-    <div ref={containerRef} className="relative w-full h-full flex flex-col flex-1 bg-[#F5F7FA] overflow-hidden" onDrop={e => onDrop(e, containerRef)} onDragOver={e => e.preventDefault()}>
+    <div ref={containerRef} className="relative w-full h-full flex flex-col bg-[#F5F7FA] overflow-hidden" onDragOver={e => e.preventDefault()}>
       {/* Show prompt if canvas is empty */}
       {droppedItems.length === 0 && <EmptyCanvasPrompt />}
       {/* Inspection Toggle UI */}
       {simulationResults && (Object.keys(simulationResults.nodePressures || {}).length > 0 || Object.keys(simulationResults.segmentFlows || {}).length > 0) && (
-        <div className="absolute top-4 left-4 z-20 w-full flex flex-row items-center justify-between pointer-events-none">
+        <div className="absolute top-4 left-8 z-20 flex flex-row items-center gap-2 pointer-events-none">
           <div className="pointer-events-auto">
             <ToggleGroup type="single" value={inspectionMode} onValueChange={v => {
               setInspectionMode((v as any) || 'pressure');
@@ -914,7 +944,7 @@ export default function CanvasArea({
       {/* Main content area - Stage */}
       <div 
         ref={stageContainerRef}
-        className="flex-1 min-h-0 min-w-0 w-full h-full relative p-0 m-0"
+        className="flex-1 min-w-0 h-full min-h-0 overflow-hidden" 
         onDragOver={handleDragOver}
         onDrop={localHandleDrop}
       >
