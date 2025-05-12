@@ -7,7 +7,7 @@ export const sampleProducts: AnyProduct[] = [
     name: 'Straight Channel Chip - Glass',
     description: 'High-quality glass microfluidic chip with a single straight channel. Dimensions: 5mm x 5mm x 2mm. Channel dimensions: 100µm width x 100µm depth.',
     price: 75.00,
-    imageUrl: '/images/chip-straight-channel.webp', // Placeholder
+    imageUrl: '', // Use fallback placeholder
     category: 'chip',
     stockQuantity: 50,
     sku: 'SCG-W5H5T2-CWD100',
@@ -30,7 +30,7 @@ export const sampleProducts: AnyProduct[] = [
     name: 'Meander Channel Chip - Glass',
     description: 'High-quality glass microfluidic chip with a meandering channel providing an effective channel length of 20cm. Chip Dimensions: 5mm x 5mm x 2mm. Microchannel dimensions: 100µm width x 100µm depth.',
     price: 95.00,
-    imageUrl: '/images/chip-meander-channel.webp', // Placeholder
+    imageUrl: '', // Use fallback placeholder
     category: 'chip',
     stockQuantity: 30,
     sku: 'MNDRG-W5H5T2-CWD100-L20CM',
@@ -53,7 +53,7 @@ export const sampleProducts: AnyProduct[] = [
     name: 'T-Mixer Chip - Glass',
     description: 'Glass microfluidic chip for T-junction mixing. Three inlet/outlet ports. Chip Dimensions: 5mm x 5mm x 2mm. Microchannel dimensions: 100µm width x 100µm depth.',
     price: 85.00,
-    imageUrl: '/images/chip-t-mixer.webp', // Placeholder
+    imageUrl: '', // Use fallback placeholder
     category: 'chip',
     stockQuantity: 40,
     sku: 'TMIXG-W5H5T2-CWD100',
@@ -76,7 +76,7 @@ export const sampleProducts: AnyProduct[] = [
     name: 'X-Mixer Chip - Glass',
     description: 'Glass microfluidic chip for X-junction (cross-flow) mixing or droplet generation. Four inlet/outlet ports. Chip Dimensions: 5mm x 5mm x 2mm. Microchannel dimensions: 100µm width x 100µm depth.',
     price: 90.00,
-    imageUrl: '/images/chip-x-mixer.webp', // Placeholder
+    imageUrl: '', // Use fallback placeholder
     category: 'chip',
     stockQuantity: 35,
     sku: 'XMIXG-W5H5T2-CWD100',

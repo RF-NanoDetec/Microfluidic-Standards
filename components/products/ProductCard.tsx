@@ -50,8 +50,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <Link href={`/products/${product.id}`} className="block group">
           <div className="relative w-full h-48 mb-4 overflow-hidden rounded-t-lg"> {/* Added overflow-hidden and rounded here */}
             <Image
-              src={product.imageUrl || '/images/product-placeholder.webp'} // Fallback placeholder
-              alt={product.name}
+              src={product.imageUrl && product.imageUrl.trim() !== '' ? product.imageUrl : '/product.png'} // Robust fallback to /product.png
+              alt={product.name || 'Microfluidic product'}
               layout="fill"
               objectFit="contain" // Or "cover", depending on desired image behavior
               className="group-hover:scale-105 transition-transform duration-200 ease-in-out" // Removed rounded-t-lg from here, added hover effect

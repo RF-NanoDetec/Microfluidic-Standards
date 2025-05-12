@@ -20,7 +20,7 @@ export default function HomePage() {
               <Link href="/products">Explore Products</Link>
             </Button>
             <Button asChild size="lg" className="bg-[#F5F7FA] text-primary hover:bg-[#E1E4E8] dark:bg-primary-foreground dark:text-primary dark:hover:bg-primary-foreground/90">
-              <Link href="/designer">Start Designing</Link>
+              <Link href="/canvas">Start Designing</Link>
             </Button>
           </div>
         </div>
