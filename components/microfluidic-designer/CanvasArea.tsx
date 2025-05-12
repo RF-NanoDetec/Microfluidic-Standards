@@ -22,6 +22,12 @@ import {
   M3S_TO_NLMIN
 } from '@/lib/microfluidic-designer/constants';
 import { calculateTubePathData, calculateTemporaryConnectionPath } from '@/lib/microfluidic-designer/utils/pathUtils';
+import { 
+  getDynamicFlowColor,
+  getPressureIndicatorColor,
+  formatFlowRateForDisplay,
+  formatFlowVelocityForDisplay
+} from '@/lib/microfluidic-designer/utils/visualizationUtils';
 import { Button } from '@/components/ui/button';
 import { Trash2, PlayCircle, RotateCcw } from 'lucide-react';
 import { KonvaEventObject } from 'konva/lib/Node';
@@ -115,129 +121,26 @@ const getInternalChipSegmentId = (item: CanvasItemData): string | null => {
   return null; 
 };
 
-// REVISED Helper to get flow color based on flow velocity and dynamic range
-const getDynamicFlowColor = (
-  flowVelocity: number | undefined, 
-  minVelocity: number, 
-  maxVelocity: number,
-  mode: FlowDisplayMode = 'velocity' // Default to velocity if not specified
-): string => {
-  if (flowVelocity === undefined || !isFinite(flowVelocity)) return FLOW_COLOR_NO_DATA;
-  
-  const absVelocity = Math.abs(flowVelocity);
-  
-  // Use appropriate zero threshold based on display mode
-  const zeroThreshold = mode === 'velocity' ? 1e-9 : 1e-13;
-  
-  if (absVelocity < zeroThreshold) return FLOW_COLOR_ZERO; // Effectively zero value
-
-  if (maxVelocity <= minVelocity || maxVelocity < zeroThreshold) { 
-    // If no significant flow or all flows are the same (and very low), use a single color.
-    // Could also be FLOW_COLOR_LOW if any flow is detected.
-    return FLOW_COLOR_LOW; 
-  }
-
-  // Normalize the velocity: 0 for minVelocity, 1 for maxVelocity
-  // Clamp normalized value between 0 and 1
-  const normalizedVelocity = Math.max(0, Math.min((absVelocity - minVelocity) / (maxVelocity - minVelocity), 1));
-
-  // Simple linear interpolation between FLOW_COLOR_LOW (blue) and FLOW_COLOR_HIGH (red)
-  // FLOW_COLOR_LOW: rgb(100, 181, 246)
-  // FLOW_COLOR_HIGH: rgb(211, 47, 47)
-  const r = Math.round(100 + (211 - 100) * normalizedVelocity);
-  const g = Math.round(181 + (47 - 181) * normalizedVelocity);
-  const b = Math.round(246 + (47 - 246) * normalizedVelocity);
-  
-  return `rgb(${r},${g},${b})`;
-};
-
 // Helper to get pressure color
+/* // Moved to visualizationUtils.ts
 const getPressureIndicatorColor = (pressurePa: number | undefined): string => {
-  if (pressurePa === undefined || !isFinite(pressurePa)) return '#888888'; // Grey for no data
-  
-  const pressureMbar = pressurePa * PASCAL_TO_MBAR;
-  
-  if (Math.abs(pressureMbar) < 1) return '#a0a0a0'; // Near zero pressure - light grey
-  if (pressureMbar > 0) { // Positive pressure
-    const normalizedPressure = Math.min(pressureMbar / 1000, 1); // Normalize up to 1000 mbar
-    if (normalizedPressure < 0.33) return '#90caf9'; // Light blue for low positive
-    if (normalizedPressure < 0.66) return '#2196f3'; // Medium blue
-    return '#1565c0'; // Deep blue for high positive
-  } else { // Negative pressure
-    const normalizedPressure = Math.min(Math.abs(pressureMbar) / 1000, 1);
-    if (normalizedPressure < 0.33) return '#ffcc80'; // Light orange for low negative
-    if (normalizedPressure < 0.66) return '#ff9800'; // Medium orange
-    return '#e65100'; // Deep orange for high negative
-  }
+  // ... function body ...
 };
+*/
 
 // Helper to convert flow rate from m³/s to a displayable string with appropriate units
+/* // Moved to visualizationUtils.ts
 const formatFlowRateForDisplay = (flowRateM3s: number): string => {
-  // Calculate the absolute value in different units
-  const absFlowRate = Math.abs(flowRateM3s);
-  
-  // Convert to various units
-  const plPerMin = absFlowRate * M3S_TO_NLMIN * 1000; // 1 nL = 1000 pL
-  const nlPerMin = absFlowRate * M3S_TO_NLMIN;
-  const ulPerMin = absFlowRate * M3S_TO_ULMIN;
-  const mlPerMin = ulPerMin / 1000; // 1 mL = 1000 µL
-  const lPerMin = mlPerMin / 1000;  // 1 L = 1000 mL
-  
-  // Choose the most appropriate unit based on magnitude
-  if (plPerMin < 1) {
-    // For extremely small values, use scientific notation with pL/min
-    return `${(plPerMin).toExponential(2)} pL/min`;
-  } else if (plPerMin < 1000) {
-    // For very small values (< 1 nL/min), use pL/min
-    return `${plPerMin.toFixed(2)} pL/min`;
-  } else if (nlPerMin < 1000) {
-    // For small values (< 1 µL/min), use nL/min
-    return `${nlPerMin.toFixed(2)} nL/min`;
-  } else if (ulPerMin < 1000) {
-    // For moderate values (< 1 mL/min), use µL/min
-    return `${ulPerMin.toFixed(2)} µL/min`;
-  } else if (mlPerMin < 1000) {
-    // For large values (< 1 L/min), use mL/min
-    return `${mlPerMin.toFixed(2)} mL/min`;
-  } else {
-    // For very large values, use L/min
-    return `${lPerMin.toFixed(2)} L/min`;
-  }
+  // ... function body ...
 };
+*/
 
 // Helper to convert flow velocity from m/s to a displayable string with appropriate units
+/* // Moved to visualizationUtils.ts
 const formatFlowVelocityForDisplay = (flowVelocityMps: number): string => {
-  // Calculate the absolute value
-  const absVelocity = Math.abs(flowVelocityMps);
-  
-  // Convert to various units
-  const mPerS = absVelocity;
-  const cmPerS = mPerS * 100;     // 1 m = 100 cm
-  const mmPerS = mPerS * 1000;    // 1 m = 1000 mm
-  const umPerS = mmPerS * 1000;   // 1 mm = 1000 µm
-  const nmPerS = umPerS * 1000;   // 1 µm = 1000 nm
-  
-  // Choose the most appropriate unit based on magnitude
-  if (nmPerS < 1) {
-    // For extremely small velocities, use scientific notation with nm/s
-    return `${(nmPerS).toExponential(2)} nm/s`;
-  } else if (nmPerS < 1000) {
-    // For very small velocities (< 1 µm/s), use nm/s
-    return `${nmPerS.toFixed(2)} nm/s`;
-  } else if (umPerS < 1000) {
-    // For small velocities (< 1 mm/s), use µm/s
-    return `${umPerS.toFixed(2)} µm/s`;
-  } else if (mmPerS < 1000) {
-    // For moderate velocities (< 1 m/s), use mm/s
-    return `${mmPerS.toFixed(2)} mm/s`;
-  } else if (cmPerS < 1000) {
-    // For large velocities (< 10 m/s), use cm/s
-    return `${cmPerS.toFixed(2)} cm/s`;
-  } else {
-    // For very large velocities, use m/s
-    return `${mPerS.toFixed(2)} m/s`;
-  }
+  // ... function body ...
 };
+*/
 
 export default function CanvasArea({ 
   droppedItems,
@@ -489,35 +392,40 @@ export default function CanvasArea({
   const renderInternalSegmentFlows = () => {
     const flowElements: React.ReactNode[] = [];
     if (!simulationResults || !simulationResults.segmentFlows) return flowElements;
-
-    const { min: minVal, max: maxVal } = minMaxFlowValues; // Use generic min/max from context
+    
+    // Calculate min/max for internal flow scaling - temporary workaround
+    let minVal = Infinity;
+    let maxVal = 0;
 
     droppedItems.forEach(item => {
-      if (item.chipType === 'straight' || item.chipType === 'meander') {
-        if (item.ports.length === 2) {
-          const port1Pos = { x: item.x + item.ports[0].x, y: item.y + item.ports[0].y };
-          const port2Pos = { x: item.x + item.ports[1].x, y: item.y + item.ports[1].y };
-          
-          const node1Id = item.ports[0].id;
-          const node2Id = item.ports[1].id;
-          const segmentIdKey = [node1Id, node2Id].sort().join('--');
-          const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
-          
+      // Handle straight and meander chips
+      if ((item.chipType === 'straight' || item.chipType === 'meander') && item.ports.length === 2) {
+        // Get the port positions
+        const port1 = item.ports[0];
+        const port2 = item.ports[1];
+        const port1Pos = { x: item.x + port1.x, y: item.y + port1.y };
+        const port2Pos = { x: item.x + port2.x, y: item.y + port2.y };
+        
+        // Get flow segment ID - should match what's in simulationEngine
+        const segmentIdKey = [port1.id, port2.id].sort().join('--');
+        
+        const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
+        if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
           let displayValue: number | undefined = undefined;
-          if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
-            if (flowDisplayMode === 'velocity') {
-              if (item.currentChannelWidthMicrons > 0 && item.currentChannelDepthMicrons > 0) {
-                const widthM = item.currentChannelWidthMicrons * 1e-6;
-                const heightM = item.currentChannelDepthMicrons * 1e-6;
-                const areaM2 = widthM * heightM;
-                displayValue = flowRateM3s / areaM2;
-              }
-            } else { // 'rate'
-              displayValue = flowRateM3s;
+          
+          if (flowDisplayMode === 'velocity') {
+            if (item.currentChannelWidthMicrons > 0 && item.currentChannelDepthMicrons > 0) {
+              const widthM = item.currentChannelWidthMicrons * 1e-6;
+              const heightM = item.currentChannelDepthMicrons * 1e-6;
+              const areaM2 = widthM * heightM;
+              displayValue = flowRateM3s / areaM2;
             }
+          } else { // 'rate'
+            displayValue = flowRateM3s;
           }
           
-          const color = getDynamicFlowColor(displayValue, minVal, maxVal, flowDisplayMode);
+          // Restore dynamic color calculation
+          const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
 
           flowElements.push(
             <Line
@@ -556,7 +464,9 @@ export default function CanvasArea({
             }
           }
 
-          const color = getDynamicFlowColor(displayValue, minVal, maxVal, flowDisplayMode);
+          // Restore dynamic color calculation
+          const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
+          
           const portAbsPos = { x: item.x + port.x, y: item.y + port.y };
           // Approximate junction center visually for now.
           // A more accurate representation would use the actual junction node coordinates if stored.
@@ -580,7 +490,7 @@ export default function CanvasArea({
     return flowElements;
   };
 
-  // Modify the renderSimulationVisuals function to include internal segment flows
+  // Modify the renderSimulationVisuals function
   const renderSimulationVisuals = () => {
     const flowVisuals: React.ReactNode[] = [];
     const pressureNodeVisuals: React.ReactNode[] = [];
@@ -626,6 +536,7 @@ export default function CanvasArea({
           }
         }
         
+        // Restore dynamic color calculation
         const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
 
         flowVisuals.push(
