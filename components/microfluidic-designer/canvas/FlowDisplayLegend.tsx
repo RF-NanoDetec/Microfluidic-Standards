@@ -1,105 +1,97 @@
 import React from 'react';
+import type { FlowDisplayMode } from '../CanvasArea';
+import { formatFlowRateForDisplay, formatFlowVelocityForDisplay } from '@/lib/microfluidic-designer/utils/visualizationUtils';
 
-interface FlowDisplayLegendProps { 
-  minDisplayValue: number; 
-  maxDisplayValue: number; 
-  displayMode: 'velocity' | 'rate'; 
+// Import the epsilon value for consistency
+import { RELATIVE_EPSILON } from '@/lib/microfluidic-designer/utils/visualizationUtils';
+
+interface FlowDisplayLegendProps {
+  minDisplayValue: number;
+  maxDisplayValue: number;
+  displayMode: FlowDisplayMode;
   getDynamicFlowColor: (
-    value: number | undefined,
-    minInRange: number,
-    maxInRange: number,
-    mode?: 'velocity' | 'rate'
+    flowValue: number | undefined,
+    minValue: number,
+    maxValue: number,
+    mode?: FlowDisplayMode
   ) => string;
-  formatValueForDisplay: (value: number, mode: 'velocity' | 'rate') => string;
+  formatValueForDisplay: (
+    value: number,
+    mode: FlowDisplayMode
+  ) => string;
 }
 
-const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({ 
+const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({
   minDisplayValue,
   maxDisplayValue,
   displayMode,
   getDynamicFlowColor,
   formatValueForDisplay,
 }) => {
-  const numberOfSteps = 10; 
-  const gradientSegments = [];
+  // Determine if the range is negligible (uniform flow)
+  const range = maxDisplayValue - minDisplayValue;
+  const isUniform = maxDisplayValue > 0 && range / maxDisplayValue < RELATIVE_EPSILON;
+  // Also consider the case where max is effectively zero
+  const zeroThreshold = displayMode === 'velocity' ? 1e-9 : 1e-13;
+  const isZeroFlow = maxDisplayValue < zeroThreshold;
 
-  const nearZeroThreshold = displayMode === 'velocity' ? 1e-9 : 1e-13; 
-
-  const isEffectivelyNoFlow = maxDisplayValue < nearZeroThreshold;
-  const isRangeTooSmall = Math.abs(maxDisplayValue - minDisplayValue) < nearZeroThreshold && !isEffectivelyNoFlow;
-
-  if (isEffectivelyNoFlow) {
-    gradientSegments.push(
-      <div
-        key="no-flow-segment"
-        style={{
-          width: '100%',
-          height: '20px',
-          backgroundColor: getDynamicFlowColor(0, 0, 0, displayMode), 
-        }}
-      />
-    );
-  } else {
-    const actualMinForLegendScale = 0;
-    const actualMaxForLegendScale = maxDisplayValue;
-
-    for (let i = 0; i < numberOfSteps; i++) {
-      const fraction = i / (numberOfSteps - 1); 
-      const currentValue = actualMinForLegendScale + fraction * (actualMaxForLegendScale - actualMinForLegendScale);
-      const color = getDynamicFlowColor(
-        currentValue,
-        actualMinForLegendScale,
-        actualMaxForLegendScale,
-        displayMode
-      );
-      gradientSegments.push(
-        <div
-          key={i}
-          style={{
-            flex: 1,
-            height: '20px',
-            backgroundColor: color,
-          }}
-        />
-      );
-    }
-  }
-
-  const title = displayMode === 'velocity' ? 'Flow Velocity (adaptive units)' : 'Flow Rate (adaptive units)';
-  const minLabel = isEffectivelyNoFlow ? formatValueForDisplay(minDisplayValue, displayMode) : formatValueForDisplay(0, displayMode);
-  const maxLabel = maxDisplayValue > nearZeroThreshold ? formatValueForDisplay(maxDisplayValue, displayMode) : "";
-
+  const legendTitle = displayMode === 'velocity' ? 'Flow Velocity (adaptive units)' : 'Flow Rate (adaptive units)';
+  const numberOfSteps = 10; // Number of segments in the gradient bar
 
   return (
     <div
-      style={{
-        position: 'absolute',
-        bottom: '70px',
-        left: '20px',
-        padding: '8px',
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        borderRadius: '4px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        width: '220px', 
-        fontSize: '10px',
-        fontFamily: 'sans-serif',
-        color: '#333',
-        zIndex: 100, 
-      }}
+      className="absolute bottom-4 left-4 bg-white bg-opacity-90 p-3 rounded shadow-md border border-gray-200 text-xs text-gray-700 pointer-events-auto"
     >
-      <div style={{ marginBottom: '4px', fontWeight: '600', textAlign: 'center' }}>{title}</div>
-      <div style={{ display: 'flex', flexDirection: 'row', marginBottom: '4px', border: '1px solid #eee' }}>
-        {gradientSegments}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px' }}>
-        <span>{minLabel}</span>
-        <span>{maxLabel}</span>
-      </div>
-      {isEffectivelyNoFlow && (
-         <div style={{textAlign: 'center', marginTop: '3px', fontSize: '9px'}}> (No significant flow)</div>
-      )}
-       {isRangeTooSmall && (
-         <div style={{textAlign: 'center', marginTop: '3px', fontSize: '9px'}}> (Uniform low flow)</div>
+      <div className="font-semibold mb-2 text-center">{legendTitle}</div>
+
+      {isZeroFlow ? (
+        // Special case: Max value is essentially zero
+        <div className="text-center">
+          <div
+            className="h-3 w-full mb-1 rounded-sm"
+            style={{ backgroundColor: getDynamicFlowColor(0, 0, 0, displayMode) }} // Use zero flow color
+          ></div>
+          <span>Zero Flow</span>
+        </div>
+      ) : isUniform ? (
+        // Uniform Flow Case
+        <div className="text-center">
+          <div
+            className="h-3 w-full mb-1 rounded-sm"
+            style={{ backgroundColor: getDynamicFlowColor(maxDisplayValue, minDisplayValue, maxDisplayValue, displayMode) }} // Should return FLOW_COLOR_LOW
+          ></div>
+          <span>Uniform: {formatValueForDisplay(maxDisplayValue, displayMode)}</span>
+        </div>
+      ) : (
+        // Gradient Flow Case
+        <>
+          <div className="flex h-3 mb-1">
+            {Array.from({ length: numberOfSteps }).map((_, i) => {
+              const value = minDisplayValue + (range / numberOfSteps) * (i + 0.5); // Midpoint of segment
+              const color = getDynamicFlowColor(
+                value,
+                minDisplayValue,
+                maxDisplayValue,
+                displayMode
+              );
+              return (
+                <div
+                  key={i}
+                  className="flex-1"
+                  style={{ backgroundColor: color }}
+                />
+              );
+            })}
+          </div>
+          <div className="flex justify-between text-gray-600">
+            <span>{formatValueForDisplay(minDisplayValue, displayMode)}</span>
+            <span>{formatValueForDisplay(maxDisplayValue, displayMode)}</span>
+          </div>
+          {/* Optional: Add text if min is effectively zero but max is not */}
+          {minDisplayValue < zeroThreshold && maxDisplayValue >= zeroThreshold && (
+            <div className="text-center text-gray-500 mt-1">(Zero flow shown as grey)</div>
+          )}
+        </>
       )}
     </div>
   );

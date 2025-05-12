@@ -170,7 +170,7 @@ export default function CanvasArea({
   const stageRef = useRef<Konva.Stage>(null);
 
   // NEW: State for flow display mode
-  const [flowDisplayMode, setFlowDisplayMode] = useState<FlowDisplayMode>('velocity');
+  const [flowDisplayMode, setFlowDisplayMode] = useState<FlowDisplayMode>('rate'); // TEMP: Force rate mode
 
   // Calculate min/max flow velocities or rates from simulation results for dynamic scaling
   const minMaxFlowValues = useMemo(() => {
@@ -427,6 +427,10 @@ export default function CanvasArea({
           // Restore dynamic color calculation
           const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
 
+          const tooltipText = displayValue !== undefined 
+            ? (flowDisplayMode === 'velocity' ? formatFlowVelocityForDisplay(displayValue) : formatFlowRateForDisplay(flowRateM3s)) 
+            : 'No flow data';
+
           flowElements.push(
             <Line
               key={`${item.id}-internal-flow`}
@@ -436,6 +440,40 @@ export default function CanvasArea({
               lineCap="round"
               lineJoin="round"
               listening={false}
+            />,
+            // Add invisible line for hover detection
+            <Line
+              key={`${item.id}-internal-hover`}
+              points={[port1Pos.x, port1Pos.y, port2Pos.x, port2Pos.y]}
+              stroke="transparent"
+              strokeWidth={10} // Hit area
+              listening={true}
+              onMouseEnter={e => {
+                const stage = e.target.getStage();
+                if (!stage) return;
+                const container = stage.container();
+                container.style.cursor = 'help';
+                const tooltip = new Konva.Text({
+                  text: tooltipText,
+                  fontSize: 10, fill: 'black', padding: 5,
+                  background: 'lightgray', cornerRadius: 3, visible: true,
+                  x: e.evt.offsetX + 5,
+                  y: e.evt.offsetY + 5,
+                });
+                e.target.getLayer()?.add(tooltip);
+                e.target.setAttr('tooltip', tooltip);
+              }}
+              onMouseLeave={e => {
+                const stage = e.target.getStage();
+                if (!stage) return;
+                const container = stage.container();
+                container.style.cursor = 'default';
+                const tooltip = e.target.getAttr('tooltip');
+                if (tooltip) {
+                  tooltip.destroy();
+                  e.target.setAttr('tooltip', null);
+                }
+              }}
             />
           );
           // Optionally, add text for flow rate/velocity
@@ -467,6 +505,10 @@ export default function CanvasArea({
           // Restore dynamic color calculation
           const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
           
+          const tooltipText = displayValue !== undefined 
+            ? (flowDisplayMode === 'velocity' ? formatFlowVelocityForDisplay(displayValue) : formatFlowRateForDisplay(flowRateM3s)) 
+            : 'No flow data';
+
           const portAbsPos = { x: item.x + port.x, y: item.y + port.y };
           // Approximate junction center visually for now.
           // A more accurate representation would use the actual junction node coordinates if stored.
@@ -482,6 +524,40 @@ export default function CanvasArea({
               lineCap="round"
               lineJoin="round"
               listening={false}
+            />,
+            // Add invisible line for hover detection
+            <Line
+              key={`${item.id}-${port.id}-internal-hover`}
+              points={[portAbsPos.x, portAbsPos.y, approxJunctionCenterX, approxJunctionCenterY]}
+              stroke="transparent"
+              strokeWidth={10} // Hit area
+              listening={true}
+              onMouseEnter={e => {
+                const stage = e.target.getStage();
+                if (!stage) return;
+                const container = stage.container();
+                container.style.cursor = 'help';
+                const tooltip = new Konva.Text({
+                  text: tooltipText,
+                  fontSize: 10, fill: 'black', padding: 5,
+                  background: 'lightgray', cornerRadius: 3, visible: true,
+                  x: e.evt.offsetX + 5,
+                  y: e.evt.offsetY + 5,
+                });
+                e.target.getLayer()?.add(tooltip);
+                e.target.setAttr('tooltip', tooltip);
+              }}
+              onMouseLeave={e => {
+                const stage = e.target.getStage();
+                if (!stage) return;
+                const container = stage.container();
+                container.style.cursor = 'default';
+                const tooltip = e.target.getAttr('tooltip');
+                if (tooltip) {
+                  tooltip.destroy();
+                  e.target.setAttr('tooltip', null);
+                }
+              }}
             />
           );
         });
@@ -506,60 +582,63 @@ export default function CanvasArea({
     // Add flow visualizations for connections (tubes)
     if (simulationResults && simulationResults.segmentFlows) {
       connections.forEach(conn => {
-        const port1BaseId = conn.fromPortId.startsWith(conn.fromItemId + '_') 
-                            ? conn.fromPortId.substring(conn.fromItemId.length + 1) 
-                            : conn.fromPortId; 
-        const port2BaseId = conn.toPortId.startsWith(conn.toItemId + '_') 
-                            ? conn.toPortId.substring(conn.toItemId.length + 1) 
-                            : conn.toPortId; 
+        // --- Start Calculation for this Connection --- 
+        
+        // 1. Construct Node IDs and Segment Key (Consistent logic)
+        const getBasePortId = (fullPortId: string, itemId: string): string => {
+          const prefix = itemId + '_';
+          if (fullPortId.startsWith(prefix)) {
+            return fullPortId.substring(prefix.length);
+          }
+          console.warn(`[getBasePortId] Port ID ${fullPortId} for item ${itemId} did not have expected prefix.`);
+          return fullPortId; 
+        };
+        const port1BaseId = getBasePortId(conn.fromPortId, conn.fromItemId);
+        const port2BaseId = getBasePortId(conn.toPortId, conn.toItemId);
+        const node1Id = `${conn.fromItemId}_${port1BaseId}`;
+        const node2Id = `${conn.toItemId}_${port2BaseId}`;
+        const segmentIdKey = [node1Id, node2Id].sort().join('--');
 
-        const node1SimId = `${conn.fromItemId}_${port1BaseId}`;
-        const node2SimId = `${conn.toItemId}_${port2BaseId}`;
-        const segmentIdKey = [node1SimId, node2SimId].sort().join('--');
-
+        // 2. Get Flow Rate
         const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
         
-        let displayValue: number | undefined = undefined;
-        let tooltipText = 'No flow data';
-
+        // 3. Calculate Display Value (Velocity or Rate)
+        let displayValueForTube: number | undefined = undefined;
         if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
-          if (flowDisplayMode === 'velocity') {
-            const tubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === conn.tubingTypeId);
-            if (tubingType && tubingType.innerRadiusMeters > 0) {
-              const areaM2 = Math.PI * Math.pow(tubingType.innerRadiusMeters, 2);
-              displayValue = flowRateM3s / areaM2;
-              tooltipText = formatFlowVelocityForDisplay(displayValue);
+            if (flowDisplayMode === 'velocity') {
+                const tubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === conn.tubingTypeId);
+                if (tubingType && tubingType.innerRadiusMeters > 0) {
+                    const areaM2 = Math.PI * Math.pow(tubingType.innerRadiusMeters, 2);
+                    displayValueForTube = flowRateM3s / areaM2;
+                }
+            } else { // 'rate'
+                displayValueForTube = flowRateM3s;
             }
-          } else { // 'rate'
-            displayValue = flowRateM3s;
-            tooltipText = formatFlowRateForDisplay(flowRateM3s);
-          }
+        } else {
+             console.warn(`[TubeRender] No flow data found for segment key: ${segmentIdKey}. Tube ${conn.id} used for hover.`);
         }
-        
-        // Restore dynamic color calculation
-        const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
 
+        // 4. Calculate Tooltip Text
+        const tooltipText = displayValueForTube !== undefined
+          ? (flowDisplayMode === 'velocity' ? formatFlowVelocityForDisplay(displayValueForTube) : formatFlowRateForDisplay(flowRateM3s ?? 0)) 
+          : 'No flow data';
+
+        // 5. Push the Hover Path onto flowVisuals
         flowVisuals.push(
-          <Path
-            key={`${conn.id}-flow-overlay`} // Unique key for this specific element
+          <Path // This is JUST the hover/tooltip path
+            key={`${conn.id}-flow-overlay`}
             data={conn.pathData}
-            stroke={color} 
-            strokeWidth={CONNECTION_FILL_WIDTH} 
-            lineCap="round"
-            lineJoin="round"
+            stroke={'transparent'} // Invisible
+            strokeWidth={10} // Hit area
             listening={true} 
             onMouseEnter={e => {
               if (!stageRef.current) return;
               const container = stageRef.current.container();
               container.style.cursor = 'help';
               const tooltip = new Konva.Text({
-                text: tooltipText, // Use dynamic tooltip text
-                fontSize: 10,
-                fill: 'black',
-                padding: 5,
-                background: 'lightgray',
-                cornerRadius: 3,
-                visible: true,
+                text: tooltipText,
+                fontSize: 10, fill: 'black', padding: 5,
+                background: 'lightgray', cornerRadius: 3, visible: true,
                 x: e.evt.offsetX + 5, 
                 y: e.evt.offsetY + 5,
               });
@@ -578,6 +657,7 @@ export default function CanvasArea({
             }}
           />
         );
+        // --- End Calculation/Push for this Connection ---
       });
     }
 
@@ -794,7 +874,7 @@ export default function CanvasArea({
               {/* Grid */}
               {renderGrid()}
               
-              {/* Connections (tubes) */}
+              {/* Connections (tubes) - Visual Rendering ONLY */}
               {connections.map(conn => {
                 if (!conn.pathData) { 
                   console.error("[CanvasArea] Connection has NO pathData! Rendering fallback line.", conn);
@@ -816,21 +896,44 @@ export default function CanvasArea({
                 let tubeFillColor = isSelected ? CONNECTION_SELECTED_FILL_COLOR : CONNECTION_FILL_COLOR;
                 let tubeOutlineColor = isSelected ? CONNECTION_SELECTED_OUTLINE_COLOR : CONNECTION_OUTLINE_COLOR;
 
-                // Update color based on flow if results are available
+                // Update visual color based on flow if results are available
                 if (simulationResults && simulationResults.segmentFlows) {
                   // Construct the segmentId. Ensure port ID extraction matches simulation engine for robustness.
                   // The port IDs on `conn` (e.g., conn.fromPortId) are the full unique IDs like `itemId_portBaseId`
                   // The simulation engine typically uses `itemId_portBaseId` as node IDs directly.
-                  const node1Id = conn.fromPortId; 
-                  const node2Id = conn.toPortId;
+                  
+                  // ***** START REVISED LOGIC *****
+                  // Reconstruct node IDs consistently with minMaxFlowValues calculation and likely simulation key format
+                  // Handle cases where the prefix might already be included or missing.
+                  const getBasePortId = (fullPortId: string, itemId: string): string => {
+                    const prefix = itemId + '_';
+                    if (fullPortId.startsWith(prefix)) {
+                      return fullPortId.substring(prefix.length);
+                    }
+                    // Consider if the fullPortId *is* the base ID already (e.g., from older data)
+                    // This might need adjustment based on actual port ID formats encountered.
+                    // For now, assume it contains the base ID if prefix is missing.
+                    console.warn(`[getBasePortId] Port ID ${fullPortId} for item ${itemId} did not have expected prefix.`);
+                    return fullPortId; // Fallback, might be incorrect if format varies significantly
+                  };
+
+                  const port1BaseId = getBasePortId(conn.fromPortId, conn.fromItemId);
+                  const port2BaseId = getBasePortId(conn.toPortId, conn.toItemId);
+
+                  const node1Id = `${conn.fromItemId}_${port1BaseId}`;
+                  const node2Id = `${conn.toItemId}_${port2BaseId}`;
+                  // ***** END REVISED LOGIC *****
+                  
                   // Ensure the segmentId construction here precisely matches how segment IDs are keyed in simulationResults.segmentFlows
                   // This usually involves sorting the node IDs.
-                  const segmentIdKey = [node1Id, node2Id].sort().join('--');
+                  const segmentIdKey = [node1Id, node2Id].sort().join('--'); // Use reconstructed IDs
                   
                   const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
+                  // Add console log for debugging
+                  console.log(`[TubeRender] ConnID: ${conn.id}, Trying SegmentKey: ${segmentIdKey}, Found Flow: ${flowRateM3s}`);
 
+                  let displayValueForTube: number | undefined = undefined;
                   if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
-                      let displayValueForTube: number | undefined;
                       if (flowDisplayMode === 'velocity') {
                           const tubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === conn.tubingTypeId);
                           if (tubingType && tubingType.innerRadiusMeters > 0) {
@@ -840,20 +943,20 @@ export default function CanvasArea({
                       } else { // 'rate'
                           displayValueForTube = flowRateM3s;
                       }
-
-                      if (displayValueForTube !== undefined) {
-                        tubeFillColor = getDynamicFlowColor(displayValueForTube, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
-                      }
-                      // Optionally change outline too, or keep it standard
-                      // tubeOutlineColor = getDynamicFlowColor(displayValueForTube, minMaxFlowValues.min, minMaxFlowValues.max); 
                   }
+
+                  if (displayValueForTube !== undefined) {
+                    tubeFillColor = getDynamicFlowColor(displayValueForTube, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
+                  }
+                  // Optionally change outline too, or keep it standard
+                  // tubeOutlineColor = getDynamicFlowColor(displayValueForTube, minMaxFlowValues.min, minMaxFlowValues.max); 
                 }
                 
                 return (
                   <Group 
                     key={conn.id} 
                     id={conn.id}
-                    opacity={1} // Full opacity always
+                    opacity={1} 
                   > 
                     {/* Outline path (drawn first) */}
                     <Path
@@ -946,9 +1049,9 @@ export default function CanvasArea({
               )}
             </Layer>
             
-            {/* Separate top Layer for simulation visuals - always rendered last */}
+            {/* Separate top Layer for simulation visuals (HOVER PATHS AND PRESSURE NODES) */}
             <Layer>
-              {simulationResults && renderSimulationVisuals()}
+              {simulationResults && renderSimulationVisuals()} 
             </Layer>
           </Stage>
         ) : (
