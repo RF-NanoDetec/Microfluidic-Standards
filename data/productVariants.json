@@ -1,0 +1,806 @@
+{
+  "productVariants": [
+    {
+      "id": "straight-channel-chip-100um-glass",
+      "productId": "straight-channel-chip",
+      "variantName": "Straight Channel Chip - 100µm Glass",
+      "sku": "SC-100G",
+      "price": 149.99,
+      "imageUrl": "/images/products/straight-channel-chip-100um.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 100, "unit": "µm" },
+        { "name": "channelDepth", "value": 100, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "straight-channel-100um"
+    },
+    {
+      "id": "straight-channel-chip-200um-glass",
+      "productId": "straight-channel-chip",
+      "variantName": "Straight Channel Chip - 200µm Glass",
+      "sku": "SC-200G",
+      "price": 149.99,
+      "imageUrl": "/images/products/straight-channel-chip-200um.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 8, "unit": "bar" },
+        { "name": "channelWidth", "value": 200, "unit": "µm" },
+        { "name": "channelDepth", "value": 200, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "straight-channel-200um"
+    },
+    {
+      "id": "meander-chip-100um-glass",
+      "productId": "meander-chip",
+      "variantName": "Meander Chip - 100µm Glass",
+      "sku": "MC-100G-50",
+      "price": 199.99,
+      "imageUrl": "/images/products/meander-chip-100um.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "totalChannelLength", "value": 500, "unit": "mm" },
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 100, "unit": "µm" },
+        { "name": "channelDepth", "value": 100, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "meander-100um-50cm"
+    },
+    {
+      "id": "standard-holder-glass",
+      "productId": "standard-holder",
+      "variantName": "Standard Glass Chip Holder",
+      "sku": "CH-STD-G",
+      "price": 299.99,
+      "imageUrl": "/images/products/standard-holder-glass.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "aluminum" },
+        { "name": "compatibleChipLength", "value": 75.5, "unit": "mm" },
+        { "name": "compatibleChipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 15, "unit": "bar" },
+        { "name": "connectionType", "value": "standard-1/4-28" }
+      ],
+      "canvasComponentId": "standard-holder"
+    },
+    {
+      "id": "premium-tubing-100um",
+      "productId": "premium-tubing-set",
+      "variantName": "Premium PTFE Tubing - 100µm ID",
+      "sku": "TUB-100-PTFE",
+      "price": 24.99,
+      "imageUrl": "/images/products/premium-tubing-100um.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PTFE" },
+        { "name": "innerDiameter", "value": 100, "unit": "µm" },
+        { "name": "outerDiameter", "value": 1.6, "unit": "mm" },
+        { "name": "length", "value": 1, "unit": "m" },
+        { "name": "maxPressure", "value": 20, "unit": "bar" },
+        { "name": "chemicalResistance", "value": "excellent" }
+      ]
+    },
+    {
+      "id": "syringe-pump-single",
+      "productId": "syringe-pump",
+      "variantName": "Single Channel Precision Pump",
+      "sku": "PUMP-1CH",
+      "price": 1499.99,
+      "imageUrl": "/images/products/syringe-pump-single.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "channels", "value": 1 },
+        { "name": "minFlowRate", "value": 0.001, "unit": "µL/min" },
+        { "name": "maxFlowRate", "value": 10000, "unit": "µL/min" },
+        { "name": "maxPressure", "value": 12, "unit": "bar" },
+        { "name": "syringeCompatibility", "value": "10µL to 60mL" }
+      ],
+      "canvasComponentId": "syringe-pump-single"
+    },
+    {
+      "id": "straight-channel-chip-5um-glass",
+      "productId": "straight-channel-chip",
+      "variantName": "Straight Channel Chip - 5µm Glass",
+      "sku": "SC-5G",
+      "price": 149.99,
+      "imageUrl": "/images/products/straight-channel-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 5, "unit": "µm" },
+        { "name": "channelDepth", "value": 5, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "straight-channel-chip-5um"
+    },
+    {
+      "id": "straight-channel-chip-10um-glass",
+      "productId": "straight-channel-chip",
+      "variantName": "Straight Channel Chip - 10µm Glass",
+      "sku": "SC-10G",
+      "price": 149.99,
+      "imageUrl": "/images/products/straight-channel-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 10, "unit": "µm" },
+        { "name": "channelDepth", "value": 10, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "straight-channel-chip-10um"
+    },
+    {
+      "id": "straight-channel-chip-20um-glass",
+      "productId": "straight-channel-chip",
+      "variantName": "Straight Channel Chip - 20µm Glass",
+      "sku": "SC-20G",
+      "price": 149.99,
+      "imageUrl": "/images/products/straight-channel-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 20, "unit": "µm" },
+        { "name": "channelDepth", "value": 20, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "straight-channel-chip-20um"
+    },
+    {
+      "id": "straight-channel-chip-50um-glass",
+      "productId": "straight-channel-chip",
+      "variantName": "Straight Channel Chip - 50µm Glass",
+      "sku": "SC-50G",
+      "price": 149.99,
+      "imageUrl": "/images/products/straight-channel-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 50, "unit": "µm" },
+        { "name": "channelDepth", "value": 50, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "straight-channel-chip-50um"
+    },
+    {
+      "id": "straight-channel-chip-400um-glass",
+      "productId": "straight-channel-chip",
+      "variantName": "Straight Channel Chip - 400µm Glass",
+      "sku": "SC-400G",
+      "price": 149.99,
+      "imageUrl": "/images/products/straight-channel-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 8, "unit": "bar" },
+        { "name": "channelWidth", "value": 400, "unit": "µm" },
+        { "name": "channelDepth", "value": 400, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "straight-channel-chip-400um"
+    },
+    {
+      "id": "x-junction-chip-5um-glass",
+      "productId": "x-junction-chip",
+      "variantName": "X-Junction Chip - 5µm Glass",
+      "sku": "XJ-5G",
+      "price": 159.99,
+      "imageUrl": "/images/products/x-junction-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 5, "unit": "µm" },
+        { "name": "channelDepth", "value": 5, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "x-junction-chip-5um"
+    },
+    {
+      "id": "x-junction-chip-10um-glass",
+      "productId": "x-junction-chip",
+      "variantName": "X-Junction Chip - 10µm Glass",
+      "sku": "XJ-10G",
+      "price": 159.99,
+      "imageUrl": "/images/products/x-junction-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 10, "unit": "µm" },
+        { "name": "channelDepth", "value": 10, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "x-junction-chip-10um"
+    },
+    {
+      "id": "x-junction-chip-20um-glass",
+      "productId": "x-junction-chip",
+      "variantName": "X-Junction Chip - 20µm Glass",
+      "sku": "XJ-20G",
+      "price": 159.99,
+      "imageUrl": "/images/products/x-junction-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 20, "unit": "µm" },
+        { "name": "channelDepth", "value": 20, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "x-junction-chip-20um"
+    },
+    {
+      "id": "x-junction-chip-50um-glass",
+      "productId": "x-junction-chip",
+      "variantName": "X-Junction Chip - 50µm Glass",
+      "sku": "XJ-50G",
+      "price": 159.99,
+      "imageUrl": "/images/products/x-junction-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 50, "unit": "µm" },
+        { "name": "channelDepth", "value": 50, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "x-junction-chip-50um"
+    },
+    {
+      "id": "x-junction-chip-100um-glass",
+      "productId": "x-junction-chip",
+      "variantName": "X-Junction Chip - 100µm Glass",
+      "sku": "XJ-100G",
+      "price": 159.99,
+      "imageUrl": "/images/products/x-junction-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 100, "unit": "µm" },
+        { "name": "channelDepth", "value": 100, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "x-junction-chip-100um"
+    },
+    {
+      "id": "x-junction-chip-200um-glass",
+      "productId": "x-junction-chip",
+      "variantName": "X-Junction Chip - 200µm Glass",
+      "sku": "XJ-200G",
+      "price": 159.99,
+      "imageUrl": "/images/products/x-junction-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 8, "unit": "bar" },
+        { "name": "channelWidth", "value": 200, "unit": "µm" },
+        { "name": "channelDepth", "value": 200, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "x-junction-chip-200um"
+    },
+    {
+      "id": "x-junction-chip-400um-glass",
+      "productId": "x-junction-chip",
+      "variantName": "X-Junction Chip - 400µm Glass",
+      "sku": "XJ-400G",
+      "price": 159.99,
+      "imageUrl": "/images/products/x-junction-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 6, "unit": "bar" },
+        { "name": "channelWidth", "value": 400, "unit": "µm" },
+        { "name": "channelDepth", "value": 400, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "x-junction-chip-400um"
+    },
+    {
+      "id": "t-junction-chip-5um-glass",
+      "productId": "t-junction-chip",
+      "variantName": "T-Junction Chip - 5µm Glass",
+      "sku": "TJ-5G",
+      "price": 154.99,
+      "imageUrl": "/images/products/t-junction-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 5, "unit": "µm" },
+        { "name": "channelDepth", "value": 5, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "t-junction-chip-5um"
+    },
+    {
+      "id": "t-junction-chip-10um-glass",
+      "productId": "t-junction-chip",
+      "variantName": "T-Junction Chip - 10µm Glass",
+      "sku": "TJ-10G",
+      "price": 154.99,
+      "imageUrl": "/images/products/t-junction-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 10, "unit": "µm" },
+        { "name": "channelDepth", "value": 10, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "t-junction-chip-10um"
+    },
+    {
+      "id": "t-junction-chip-20um-glass",
+      "productId": "t-junction-chip",
+      "variantName": "T-Junction Chip - 20µm Glass",
+      "sku": "TJ-20G",
+      "price": 154.99,
+      "imageUrl": "/images/products/t-junction-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 20, "unit": "µm" },
+        { "name": "channelDepth", "value": 20, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "t-junction-chip-20um"
+    },
+    {
+      "id": "t-junction-chip-50um-glass",
+      "productId": "t-junction-chip",
+      "variantName": "T-Junction Chip - 50µm Glass",
+      "sku": "TJ-50G",
+      "price": 154.99,
+      "imageUrl": "/images/products/t-junction-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 50, "unit": "µm" },
+        { "name": "channelDepth", "value": 50, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "t-junction-chip-50um"
+    },
+    {
+      "id": "t-junction-chip-100um-glass",
+      "productId": "t-junction-chip",
+      "variantName": "T-Junction Chip - 100µm Glass",
+      "sku": "TJ-100G",
+      "price": 154.99,
+      "imageUrl": "/images/products/t-junction-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 100, "unit": "µm" },
+        { "name": "channelDepth", "value": 100, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "t-junction-chip-100um"
+    },
+    {
+      "id": "t-junction-chip-200um-glass",
+      "productId": "t-junction-chip",
+      "variantName": "T-Junction Chip - 200µm Glass",
+      "sku": "TJ-200G",
+      "price": 154.99,
+      "imageUrl": "/images/products/t-junction-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 8, "unit": "bar" },
+        { "name": "channelWidth", "value": 200, "unit": "µm" },
+        { "name": "channelDepth", "value": 200, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "t-junction-chip-200um"
+    },
+    {
+      "id": "t-junction-chip-400um-glass",
+      "productId": "t-junction-chip",
+      "variantName": "T-Junction Chip - 400µm Glass",
+      "sku": "TJ-400G",
+      "price": 154.99,
+      "imageUrl": "/images/products/t-junction-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 6, "unit": "bar" },
+        { "name": "channelWidth", "value": 400, "unit": "µm" },
+        { "name": "channelDepth", "value": 400, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "t-junction-chip-400um"
+    },
+    {
+      "id": "meander-chip-5um-glass",
+      "productId": "meander-chip",
+      "variantName": "Meander Chip - 5µm Glass",
+      "sku": "MC-5G",
+      "price": 199.99,
+      "imageUrl": "/images/products/meander-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "totalChannelLength", "value": 500, "unit": "mm" },
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 5, "unit": "µm" },
+        { "name": "channelDepth", "value": 5, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "meander-chip-5um"
+    },
+    {
+      "id": "meander-chip-10um-glass",
+      "productId": "meander-chip",
+      "variantName": "Meander Chip - 10µm Glass",
+      "sku": "MC-10G",
+      "price": 199.99,
+      "imageUrl": "/images/products/meander-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "totalChannelLength", "value": 500, "unit": "mm" },
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 10, "unit": "µm" },
+        { "name": "channelDepth", "value": 10, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "meander-chip-10um"
+    },
+    {
+      "id": "meander-chip-20um-glass",
+      "productId": "meander-chip",
+      "variantName": "Meander Chip - 20µm Glass",
+      "sku": "MC-20G",
+      "price": 199.99,
+      "imageUrl": "/images/products/meander-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "totalChannelLength", "value": 500, "unit": "mm" },
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 20, "unit": "µm" },
+        { "name": "channelDepth", "value": 20, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "meander-chip-20um"
+    },
+    {
+      "id": "meander-chip-50um-glass",
+      "productId": "meander-chip",
+      "variantName": "Meander Chip - 50µm Glass",
+      "sku": "MC-50G",
+      "price": 199.99,
+      "imageUrl": "/images/products/meander-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "totalChannelLength", "value": 500, "unit": "mm" },
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 10, "unit": "bar" },
+        { "name": "channelWidth", "value": 50, "unit": "µm" },
+        { "name": "channelDepth", "value": 50, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "meander-chip-50um"
+    },
+    {
+      "id": "meander-chip-200um-glass",
+      "productId": "meander-chip",
+      "variantName": "Meander Chip - 200µm Glass",
+      "sku": "MC-200G",
+      "price": 199.99,
+      "imageUrl": "/images/products/meander-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "totalChannelLength", "value": 500, "unit": "mm" },
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 8, "unit": "bar" },
+        { "name": "channelWidth", "value": 200, "unit": "µm" },
+        { "name": "channelDepth", "value": 200, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "meander-chip-200um"
+    },
+    {
+      "id": "meander-chip-400um-glass",
+      "productId": "meander-chip",
+      "variantName": "Meander Chip - 400µm Glass",
+      "sku": "MC-400G",
+      "price": 199.99,
+      "imageUrl": "/images/products/meander-chip.png",
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "totalChannelLength", "value": 500, "unit": "mm" },
+        { "name": "chipLength", "value": 75.5, "unit": "mm" },
+        { "name": "chipWidth", "value": 25.5, "unit": "mm" },
+        { "name": "maxPressure", "value": 6, "unit": "bar" },
+        { "name": "channelWidth", "value": 400, "unit": "µm" },
+        { "name": "channelDepth", "value": 400, "unit": "µm" },
+        { "name": "material", "value": "glass" }
+      ],
+      "canvasComponentId": "meander-chip-400um"
+    },
+    {
+      "id": "ptfe-1-16-0-2-20",
+      "productId": "ptfe-tubing",
+      "variantName": "PTFE Tubing 1/16\" OD x 0.2 mm ID, 20 m",
+      "sku": "PTFE-1602-20",
+      "price": 60.00,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PTFE" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "0.2", "unit": "mm" },
+        { "name": "length", "value": "20", "unit": "m" },
+        { "name": "pressureRating", "value": "15", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "ptfe-1-16-0-2-50",
+      "productId": "ptfe-tubing",
+      "variantName": "PTFE Tubing 1/16\" OD x 0.2 mm ID, 50 m",
+      "sku": "PTFE-1602-50",
+      "price": 120.00,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PTFE" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "0.2", "unit": "mm" },
+        { "name": "length", "value": "50", "unit": "m" },
+        { "name": "pressureRating", "value": "15", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "ptfe-1-16-0-3-20",
+      "productId": "ptfe-tubing",
+      "variantName": "PTFE Tubing 1/16\" OD x 0.3 mm ID, 20 m",
+      "sku": "PTFE-1603-20",
+      "price": 60.00,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PTFE" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "0.3", "unit": "mm" },
+        { "name": "length", "value": "20", "unit": "m" },
+        { "name": "pressureRating", "value": "15", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "ptfe-1-16-0-3-50",
+      "productId": "ptfe-tubing",
+      "variantName": "PTFE Tubing 1/16\" OD x 0.3 mm ID, 50 m",
+      "sku": "PTFE-1603-50",
+      "price": 120.00,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PTFE" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "0.3", "unit": "mm" },
+        { "name": "length", "value": "50", "unit": "m" },
+        { "name": "pressureRating", "value": "15", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "ptfe-1-16-0-5-20",
+      "productId": "ptfe-tubing",
+      "variantName": "PTFE Tubing 1/16\" OD x 0.5 mm ID, 20 m",
+      "sku": "PTFE-1605-20",
+      "price": 60.00,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PTFE" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "0.5", "unit": "mm" },
+        { "name": "length", "value": "20", "unit": "m" },
+        { "name": "pressureRating", "value": "15", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "ptfe-1-16-0-5-50",
+      "productId": "ptfe-tubing",
+      "variantName": "PTFE Tubing 1/16\" OD x 0.5 mm ID, 50 m",
+      "sku": "PTFE-1605-50",
+      "price": 120.00,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PTFE" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "0.5", "unit": "mm" },
+        { "name": "length", "value": "50", "unit": "m" },
+        { "name": "pressureRating", "value": "15", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "ptfe-1-16-0-8-20",
+      "productId": "ptfe-tubing",
+      "variantName": "PTFE Tubing 1/16\" OD x 0.8 mm ID, 20 m",
+      "sku": "PTFE-1608-20",
+      "price": 60.00,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PTFE" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "0.8", "unit": "mm" },
+        { "name": "length", "value": "20", "unit": "m" },
+        { "name": "pressureRating", "value": "15", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "ptfe-1-16-0-8-50",
+      "productId": "ptfe-tubing",
+      "variantName": "PTFE Tubing 1/16\" OD x 0.8 mm ID, 50 m",
+      "sku": "PTFE-1608-50",
+      "price": 120.00,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PTFE" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "0.8", "unit": "mm" },
+        { "name": "length", "value": "50", "unit": "m" },
+        { "name": "pressureRating", "value": "15", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "ptfe-1-16-1-0-20",
+      "productId": "ptfe-tubing",
+      "variantName": "PTFE Tubing 1/16\" OD x 1.0 mm ID, 20 m",
+      "sku": "PTFE-1610-20",
+      "price": 60.00,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PTFE" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "1.0", "unit": "mm" },
+        { "name": "length", "value": "20", "unit": "m" },
+        { "name": "pressureRating", "value": "15", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "ptfe-1-16-1-0-50",
+      "productId": "ptfe-tubing",
+      "variantName": "PTFE Tubing 1/16\" OD x 1.0 mm ID, 50 m",
+      "sku": "PTFE-1610-50",
+      "price": 120.00,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PTFE" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "1.0", "unit": "mm" },
+        { "name": "length", "value": "50", "unit": "m" },
+        { "name": "pressureRating", "value": "15", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "peek-1-16-0-065-1-5",
+      "productId": "peek-tubing",
+      "variantName": "PEEK Tubing 1/16\" OD x 0.065 mm ID, 1.5 m",
+      "sku": "PEEK-16065-1-5",
+      "price": 42.60,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PEEK" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "0.065", "unit": "mm" },
+        { "name": "length", "value": "1.5", "unit": "m" },
+        { "name": "pressureRating", "value": "483", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "peek-1-16-0-065-15",
+      "productId": "peek-tubing",
+      "variantName": "PEEK Tubing 1/16\" OD x 0.065 mm ID, 15 m",
+      "sku": "PEEK-16065-15",
+      "price": 258.00,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PEEK" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "0.065", "unit": "mm" },
+        { "name": "length", "value": "15", "unit": "m" },
+        { "name": "pressureRating", "value": "483", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "peek-1-16-0-065-30",
+      "productId": "peek-tubing",
+      "variantName": "PEEK Tubing 1/16\" OD x 0.065 mm ID, 30 m",
+      "sku": "PEEK-16065-30",
+      "price": 438.50,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PEEK" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "0.065", "unit": "mm" },
+        { "name": "length", "value": "30", "unit": "m" },
+        { "name": "pressureRating", "value": "483", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "peek-1-16-0-1-1-5",
+      "productId": "peek-tubing",
+      "variantName": "PEEK Tubing 1/16\" OD x 0.1 mm ID, 1.5 m",
+      "sku": "PEEK-16100-1-5",
+      "price": 42.60,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PEEK" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "0.1", "unit": "mm" },
+        { "name": "length", "value": "1.5", "unit": "m" },
+        { "name": "pressureRating", "value": "483", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "peek-1-16-0-1-15",
+      "productId": "peek-tubing",
+      "variantName": "PEEK Tubing 1/16\" OD x 0.1 mm ID, 15 m",
+      "sku": "PEEK-16100-15",
+      "price": 258.00,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PEEK" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "0.1", "unit": "mm" },
+        { "name": "length", "value": "15", "unit": "m" },
+        { "name": "pressureRating", "value": "483", "unit": "bar" }
+      ]
+    },
+    {
+      "id": "peek-1-16-0-1-30",
+      "productId": "peek-tubing",
+      "variantName": "PEEK Tubing 1/16\" OD x 0.1 mm ID, 30 m",
+      "sku": "PEEK-16100-30",
+      "price": 438.50,
+      "stockStatus": "in_stock",
+      "attributes": [
+        { "name": "material", "value": "PEEK" },
+        { "name": "outerDiameter", "value": "1.6", "unit": "mm" },
+        { "name": "innerDiameter", "value": "0.1", "unit": "mm" },
+        { "name": "length", "value": "30", "unit": "m" },
+        { "name": "pressureRating", "value": "483", "unit": "bar" }
+      ]
+    }
+  ]
+} 

@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, FileText } from 'lucide-react';
 
 /**
  * Represents the header of the website.
@@ -23,7 +23,7 @@ const Header = () => {
           />
         </Link>
         <nav className="hidden flex-1 items-center justify-end space-x-1 md:flex md:space-x-2 lg:space-x-4">
-          {/* Style Guide: Navbar: right nav: Products · Canvas · Library · Standards · Cart (icon) */}
+          {/* Style Guide: Navbar: right nav: Products · Canvas · Library · Standards · Quote (icon) · Cart (icon) */}
           <Button variant="link" asChild className="text-sm font-medium text-primary hover:text-primary/80 dark:text-slate-50 dark:hover:text-slate-300">
             <Link href="/products">Products</Link>
           </Button>
@@ -35,6 +35,16 @@ const Header = () => {
           </Button>
           <Button variant="link" asChild className="text-sm font-medium text-primary hover:text-primary/80 dark:text-slate-50 dark:hover:text-slate-300">
             <Link href="/standards">Standards</Link>
+          </Button>
+          <Button variant="ghost" size="icon" asChild className="group text-primary hover:text-white dark:text-slate-50 dark:hover:text-primary">
+            <Link href="/quote">
+              {/* Style Guide: Icons: Line icons (2px stroke) from lucide-react. Use Primary Blue; fill on hover. */}
+              <FileText
+                className="h-5 w-5 stroke-current group-hover:fill-white/10 dark:group-hover:fill-primary/10"
+                strokeWidth={2} // Style guide: 2px stroke
+              />
+              <span className="sr-only">Quote</span>
+            </Link>
           </Button>
           <Button variant="ghost" size="icon" asChild className="group text-primary hover:text-white dark:text-slate-50 dark:hover:text-primary">
             <Link href="/cart">
@@ -59,4 +69,4 @@ const Header = () => {
   );
 };
 
-export default Header; 
+export default Header;

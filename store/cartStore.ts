@@ -1,16 +1,21 @@
 // website/store/cartStore.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { AnyProduct } from '@/lib/types'; // Assuming your product types are here
 
-// Revised CartItem definition
-export type CartItem = AnyProduct & {
+// Minimal CartItem definition
+export type CartItem = {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  imageUrl: string;
+  sku: string;
   quantityInCart: number;
 };
 
 interface CartState {
   items: CartItem[];
-  addToCart: (product: AnyProduct, quantity?: number) => void;
+  addToCart: (item: Omit<CartItem, 'quantityInCart'>, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
   updateItemQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -23,23 +28,23 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
 
-      addToCart: (product, quantity = 1) =>
+      addToCart: (item, quantity = 1) =>
         set((state) => {
           const existingItemIndex = state.items.findIndex(
-            (item) => item.id === product.id
+            (cartItem) => cartItem.id === item.id
           );
           if (existingItemIndex > -1) {
             // Product already in cart, update quantity
-            const updatedItems = state.items.map((item, index) =>
+            const updatedItems = state.items.map((cartItem, index) =>
               index === existingItemIndex
-                ? { ...item, quantityInCart: item.quantityInCart + quantity }
-                : item
+                ? { ...cartItem, quantityInCart: cartItem.quantityInCart + quantity }
+                : cartItem
             );
             return { items: updatedItems };
           } else {
             // Product not in cart, add new item
             return {
-              items: [...state.items, { ...product, quantityInCart: quantity }],
+              items: [...state.items, { ...item, quantityInCart: quantity }],
             };
           }
         }),
@@ -51,11 +56,13 @@ export const useCartStore = create<CartState>()(
 
       updateItemQuantity: (productId, quantity) =>
         set((state) => ({
-          items: state.items.map((item) =>
-            item.id === productId
-              ? { ...item, quantityInCart: Math.max(0, quantity) } // Ensure quantity isn't negative
-              : item
-          ).filter(item => item.quantityInCart > 0), // Remove item if quantity becomes 0
+          items: state.items
+            .map((item) =>
+              item.id === productId
+                ? { ...item, quantityInCart: Math.max(0, quantity) }
+                : item
+            )
+            .filter((item) => item.quantityInCart > 0),
         })),
 
       clearCart: () => set({ items: [] }),
@@ -72,8 +79,8 @@ export const useCartStore = create<CartState>()(
       },
     }),
     {
-      name: 'microfluidic-webshop-cart', // Name for the localStorage key
-      storage: createJSONStorage(() => localStorage), // Use localStorage for persistence
+      name: 'microfluidic-webshop-cart',
+      storage: createJSONStorage(() => localStorage),
     }
   )
 );

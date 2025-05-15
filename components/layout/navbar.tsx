@@ -1,10 +1,14 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { FileText } from 'lucide-react';
+import { useQuoteStore } from '@/store/quoteStore';
 // Assuming you will have a CartIcon component or similar
 // import CartIcon from '@/components/ui/cart-icon';
 
 const Navbar = () => {
+  const quoteCount = useQuoteStore((state) => state.getQuoteCount());
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
@@ -30,6 +34,17 @@ const Navbar = () => {
           <Link href="/standards" className="text-foreground/60 transition-colors hover:text-foreground/80">
             Standards
           </Link>
+          <Button variant="ghost" size="icon" asChild className="relative">
+            <Link href="/quote">
+              <FileText className="h-5 w-5" />
+              <span className="sr-only">Quote</span>
+              {quoteCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#B91C1C] text-white text-xs rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center font-bold">
+                  {quoteCount}
+                </span>
+              )}
+            </Link>
+          </Button>
           <Button variant="ghost" size="icon" asChild>
             <Link href="/cart">
               {/* <CartIcon className="h-5 w-5" /> Replace with your actual cart icon */}

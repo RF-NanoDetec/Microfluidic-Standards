@@ -1,0 +1,85 @@
+{
+  "products": [
+    {
+      "id": "straight-channel-chip",
+      "categoryId": "chips",
+      "name": "Straight Channel Chip",
+      "slug": "straight-channel-chip",
+      "baseDescription": "Simple straight channel chip for basic flow experiments and mixing applications. Perfect for educational purposes and basic research.",
+      "baseImage": "/images/products/straight-channel-chip.png",
+      "tags": ["basic", "educational", "mixing", "flow-studies"]
+    },
+    {
+      "id": "x-junction-chip",
+      "categoryId": "chips",
+      "name": "X-Junction Chip",
+      "slug": "x-junction-chip",
+      "baseDescription": "Cross-junction chip design enabling complex mixing patterns and droplet generation. Ideal for droplet-based microfluidics.",
+      "baseImage": "/images/products/x-junction-chip.png",
+      "tags": ["droplet-generation", "mixing", "advanced"]
+    },
+    {
+      "id": "t-junction-chip",
+      "categoryId": "chips",
+      "name": "T-Junction Chip",
+      "slug": "t-junction-chip",
+      "baseDescription": "T-junction chip for controlled droplet generation and segmented flow applications.",
+      "baseImage": "/images/products/t-junction-chip.png",
+      "tags": ["droplet-generation", "mixing", "intermediate"]
+    },
+    {
+      "id": "meander-chip",
+      "categoryId": "chips",
+      "name": "Meander Chip",
+      "slug": "meander-chip",
+      "baseDescription": "Extended channel length in compact form factor for increased residence time and mixing efficiency.",
+      "baseImage": "/images/products/meander-chip.png",
+      "tags": ["mixing", "residence-time", "advanced"]
+    },
+    {
+      "id": "standard-holder",
+      "categoryId": "holders",
+      "name": "Standard Chip Holder",
+      "slug": "standard-chip-holder",
+      "baseDescription": "Universal chip holder compatible with all standard chip sizes. Features secure mounting and easy fluid connections.",
+      "baseImage": "/images/products/standard-holder.png",
+      "tags": ["universal", "basic"]
+    },
+    {
+      "id": "premium-tubing-set",
+      "categoryId": "tubing",
+      "name": "Premium Tubing Set",
+      "slug": "premium-tubing-set",
+      "baseDescription": "High-quality PTFE tubing set with various inner diameters. Chemical resistant and pressure-rated.",
+      "baseImage": "/images/products/premium-tubing.png",
+      "tags": ["PTFE", "chemical-resistant", "premium"]
+    },
+    {
+      "id": "syringe-pump",
+      "categoryId": "pumps",
+      "name": "Precision Syringe Pump",
+      "slug": "precision-syringe-pump",
+      "baseDescription": "High-precision syringe pump with accurate flow rate control and multiple syringe compatibility.",
+      "baseImage": "/images/products/syringe-pump.png",
+      "tags": ["precision", "flow-control", "professional"]
+    },
+    {
+      "id": "ptfe-tubing",
+      "categoryId": "tubing",
+      "name": "PTFE Tubing 1/16\" OD",
+      "slug": "ptfe-tubing-1-16",
+      "baseDescription": "PTFE (Teflon) tubing for microfluidics, 1/16\" (1.6 mm) outer diameter. Chemically inert, flexible, and suitable for low-pressure applications.",
+      "baseImage": "/images/products/ptfe-tubing.png",
+      "tags": ["PTFE", "tubing", "microfluidics", "chemical-resistant"]
+    },
+    {
+      "id": "peek-tubing",
+      "categoryId": "tubing",
+      "name": "PEEK Tubing 1/16\" OD",
+      "slug": "peek-tubing-1-16",
+      "baseDescription": "PEEK tubing for microfluidics, 1/16\" (1.6 mm) outer diameter. Chemically resistant, rigid, and suitable for high-pressure applications.",
+      "baseImage": "/images/products/peek-tubing.png",
+      "tags": ["PEEK", "tubing", "microfluidics", "high-pressure"]
+    }
+  ]
+} 

@@ -1,0 +1,34 @@
+{
+  "categories": [
+    {
+      "id": "chips",
+      "name": "Microfluidic Chips",
+      "slug": "microfluidic-chips",
+      "description": "High-precision glass microfluidic chips for various applications"
+    },
+    {
+      "id": "holders",
+      "name": "Chip Holders",
+      "slug": "chip-holders",
+      "description": "Secure mounting solutions for microfluidic chips with integrated fluid connections"
+    },
+    {
+      "id": "tubing",
+      "name": "Tubing & Connectors",
+      "slug": "tubing-connectors",
+      "description": "High-quality tubing and connection components for reliable fluid transfer"
+    },
+    {
+      "id": "pumps",
+      "name": "Pumps & Flow Control",
+      "slug": "pumps-flow-control",
+      "description": "Precision pumps and flow control devices for accurate fluid manipulation"
+    },
+    {
+      "id": "accessories",
+      "name": "Accessories",
+      "slug": "accessories",
+      "description": "Additional components and tools for microfluidic setups"
+    }
+  ]
+} 

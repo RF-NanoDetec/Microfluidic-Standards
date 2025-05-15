@@ -156,4 +156,41 @@ export interface Accessory extends BaseProduct {
  * A union type representing any of the defined product types.
  * Useful for arrays of mixed products or functions that can handle any product.
  */
-export type AnyProduct = Chip | Holder | Tubing | Pump | Accessory; 
+export type AnyProduct = Chip | Holder | Tubing | Pump | Accessory;
+
+// --- Product Catalog System Types (for new architecture) ---
+export interface ProductCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+}
+
+export interface Product {
+  id: string;
+  categoryId: string;
+  name: string;
+  slug: string;
+  baseDescription: string;
+  baseImage: string;
+  tags?: string[];
+}
+
+export interface ProductAttribute {
+  name: string;
+  value: string | number | boolean;
+  unit?: string;
+}
+
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  variantName: string;
+  sku: string;
+  price: number;
+  imageUrl?: string;
+  stockStatus: 'in_stock' | 'out_of_stock' | 'backorder';
+  attributes: ProductAttribute[];
+  canvasComponentId?: string;
+}
+// --- End Product Catalog System Types --- 
