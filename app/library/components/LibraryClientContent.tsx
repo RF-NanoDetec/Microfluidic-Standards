@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ExtendedProductVariant } from '../page'; // Adjust path as necessary
 import { ProductCategory, ProductAttribute } from '@/lib/types'; // Corrected import for ProductCategory and ProductAttribute
+import { QuoteItem as QuoteStoreItem } from '@/store/quoteStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,17 +24,36 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
+import { FileText, ShoppingCart, ExternalLink } from 'lucide-react'; // Added FileText, ShoppingCart
+import { toast } from 'sonner';
 
 interface LibraryClientContentProps {
   initialVariants: ExtendedProductVariant[];
   categories: ProductCategory[];
+  addToQuote: (item: Omit<QuoteStoreItem, 'quantity' | 'notes'>, quantity?: number, notes?: string) => void;
 }
 
 const FILTERABLE_ATTRIBUTES: string[] = ['material', 'channelWidth', 'channelDepth'];
 
+// Helper to format attributes for display or for quote item
+const formatVariantAttributesForQuote = (attributes: ProductAttribute[]): Record<string, string | number> => {
+  const formatted: Record<string, string | number> = {};
+  if (attributes) {
+    attributes.forEach(attr => {
+      if (typeof attr.value === 'boolean') {
+        formatted[attr.name] = attr.value ? 'Yes' : 'No';
+      } else if (attr.value !== undefined && attr.value !== null) { // Ensure value is not undefined or null
+        formatted[attr.name] = attr.unit ? `${attr.value} ${attr.unit}` : attr.value;
+      }
+    });
+  }
+  return formatted;
+};
+
 export default function LibraryClientContent({
   initialVariants,
   categories,
+  addToQuote, // Receive addToQuote as a prop
 }: LibraryClientContentProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('all'); // Default to 'all'
@@ -130,16 +150,33 @@ export default function LibraryClientContent({
     });
   };
 
-  const handleAddToCart = (variant: ExtendedProductVariant) => {
-    // TODO: Implement add to cart logic (likely using Zustand store)
-    console.log('Add to cart:', variant.sku);
-    alert(`Placeholder: Add ${variant.variantName || variant.productName} to cart.`);
+  const handleAddToCartPlaceholder = (variant: ExtendedProductVariant) => {
+    console.log('Add to cart placeholder:', variant.sku);
+    toast.info(`PLACHOLDER: ${variant.variantName || variant.productName} added to cart.`);
+    // To implement fully: import useCartStore, get addToCart, and call it with appropriate CartItem structure.
   };
 
-  const handleAddToCanvas = (variant: ExtendedProductVariant) => {
-    // TODO: Implement add to canvas logic (Phase 4)
-    console.log('Add to canvas:', variant.sku);
-    alert(`Placeholder: Add ${variant.variantName || variant.productName} to canvas.`);
+  const handleAddToQuoteHandler = (variant: ExtendedProductVariant) => {
+    if (!variant) return;
+    addToQuote({
+      id: variant.id,
+      name: variant.variantName || variant.productName || 'Unnamed Product',
+      imageUrl: variant.imageUrl || '/images/product-placeholder.webp',
+      attributes: formatVariantAttributesForQuote(variant.attributes),
+    });
+    // Toast is handled by the quoteStore itself upon successful add.
+  };
+
+  const handleAddToCanvasPlaceholder = (variant: ExtendedProductVariant) => {
+    console.log('Add to canvas placeholder:', variant.sku);
+    toast.info(`PLACEHOLDER: ${variant.variantName || variant.productName} added to canvas.`);
+  };
+
+  const renderAttributes = (attributes?: ProductAttribute[]) => {
+    if (!attributes || attributes.length === 0) return 'N/A';
+    return attributes
+      .map(attr => `${attr.name}: ${String(attr.value)}${attr.unit ? ' ' + attr.unit : ''}`)
+      .join('; ');
   };
 
   return (
@@ -190,7 +227,7 @@ export default function LibraryClientContent({
               <div className="mt-2 p-3 border rounded-md bg-gray-50 dark:bg-gray-800 dark:border-gray-700 space-y-2 max-h-48 overflow-y-auto">
                 {values.map(value => {
                   const stringValue = String(value);
-                  const checkboxId = `attr-${attrName}-${stringValue.replace(/\s+/g, '-')}`;
+                  const checkboxId = `attr-${attrName}-${stringValue.replace(/\s+/g, '-').toLowerCase()}`;
                   return (
                     <div key={checkboxId} className="flex items-center space-x-2">
                       <Checkbox 
@@ -211,56 +248,73 @@ export default function LibraryClientContent({
       </div>
 
       {/* Table Section */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">
-          Product Variants ({displayedVariants.length} of {initialVariants.length} found)
-        </h2>
-        {displayedVariants.length === 0 && initialVariants.length > 0 ? (
-           <p className="text-gray-500 dark:text-gray-400">
-            No product variants match your current filter criteria.
-          </p>
-        ) : initialVariants.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400">
-            No product variants available. Check data sources.
-          </p>
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="rounded-md border bg-card shadow-sm">
+        <div className="p-4 flex justify-between items-center border-b">
+            <h2 className="text-lg font-semibold text-primary">
+            Product Variants <span className="text-sm font-normal text-muted-foreground">({displayedVariants.length} of {initialVariants.length} shown)</span>
+            </h2>
+            {/* Placeholder for CSV export or other table-level actions */}
+        </div>
+        <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Variant Name</TableHead>
-                  <TableHead>Product Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Key Attributes</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
+                  <TableHead className="whitespace-nowrap pl-4">Variant Name</TableHead>
+                  <TableHead className="whitespace-nowrap">Product</TableHead>
+                  <TableHead className="whitespace-nowrap">Category</TableHead>
+                  <TableHead className="min-w-[250px]">Key Attributes</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Price</TableHead>
+                  <TableHead className="whitespace-nowrap">SKU</TableHead>
+                  <TableHead className="text-center sticky right-0 bg-card z-10 pr-4">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {displayedVariants.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                        {initialVariants.length > 0 ? "No variants match your current filters." : "No variants available."}
+                        </TableCell>
+                    </TableRow>
+                )}
                 {displayedVariants.map((variant) => (
-                  <TableRow key={variant.id}>
-                    <TableCell className="font-medium">{variant.variantName || 'N/A'}</TableCell>
-                    <TableCell>{variant.productName || 'N/A'}</TableCell>
-                    <TableCell>{variant.categoryName || 'N/A'}</TableCell>
-                    <TableCell className="text-sm text-gray-600 dark:text-gray-300 max-w-xs truncate" title={variant.attributes.map(attr => `${attr.name}: ${String(attr.value)}${attr.unit || ''}`).join('; ') || 'N/A'}>
-                      {variant.attributes.map(attr => `${attr.name}: ${String(attr.value)}${attr.unit || ''}`).join('; ') || 'N/A'}
+                  <TableRow key={variant.id} className="hover:bg-muted/50">
+                    <TableCell className="font-medium whitespace-nowrap pl-4">
+                        <Link href={`/products/${variant.productId}?variant=${variant.id}`} className="hover:underline text-primary" title={`View details for ${variant.variantName}`}>
+                            {variant.variantName || 'N/A'}
+                        </Link>
                     </TableCell>
-                    <TableCell className="text-right">{variant.price ? `${variant.price.toFixed(2)} EUR` : 'N/A'}</TableCell>
-                    <TableCell>{variant.sku}</TableCell>
-                    <TableCell className="text-center space-x-1">
-                      <Button variant="outline" size="sm" onClick={() => handleAddToCanvas(variant)}>
-                        To Canvas
+                    <TableCell className="whitespace-nowrap">{variant.productName || 'N/A'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{variant.categoryName || 'N/A'}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground max-w-xs whitespace-normal" title={renderAttributes(variant.attributes)}>
+                      {renderAttributes(variant.attributes)}
+                    </TableCell>
+                    <TableCell className="text-right whitespace-nowrap">{variant.price ? `${variant.price.toFixed(2)} EUR` : 'N/A'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{variant.sku}</TableCell>
+                    <TableCell className="text-center space-x-1 sticky right-0 bg-card z-10 pr-4">
+                      <Button variant="outline" size="icon" onClick={() => handleAddToCartPlaceholder(variant)} title="Add to Cart">
+                        <ShoppingCart className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/products/${variant.productId}?variant=${variant.id}`}>Details</Link>
+                      <Button variant="outline" size="icon" onClick={() => handleAddToQuoteHandler(variant)} title="Add to Quote Request">
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" asChild title="View Product Details">
+                         <Link href={`/products/${variant.productId}?variant=${variant.id}`} > <ExternalLink className="h-4 w-4" /> </Link>
                       </Button>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </div>
+        </div>
+        {displayedVariants.length > 0 && displayedVariants.length < initialVariants.length && (
+           <div className="p-4 text-center text-sm text-muted-foreground border-t">
+                {initialVariants.length - displayedVariants.length} more variants hidden by current filters.
+            </div>
+        )}
+         {displayedVariants.length === 0 && initialVariants.length > 0 && (
+           <div className="p-4 text-center text-sm text-muted-foreground border-t">
+                Try adjusting your search or filter criteria.
+            </div>
         )}
       </div>
     </div>
