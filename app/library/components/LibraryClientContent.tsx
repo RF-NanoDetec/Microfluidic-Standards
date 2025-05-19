@@ -46,6 +46,7 @@ import {
 import {
   Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious
 } from "@/components/ui/pagination";
+import { cn } from "@/lib/utils";
 
 // Key attribute color and tooltip map
 const KEY_ATTRIBUTE_META: Record<string, { color: string; tooltip: string; icon?: React.ReactNode }> = {
@@ -366,238 +367,241 @@ export function LibraryClientContent({
 
   return (
     <div className="flex flex-col space-y-6">
-      {/* Header with search and stats */}
-      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-        {/* Search input - ensure it doesn't shrink and is aligned left */}
-        <div className="relative w-full md:w-auto md:flex-grow md:max-w-md">
-          <Input
-            placeholder="Search by name, SKU, or attributes..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+      {/* Header Area */}
+      <div className="flex flex-col gap-4">
+        {/* Search Bar Row - Centered with reduced max-width */}
+        <div className="w-full">
+          <div className="relative w-full max-w-xs mx-auto"> {/* Centered and max-w-xs */}
+            <Input
+              placeholder="Search by name, SKU, or attributes..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          </div>
         </div>
-        {/* Action buttons and stats - align right */}
-        <div className="flex items-center gap-2 md:gap-4 ml-auto">
-          <Badge variant="outline" className="px-3 py-1">
-            {stats.filteredCount} of {stats.totalCount} items
-          </Badge>
-          
-          {stats.filteredCount > 0 && (
-            <Badge variant="secondary" className="px-3 py-1">
-              Price: €{stats.priceRange.min.toFixed(2)} - €{stats.priceRange.max.toFixed(2)}
+
+        {/* Stats and Actions Row */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {/* Stats Badges (Left Aligned) */}
+          <div className="flex items-center gap-2 md:gap-4">
+            <Badge variant="outline" className="px-3 py-1">
+              {stats.filteredCount} of {stats.totalCount} items
             </Badge>
-          )}
+            {stats.filteredCount > 0 && (
+              <Badge variant="secondary" className="px-3 py-1">
+                Price: €{stats.priceRange.min.toFixed(2)} - €{stats.priceRange.max.toFixed(2)}
+              </Badge>
+            )}
+          </div>
           
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportCSV}
-            className="hidden md:flex"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className="hidden md:flex"
-          >
-            <Filter className="mr-2 h-4 w-4" />
-            {isFilterOpen ? "Hide Filters" : "Show Filters"}
-          </Button>
+          {/* Action Buttons (Right Aligned) */}
+          <div className="flex items-center gap-2 md:gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              className="hidden md:flex"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className="hidden md:flex"
+            >
+              <Filter className="mr-2 h-4 w-4" />
+              {isFilterOpen ? "Hide Filters" : "Show Filters"}
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Filters sidebar - now collapsible on desktop too */}
-        <Collapsible
-          open={isFilterOpen}
-          onOpenChange={setIsFilterOpen}
-          className="md:col-span-1"
-        >
-          <CollapsibleTrigger asChild className="md:hidden w-full mb-4">
-            <Button variant="outline" className="flex justify-between w-full">
-              <div className="flex items-center">
-                <Filter className="mr-2 h-4 w-4" />
-                Filters
-              </div>
-              {isFilterOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="sticky top-4">
-            <Card className="border rounded-lg shadow-sm bg-white dark:bg-gray-800">
-              {/* Header */}
-              <div className="p-3 border-b flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-5 w-5" />
-                  <h2 className="font-semibold text-base">Filters</h2>
+      {/* Grid for Sidebar and Table - Changed to 5 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        {isFilterOpen && (
+          <Collapsible
+            open={isFilterOpen}
+            onOpenChange={setIsFilterOpen}
+            className="md:col-span-1" // Filter takes 1/5th of the width
+          >
+            <CollapsibleTrigger asChild className="md:hidden w-full mb-4">
+              <Button variant="outline" className="flex justify-between w-full">
+                <div className="flex items-center">
+                  <Filter className="mr-2 h-4 w-4" />
+                  Filters
                 </div>
-                {activeFilterCount > 0 && (
-                  <Badge variant="secondary" className="text-xs h-5 flex items-center">{activeFilterCount}</Badge>
-                )}
-              </div>
-              {/* Accordion for filter groups */}
-              <Accordion type="multiple" className="px-1 py-0">
-                {/* Category Filter */}
-                <AccordionItem value="category" className="border-b">
-                  <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
-                    Category
-                  </AccordionTrigger>
-                  <AccordionContent className="px-1 pb-2">
-                    <div className="space-y-1">
-                      <Select
-                        value={selectedCategoryId || "all"}
-                        onValueChange={val => setSelectedCategoryId(val === "all" ? "" : val)}
-                      >
-                        <SelectTrigger id="category">
-                          <SelectValue placeholder="All Categories" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Categories</SelectItem>
-                          {categories.map((category) => (
-                            <SelectItem key={category.id} value={category.id}>
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-                {/* Material Filter */}
-                <AccordionItem value="material" className="border-b">
-                  <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
-                    Material
-                  </AccordionTrigger>
-                  <AccordionContent className="px-1 pb-2">
-                    <div className="space-y-1">
-                      {attributeValues.materials.map((material) => (
-                        <div key={material} className="flex items-center gap-1">
-                          <Checkbox
-                            id={`material-${material}`}
-                            checked={selectedAttributes.material.includes(material)}
-                            onCheckedChange={() => handleAttributeChange("material", material)}
-                          />
-                          <Label
-                            htmlFor={`material-${material}`}
-                            className="text-xs cursor-pointer"
-                          >
-                            {material}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-                {/* Channel Width Filter */}
-                <AccordionItem value="channelWidth" className="border-b">
-                  <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
-                    Channel Width
-                  </AccordionTrigger>
-                  <AccordionContent className="px-1 pb-2">
-                    <div className="space-y-1">
-                      {attributeValues.channelWidths.map((width) => (
-                        <div key={width} className="flex items-center gap-1">
-                          <Checkbox
-                            id={`width-${width}`}
-                            checked={selectedAttributes.channelWidth.includes(width)}
-                            onCheckedChange={() => handleAttributeChange("channelWidth", width)}
-                          />
-                          <Label
-                            htmlFor={`width-${width}`}
-                            className="text-xs cursor-pointer"
-                          >
-                            {width}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-                {/* Channel Depth Filter */}
-                <AccordionItem value="channelDepth" className="border-b">
-                  <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
-                    Channel Depth
-                  </AccordionTrigger>
-                  <AccordionContent className="px-1 pb-2">
-                    <div className="space-y-1">
-                      {attributeValues.channelDepths.map((depth) => (
-                        <div key={depth} className="flex items-center gap-1">
-                          <Checkbox
-                            id={`depth-${depth}`}
-                            checked={selectedAttributes.channelDepth.includes(depth)}
-                            onCheckedChange={() => handleAttributeChange("channelDepth", depth)}
-                          />
-                          <Label
-                            htmlFor={`depth-${depth}`}
-                            className="text-xs cursor-pointer"
-                          >
-                            {depth}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-                {/* Key Attributes Filter */}
-                <AccordionItem value="keyAttributes" className="border-b-0">
-                  <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
-                    Key Attributes
-                  </AccordionTrigger>
-                  <AccordionContent className="px-1 pb-2">
-                    <div className="space-y-1">
-                      {attributeValues.keyAttributes.map((attr) => (
-                        <div key={attr} className="flex items-center gap-1">
-                          <Checkbox
-                            id={`keyattr-${attr}`}
-                            checked={selectedAttributes.keyAttributes.includes(attr)}
-                            onCheckedChange={() => handleAttributeChange("keyAttributes", attr)}
-                          />
-                          <Label
-                            htmlFor={`keyattr-${attr}`}
-                            className="text-xs cursor-pointer"
-                          >
-                            {attr}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-              {/* Reset Filters button */}
-              <div className="p-3 border-t">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => {
-                    setSearchTerm("");
-                    setSelectedCategoryId("");
-                    setSelectedAttributes({
-                      material: [],
-                      channelWidth: [],
-                      channelDepth: [],
-                      keyAttributes: [],
-                    });
-                    setSortConfig({ key: "name", direction: "asc" });
-                  }}
-                >
-                  Reset Filters
-                </Button>
-              </div>
-            </Card>
-          </CollapsibleContent>
-        </Collapsible>
+                {isFilterOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="sticky top-4 data-[state=closed]:hidden md:data-[state=closed]:block">
+              <Card className="border rounded-lg shadow-sm bg-slate-100 dark:bg-slate-900">
+                <div className="p-3 border-b flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-5 w-5" />
+                    <h2 className="font-semibold text-base">Filters</h2>
+                  </div>
+                  {activeFilterCount > 0 && (
+                    <Badge variant="secondary" className="text-xs h-5 flex items-center">{activeFilterCount}</Badge>
+                  )}
+                </div>
+                <Accordion type="multiple" className="px-1 py-0">
+                  <AccordionItem value="category" className="border-b">
+                    <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
+                      Category
+                    </AccordionTrigger>
+                    <AccordionContent className="px-1 pb-2">
+                      <div className="space-y-1">
+                        <Select
+                          value={selectedCategoryId || "all"}
+                          onValueChange={val => setSelectedCategoryId(val === "all" ? "" : val)}
+                        >
+                          <SelectTrigger id="category">
+                            <SelectValue placeholder="All Categories" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Categories</SelectItem>
+                            {categories.map((category) => (
+                              <SelectItem key={category.id} value={category.id}>
+                                {category.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="material" className="border-b">
+                    <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
+                      Material
+                    </AccordionTrigger>
+                    <AccordionContent className="px-1 pb-2">
+                      <div className="space-y-1">
+                        {attributeValues.materials.map((material) => (
+                          <div key={material} className="flex items-center gap-1">
+                            <Checkbox
+                              id={`material-${material}`}
+                              checked={selectedAttributes.material.includes(material)}
+                              onCheckedChange={() => handleAttributeChange("material", material)}
+                            />
+                            <Label
+                              htmlFor={`material-${material}`}
+                              className="text-xs cursor-pointer"
+                            >
+                              {material}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="channelWidth" className="border-b">
+                    <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
+                      Channel Width
+                    </AccordionTrigger>
+                    <AccordionContent className="px-1 pb-2">
+                      <div className="space-y-1">
+                        {attributeValues.channelWidths.map((width) => (
+                          <div key={width} className="flex items-center gap-1">
+                            <Checkbox
+                              id={`width-${width}`}
+                              checked={selectedAttributes.channelWidth.includes(width)}
+                              onCheckedChange={() => handleAttributeChange("channelWidth", width)}
+                            />
+                            <Label
+                              htmlFor={`width-${width}`}
+                              className="text-xs cursor-pointer"
+                            >
+                              {width}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="channelDepth" className="border-b">
+                    <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
+                      Channel Depth
+                    </AccordionTrigger>
+                    <AccordionContent className="px-1 pb-2">
+                      <div className="space-y-1">
+                        {attributeValues.channelDepths.map((depth) => (
+                          <div key={depth} className="flex items-center gap-1">
+                            <Checkbox
+                              id={`depth-${depth}`}
+                              checked={selectedAttributes.channelDepth.includes(depth)}
+                              onCheckedChange={() => handleAttributeChange("channelDepth", depth)}
+                            />
+                            <Label
+                              htmlFor={`depth-${depth}`}
+                              className="text-xs cursor-pointer"
+                            >
+                              {depth}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="keyAttributes" className="border-b-0">
+                    <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
+                      Key Attributes
+                    </AccordionTrigger>
+                    <AccordionContent className="px-1 pb-2">
+                      <div className="space-y-1">
+                        {attributeValues.keyAttributes.map((attr) => (
+                          <div key={attr} className="flex items-center gap-1">
+                            <Checkbox
+                              id={`keyattr-${attr}`}
+                              checked={selectedAttributes.keyAttributes.includes(attr)}
+                              onCheckedChange={() => handleAttributeChange("keyAttributes", attr)}
+                            />
+                            <Label
+                              htmlFor={`keyattr-${attr}`}
+                              className="text-xs cursor-pointer"
+                            >
+                              {attr}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+                <div className="p-3 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setSelectedCategoryId("");
+                      setSelectedAttributes({
+                        material: [],
+                        channelWidth: [],
+                        channelDepth: [],
+                        keyAttributes: [],
+                      });
+                      setSortConfig({ key: "name", direction: "asc" });
+                    }}
+                  >
+                    Reset Filters
+                  </Button>
+                </div>
+              </Card>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
 
-        {/* Products table */}
-        <div className="md:col-span-3">
+        {/* Products table container - dynamic column span adjusted for 5-col grid */}
+        <div className={cn(
+          "transition-all duration-300 ease-in-out",
+          isFilterOpen ? "md:col-span-4" : "md:col-span-5" // Table takes 4/5ths or 5/5ths
+        )}>
           <div className="rounded-md border bg-background">
-            {/* Key Attribute Legend */}
             <div className="p-4 border-b flex flex-col gap-2">
               <div className="flex items-center gap-2 mb-1">
                 <Info className="h-4 w-4 text-muted-foreground" />
@@ -646,7 +650,6 @@ export function LibraryClientContent({
                 ) : (
                   paginatedVariants.map((variant) => (
                     <TableRow key={variant.id}>
-                      {/* Name + subtitle */}
                       <TableCell className="font-medium">
                         <div className="flex flex-col">
                           {variant.name}
@@ -656,11 +659,8 @@ export function LibraryClientContent({
                           </span>
                         </div>
                       </TableCell>
-                      {/* Product */}
                       <TableCell>{variant.productName}</TableCell>
-                      {/* Category */}
                       <TableCell><Badge variant="outline">{variant.categoryName}</Badge></TableCell>
-                      {/* Parameters */}
                       <TableCell>
                         <div className="flex flex-col gap-1 text-xs">
                           {variant.channelWidth && <span>{paramIcon.channelWidth}Width: {variant.channelWidth}</span>}
@@ -669,7 +669,6 @@ export function LibraryClientContent({
                           {variant.maxPressure && <span>{paramIcon.maxPressure}Pressure: {variant.maxPressure}</span>}
                         </div>
                       </TableCell>
-                      {/* Key Attributes */}
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {variant.keyAttributes.map((attr) => (
@@ -688,13 +687,10 @@ export function LibraryClientContent({
                           ))}
                         </div>
                       </TableCell>
-                      {/* Price */}
                       <TableCell className="text-right font-medium">
                         €{variant.price.toFixed(2)}
                       </TableCell>
-                      {/* SKU */}
                       <TableCell className="font-mono text-xs">{variant.sku}</TableCell>
-                      {/* Actions */}
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <TooltipProvider>
@@ -748,7 +744,6 @@ export function LibraryClientContent({
                 )}
               </TableBody>
             </Table>
-            {/* Pagination Controls */}
             {totalPages > 1 && (
               <div className="py-4 border-t">
                 <Pagination>
@@ -760,7 +755,6 @@ export function LibraryClientContent({
                         aria-disabled={currentPage === 1}
                       />
                     </PaginationItem>
-                    {/* Render page numbers (simplified for brevity, can add ellipsis) */}
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                       <PaginationItem key={page}>
                         <PaginationLink
