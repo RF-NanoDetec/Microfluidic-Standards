@@ -2,17 +2,19 @@
 import { Metadata } from 'next';
 import { Product, ProductCategory, ProductVariant } from '@/lib/types';
 import LibraryClientContent from './components/LibraryClientContent';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Table } from '@/components/ui/table';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { Info, FlaskConical, MoveHorizontal, MoveVertical, Droplet, Ruler, Square, Repeat, Gauge, Layers, Download, Layout, ShoppingCart, FileText } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
+import Link from 'next/link';
 
 // Define an extended variant type for the library page
 export interface ExtendedProductVariant extends ProductVariant {
@@ -157,14 +159,13 @@ const TUBING_ATTRIBUTE_DISPLAY: Record<string, { label: string; icon?: React.Rea
 };
 
 // Helper to convert filteredVariants to CSV
-function variantsToCSV(variants: any[]): string {
+function variantsToCSV(variants: ExtendedProductVariant[]): string {
   const header = ['Product Name', 'Category', 'Key Attributes', 'Price', 'SKU'];
   const rows = variants.map(variant => {
-    const attrMap = Object.fromEntries((variant.attributes || []).map((attr: any) => [attr.name, attr]));
-    // Determine which attribute order to use
+    const attrMap = Object.fromEntries((variant.attributes || []).map((attr) => [attr.name, attr]));
     const isTubing = (() => {
-      const material = (variant.attributes || []).find((a: any) => a.name === 'material')?.value?.toLowerCase();
-      return variant.category === 'tubing' || material === 'ptfe' || material === 'peek';
+      const material = (variant.attributes || []).find((a) => a.name === 'material')?.value?.toString().toLowerCase();
+      return variant.categoryName?.toLowerCase() === 'tubing' || material === 'ptfe' || material === 'peek';
     })();
     const attrOrder = isTubing ? TUBING_ATTRIBUTE_ORDER : KEY_ATTRIBUTE_ORDER;
     const keyAttrs = attrOrder
@@ -173,88 +174,89 @@ function variantsToCSV(variants: any[]): string {
         if (!attr) return null;
         const display = isTubing ? TUBING_ATTRIBUTE_DISPLAY[key] : ATTRIBUTE_DISPLAY[key];
         return display
-          ? `${display.label === 'Material' ? attr.value.charAt(0).toUpperCase() + attr.value.slice(1) : attr.value + (attr.unit ? ` ${attr.unit}` : '')}`
-          : attr.value + (attr.unit ? ` ${attr.unit}` : '');
+          ? `${display.label === 'Material' ? (String(attr.value).charAt(0).toUpperCase() + String(attr.value).slice(1)) : (attr.value + (attr.unit ? ` ${attr.unit}` : ''))}`
+          : (attr.value + (attr.unit ? ` ${attr.unit}` : ''));
       })
       .filter(Boolean)
       .join(' | ');
     return [
       variant.productName,
-      variant.category,
+      variant.categoryName,
       keyAttrs,
       typeof variant.price === 'number' ? `${variant.price.toFixed(2)} EUR` : variant.price,
       variant.sku,
     ];
   });
-  return [header, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+  return [header, ...rows].map(row => row.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
 }
 
-export default function LibraryPage() {
-  // Step 1: Minimal state for search input and active filters
-  const [search, setSearch] = useState('');
-  // Example active filters (replace with real logic later)
-  const activeFilters = [
-    { label: 'Glass', key: 'material-glass' },
-    { label: 'Chip', key: 'category-chip' },
-  ];
+// Animation variants (can be moved to a shared file)
+const fadeIn = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6 },
+  },
+};
 
-  // Step 2: Minimal state for filter checkboxes (replace with real logic later)
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const itemFadeIn = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5 },
+  },
+};
+
+export default function LibraryPage() {
+  const [search, setSearch] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [selectedWidths, setSelectedWidths] = useState<string[]>([]);
   const [selectedDepths, setSelectedDepths] = useState<string[]>([]);
-
-  // Step 3: Fetch all product variants with product and category info
-  const [variants, setVariants] = useState<any[]>([]);
+  const [variants, setVariants] = useState<ExtendedProductVariant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const cartStore = useCartStore();
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 25;
 
   useEffect(() => {
-    async function fetchVariants() {
+    async function fetchInitialData() {
       setIsLoading(true);
       setError(null);
       try {
-        // Fetch all products
-        const productsRes = await fetch('/api/products');
-        if (!productsRes.ok) throw new Error('Failed to fetch products');
-        const products = await productsRes.json();
-
-        // For each product, fetch its variants
-        const allVariants = await Promise.all(
-          products.map(async (product: any) => {
-            const variantsRes = await fetch(`/api/products/${product.id}/variants`);
-            if (!variantsRes.ok) return [];
-            const variants = await variantsRes.json();
-            // Attach product and category info to each variant
-            return variants.map((variant: any) => ({
-              ...variant,
-              productName: product.name,
-              category: product.categoryId, // Optionally join with category name if needed
-            }));
-          })
-        );
-        // Flatten the array
-        setVariants(allVariants.flat());
+        const categoriesData = await getCategories();
+        const allVariantsData = await getAllProductVariants(categoriesData);
+        setVariants(allVariantsData);
       } catch (err: any) {
-        setError(err.message || 'Unknown error');
+        setError(err.message || 'Unknown error when fetching library data');
       } finally {
         setIsLoading(false);
       }
     }
-    fetchVariants();
+    fetchInitialData();
   }, []);
 
-  // Remove hardcoded filter options
-  // Dynamically extract unique filter options from variants
   const uniqueValues = (key: string) => {
     const values = new Set<string>();
-    variants.forEach(variant => {
+    variants.forEach((variant: ExtendedProductVariant) => {
       if (key === 'category') {
-        if (variant.category) values.add(variant.category);
+        if (variant.categoryId) values.add(variant.categoryId);
       } else {
-        (variant.attributes || []).forEach((attr: any) => {
+        (variant.attributes || []).forEach((attr) => {
           if (attr.name === key && attr.value) values.add(String(attr.value));
         });
       }
@@ -262,12 +264,20 @@ export default function LibraryPage() {
     return Array.from(values).sort();
   };
 
-  const categoryOptions = uniqueValues('category').map(value => ({ label: value.charAt(0).toUpperCase() + value.slice(1), value }));
-  const materialOptions = uniqueValues('material').map(value => ({ label: value.charAt(0).toUpperCase() + value.slice(1), value }));
+  const categoryOptions = useMemo(() => {
+    const catMap = new Map<string, string>();
+    variants.forEach(v => {
+      if (v.categoryId && v.categoryName) {
+        catMap.set(v.categoryId, v.categoryName);
+      }
+    });
+    return Array.from(catMap.entries()).map(([id, name]) => ({ label: name, value: id })).sort((a,b) => a.label.localeCompare(b.label));
+  }, [variants]);
+
+  const materialOptions = uniqueValues('material').map(value => ({ label: String(value).charAt(0).toUpperCase() + String(value).slice(1), value: String(value).toLowerCase() }));
   const widthOptions = uniqueValues('channelWidth').map(value => ({ label: value + ' µm', value }));
   const depthOptions = uniqueValues('channelDepth').map(value => ({ label: value + ' µm', value }));
 
-  // Handlers for toggling checkboxes
   const handleToggle = (value: string, selected: string[], setSelected: (v: string[]) => void) => {
     setSelected(selected.includes(value) ? selected.filter(v => v !== value) : [...selected, value]);
   };
@@ -276,309 +286,330 @@ export default function LibraryPage() {
     setSelectedMaterials([]);
     setSelectedWidths([]);
     setSelectedDepths([]);
+    setSearch('');
+    setPage(1);
   };
 
-  // Filtering logic
-  const filteredVariants = variants.filter(variant => {
-    // Category filter
-    if (selectedCategories.length > 0 && !selectedCategories.includes(variant.category)) {
+  const filteredVariants = variants.filter((variant: ExtendedProductVariant) => {
+    if (selectedCategories.length > 0 && !selectedCategories.includes(variant.categoryId || '')) {
       return false;
     }
-    // Material filter
     if (selectedMaterials.length > 0) {
-      const materialAttr = (variant.attributes || []).find((a: any) => a.name === 'material');
+      const materialAttr = (variant.attributes || []).find((a) => a.name === 'material');
       if (!materialAttr || !selectedMaterials.includes(String(materialAttr.value).toLowerCase())) {
         return false;
       }
     }
-    // Channel Width filter
     if (selectedWidths.length > 0) {
-      const widthAttr = (variant.attributes || []).find((a: any) => a.name === 'channelWidth');
+      const widthAttr = (variant.attributes || []).find((a) => a.name === 'channelWidth');
       if (!widthAttr || !selectedWidths.includes(String(widthAttr.value))) {
         return false;
       }
     }
-    // Channel Depth filter
     if (selectedDepths.length > 0) {
-      const depthAttr = (variant.attributes || []).find((a: any) => a.name === 'channelDepth');
+      const depthAttr = (variant.attributes || []).find((a) => a.name === 'channelDepth');
       if (!depthAttr || !selectedDepths.includes(String(depthAttr.value))) {
         return false;
       }
     }
-    // Search filter (case-insensitive, matches product name, SKU, or any attribute value)
     if (search.trim()) {
       const searchLower = search.trim().toLowerCase();
       const matches =
         (variant.productName && variant.productName.toLowerCase().includes(searchLower)) ||
         (variant.sku && variant.sku.toLowerCase().includes(searchLower)) ||
-        (variant.attributes || []).some((a: any) => String(a.value).toLowerCase().includes(searchLower));
+        (variant.categoryName && variant.categoryName.toLowerCase().includes(searchLower)) ||
+        (variant.attributes || []).some((a) => String(a.value).toLowerCase().includes(searchLower));
       if (!matches) return false;
     }
     return true;
   });
 
-  // Pagination state
-  const PAGE_SIZE = 25;
-  const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(filteredVariants.length / PAGE_SIZE));
   const paginatedVariants = filteredVariants.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // Reset to first page when filters/search change
   useEffect(() => {
     setPage(1);
   }, [search, selectedCategories, selectedMaterials, selectedWidths, selectedDepths]);
 
+  const activeFiltersBadges = useMemo(() => [
+    ...selectedCategories.map(cId => {
+      const catOption = categoryOptions.find(opt => opt.value === cId);
+      return { label: catOption?.label || cId, key: `cat-${cId}`};
+    }),
+    ...selectedMaterials.map(m => ({ label: m.charAt(0).toUpperCase() + m.slice(1), key: `mat-${m}`})),
+    ...selectedWidths.map(w => ({ label: `${w} µm Width`, key: `wid-${w}`})),
+    ...selectedDepths.map(d => ({ label: `${d} µm Depth`, key: `dep-${d}`})),
+  ].filter(f => f.label), [selectedCategories, selectedMaterials, selectedWidths, selectedDepths, categoryOptions]);
+
   return (
-    <div className="min-h-screen bg-[#F5F7FA]">
-      {/* Header is assumed global; if not, add here */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Title & Description */}
-        <h1 className="text-2xl font-heading text-[#003C7E] mb-2">Component Library</h1>
-        <p className="text-[#8A929B] mb-6">Browse, search, and filter all available microfluidic components.</p>
+    <motion.div 
+      className="container mx-auto px-4 py-12 md:py-16 lg:py-20 bg-background min-h-screen"
+      initial="hidden"
+      animate="visible"
+      variants={staggerContainer}
+    >
+      {/* Title & Description Section */}
+      <motion.div 
+        className="flex flex-col items-center justify-center space-y-4 text-center mb-12 md:mb-16"
+        variants={fadeIn}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="inline-block rounded-3xl bg-muted px-3 py-1 text-sm"
+        >
+          Component Library
+        </motion.div>
+        <motion.h1 
+          className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl"
+          variants={itemFadeIn}
+        >
+          Explore Our Microfluidic Components
+        </motion.h1>
+        <motion.p 
+          className="max-w-[700px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed"
+          variants={itemFadeIn}
+        >
+          Browse, search, and filter our extensive collection of standardized and custom microfluidic parts.
+        </motion.p>
+      </motion.div>
 
-        {/* Step 1: Search Bar & Active Filters */}
-        <div className="mb-4 flex flex-col md:flex-row md:items-center gap-2">
-          <Input
-            placeholder="Search products, SKU, attribute..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="max-w-md"
-          />
-          <div className="flex flex-wrap gap-2">
-            {/* Example active filter badges; replace with dynamic logic */}
-            {activeFilters.map(f => (
-              <Badge key={f.key} variant="outline">{f.label}</Badge>
-            ))}
-          </div>
+      {/* Search Bar & Active Filters */}
+      <motion.div 
+        variants={itemFadeIn} 
+        className="mb-6 md:mb-8 flex flex-col md:flex-row md:items-center gap-4 p-6 bg-card border rounded-3xl shadow-sm"
+      >
+        <Input
+          placeholder="Search by name, SKU, category, material..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-grow rounded-3xl text-base px-4 py-2.5 md:max-w-md lg:max-w-lg"
+        />
+        <div className="flex flex-wrap gap-2 items-center">
+          {activeFiltersBadges.length > 0 && <span className="text-sm text-muted-foreground">Active:</span>}
+          {activeFiltersBadges.map(f => (
+            <Badge key={f.key} variant="secondary" className="rounded-full px-3 py-1 text-sm">
+              {f.label}
+            </Badge>
+          ))}
         </div>
+      </motion.div>
 
-        {/* Main Grid: Filters (left) + Table (right) */}
-        <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-6">
-          {/* Step 2: Filters Panel */}
-          <aside className="md:sticky md:top-24">
-            <Accordion type="multiple" className="w-full" defaultValue={["category", "material"]}>
-              <AccordionItem value="category">
-                <AccordionTrigger>Category</AccordionTrigger>
-                <AccordionContent>
-                  <div className="flex flex-col gap-2">
-                    {categoryOptions.map(opt => (
-                      <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox
-                          checked={selectedCategories.includes(opt.value)}
-                          onCheckedChange={() => handleToggle(opt.value, selectedCategories, setSelectedCategories)}
-                        />
-                        <span>{opt.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="material">
-                <AccordionTrigger>Material</AccordionTrigger>
-                <AccordionContent>
-                  <div className="flex flex-col gap-2">
-                    {materialOptions.map(opt => (
-                      <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox
-                          checked={selectedMaterials.includes(opt.value)}
-                          onCheckedChange={() => handleToggle(opt.value, selectedMaterials, setSelectedMaterials)}
-                        />
-                        <span>{opt.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="width">
-                <AccordionTrigger>Channel Width</AccordionTrigger>
-                <AccordionContent>
-                  <div className="flex flex-col gap-2">
-                    {widthOptions.map(opt => (
-                      <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox
-                          checked={selectedWidths.includes(opt.value)}
-                          onCheckedChange={() => handleToggle(opt.value, selectedWidths, setSelectedWidths)}
-                        />
-                        <span>{opt.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="depth">
-                <AccordionTrigger>Channel Depth</AccordionTrigger>
-                <AccordionContent>
-                  <div className="flex flex-col gap-2">
-                    {depthOptions.map(opt => (
-                      <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox
-                          checked={selectedDepths.includes(opt.value)}
-                          onCheckedChange={() => handleToggle(opt.value, selectedDepths, setSelectedDepths)}
-                        />
-                        <span>{opt.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-            <Button variant="outline" className="mt-4 w-full" onClick={handleClearFilters}>
-              Clear All Filters
+      {/* Main Grid: Filters (left) + Table (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6 md:gap-8">
+        {/* Filters Panel */}
+        <motion.aside variants={itemFadeIn} className="lg:sticky lg:top-24 h-fit p-6 bg-card border rounded-3xl shadow-sm">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-semibold text-foreground">Filters</h3>
+            <Button variant="link" className="text-sm px-0 h-auto hover:text-primary" onClick={handleClearFilters}>
+              Clear All
             </Button>
-          </aside>
+          </div>
+          <Accordion type="multiple" className="w-full space-y-3" defaultValue={["category", "material"]}>
+            <AccordionItem value="category" className="border-none rounded-xl bg-muted/50 p-1">
+              <AccordionTrigger className="px-4 py-3 hover:no-underline text-md font-medium rounded-lg data-[state=open]:bg-muted data-[state=open]:shadow-sm">
+                Category
+              </AccordionTrigger>
+              <AccordionContent className="pt-3 px-4 pb-2">
+                <div className="space-y-2">
+                  {categoryOptions.map(opt => (
+                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        id={`cat-${opt.value}`}
+                        checked={selectedCategories.includes(opt.value)}
+                        onCheckedChange={() => handleToggle(opt.value, selectedCategories, setSelectedCategories)}
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="material" className="border-none rounded-xl bg-muted/50 p-1">
+              <AccordionTrigger className="px-4 py-3 hover:no-underline text-md font-medium data-[state=open]:bg-muted data-[state=open]:shadow-sm">
+                Material
+              </AccordionTrigger>
+              <AccordionContent className="pt-3 px-4 pb-2">
+                <div className="space-y-2">
+                  {materialOptions.map(opt => (
+                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        id={`mat-${opt.value}`}
+                        checked={selectedMaterials.includes(opt.value)}
+                        onCheckedChange={() => handleToggle(opt.value, selectedMaterials, setSelectedMaterials)}
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="width" className="border-none rounded-xl bg-muted/50 p-1">
+              <AccordionTrigger className="px-4 py-3 hover:no-underline text-md font-medium data-[state=open]:bg-muted data-[state=open]:shadow-sm">
+                Channel Width
+              </AccordionTrigger>
+              <AccordionContent className="pt-3 px-4 pb-2">
+                <div className="space-y-2">
+                  {widthOptions.map(opt => (
+                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        id={`wid-${opt.value}`}
+                        checked={selectedWidths.includes(opt.value)}
+                        onCheckedChange={() => handleToggle(opt.value, selectedWidths, setSelectedWidths)}
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="depth" className="border-none rounded-xl bg-muted/50 p-1">
+              <AccordionTrigger className="px-4 py-3 hover:no-underline text-md font-medium data-[state=open]:bg-muted data-[state=open]:shadow-sm">
+                Channel Depth
+              </AccordionTrigger>
+              <AccordionContent className="pt-3 px-4 pb-2">
+                <div className="space-y-2">
+                  {depthOptions.map(opt => (
+                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        id={`dep-${opt.value}`}
+                        checked={selectedDepths.includes(opt.value)}
+                        onCheckedChange={() => handleToggle(opt.value, selectedDepths, setSelectedDepths)}
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </motion.aside>
 
-          {/* Product Variants Table Section */}
-          <section>
-            {/* Key Attribute Legend & CSV Export */}
-            <div className="flex items-center gap-4 mb-2">
-              <div className="flex items-center gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex items-center cursor-pointer text-mid-grey">
-                      <Info className="size-4 mr-1" />
-                      <span className="underline text-xs">Key Attribute Legend</span>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent sideOffset={8}>
-                    <div className="flex flex-col gap-1 text-xs">
-                      {KEY_ATTRIBUTE_ORDER.map(key => (
-                        <div key={key} className="flex items-center gap-2">
-                          {ATTRIBUTE_DISPLAY[key]?.legendIcon}
-                          <span className="font-semibold">{ATTRIBUTE_DISPLAY[key]?.label}:</span>
-                          <span>{ATTRIBUTE_DISPLAY[key]?.tooltip}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="ml-auto flex items-center gap-1"
-                onClick={() => {
-                  const csv = variantsToCSV(filteredVariants);
-                  const blob = new Blob([csv], { type: 'text/csv' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'component-library.csv';
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-              >
-                <Download className="size-4" />
-                Export CSV
-              </Button>
-            </div>
-            {/* Step 3: Product Variants Table (real data) */}
-            {isLoading ? (
-              <div className="py-8 text-center text-mid-grey">Loading product variants...</div>
-            ) : error ? (
-              <div className="py-8 text-center text-red-600">{error}</div>
-            ) : (
+        <motion.section variants={itemFadeIn} className="p-6 bg-card border rounded-3xl shadow-sm min-h-[500px]">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-3xl w-full sm:w-auto group"
+              onClick={() => { 
+                const csv = variantsToCSV(filteredVariants);
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'component-library.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }}
+              disabled={filteredVariants.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4 group-hover:text-primary transition-colors" />
+              Export CSV
+            </Button>
+          </div>
+          
+          {isLoading ? (
+            <div className="py-12 text-center text-muted-foreground text-lg">Loading components...</div>
+          ) : error ? (
+            <div className="py-12 text-center text-red-600 text-lg">Error: {error}</div>
+          ) : paginatedVariants.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground text-lg">No components match your current filters.</div>
+          ) : (
+            <>
               <Table>
                 <thead>
-                  <tr>
-                    <th className="text-left font-semibold text-sm text-[#003C7E]">Product Name</th>
-                    <th className="text-left font-semibold text-sm text-[#003C7E]">Category</th>
-                    <th className="text-left font-semibold text-sm text-[#003C7E]">Key Attributes</th>
-                    <th className="text-left font-semibold text-sm text-[#003C7E]">Price</th>
-                    <th className="text-left font-semibold text-sm text-[#003C7E]">SKU</th>
-                    <th className="text-left font-semibold text-sm text-[#003C7E]">Actions</th>
+                  <tr className="border-b">
+                    <th className="text-left font-semibold text-sm text-primary/80 uppercase tracking-wider py-3 px-4">Product Name</th>
+                    <th className="text-left font-semibold text-sm text-primary/80 uppercase tracking-wider py-3 px-4">Category</th>
+                    <th className="text-left font-semibold text-sm text-primary/80 uppercase tracking-wider py-3 px-4">Key Attributes</th>
+                    <th className="text-left font-semibold text-sm text-primary/80 uppercase tracking-wider py-3 px-4 text-right">Price</th>
+                    <th className="text-left font-semibold text-sm text-primary/80 uppercase tracking-wider py-3 px-4">SKU</th>
+                    <th className="text-left font-semibold text-sm text-primary/80 uppercase tracking-wider py-3 px-4 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedVariants.map(variant => {
-                    // Build a map of attributes for easy lookup
+                  {paginatedVariants.map((variant: ExtendedProductVariant) => {
                     const attrMap = Object.fromEntries(
-                      (variant.attributes || []).map((attr: any) => [attr.name, attr])
+                      (variant.attributes || []).map((attr) => [attr.name, attr])
                     );
-                    // Determine if the product is tubing
-                    const isTubing = (variant: any) => {
-                      const material = (variant.attributes || []).find((a: any) => a.name === 'material')?.value?.toLowerCase();
-                      return variant.category === 'tubing' || material === 'ptfe' || material === 'peek';
-                    };
+                    const isTubing = (() => {
+                      const material = (variant.attributes || []).find((a) => a.name === 'material')?.value?.toString().toLowerCase();
+                      return variant.categoryName?.toLowerCase() === 'tubing' || material === 'ptfe' || material === 'peek';
+                    })();
+                    const currentAttrOrder = isTubing ? TUBING_ATTRIBUTE_ORDER : KEY_ATTRIBUTE_ORDER;
+                    const currentAttrDisplay = isTubing ? TUBING_ATTRIBUTE_DISPLAY : ATTRIBUTE_DISPLAY;
+
                     return (
-                      <tr key={variant.id} className="border-b last:border-b-0 hover:bg-[#E1E4E8]/40 transition-colors">
-                        <td className="py-2 pr-2">{variant.productName}</td>
-                        <td className="py-2 pr-2">{variant.category}</td>
-                        <td className="py-2 pr-2">
-                          <div className="flex flex-wrap gap-1">
-                            {(isTubing(variant) ? TUBING_ATTRIBUTE_ORDER : KEY_ATTRIBUTE_ORDER).map(key => {
+                      <tr key={variant.id} className="border-b last:border-b-0 hover:bg-muted/50 transition-colors duration-150">
+                        <td className="py-3 px-4 align-top">
+                          <Link href={`/products/${variant.productId}?variant=${variant.id}`} className="font-medium text-foreground hover:text-primary hover:underline">
+                            {variant.productName}
+                          </Link>
+                          <p className="text-xs text-muted-foreground mt-0.5">{variant.variantName}</p>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground align-top">{variant.categoryName}</td>
+                        <td className="py-3 px-4 align-top">
+                          <div className="flex flex-col space-y-1">
+                            {currentAttrOrder.map(key => {
                               const attr = attrMap[key];
                               if (!attr) return null;
-                              const display = isTubing(variant) ? TUBING_ATTRIBUTE_DISPLAY[key] : ATTRIBUTE_DISPLAY[key];
-                              const badgeText = display
-                                ? `${display.label === 'Material' ? attr.value.charAt(0).toUpperCase() + attr.value.slice(1) : attr.value + (attr.unit ? ` ${attr.unit}` : '')}`
-                                : attr.value + (attr.unit ? ` ${attr.unit}` : '');
+                              const display = currentAttrDisplay[key];
                               return (
-                                <Tooltip key={key}>
-                                  <TooltipTrigger asChild>
-                                    <span>
-                                      <Badge variant="secondary">
-                                        {display?.icon} {badgeText}
+                                <TooltipProvider key={key} delayDuration={100}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="text-xs font-normal cursor-default group border-border hover:border-primary/50 whitespace-nowrap">
+                                        {display?.icon}
+                                        {display?.label === 'Material' 
+                                          ? String(attr.value).charAt(0).toUpperCase() + String(attr.value).slice(1)
+                                          : `${attr.value}${attr.unit ? ` ${attr.unit}` : ''}`}
                                       </Badge>
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent sideOffset={8}>{display?.tooltip || key}</TooltipContent>
-                                </Tooltip>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs">
+                                      <p>{display?.tooltip}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               );
-                            })}
+                            }).filter(Boolean)}
                           </div>
                         </td>
-                        <td className="py-2 pr-2">{typeof variant.price === 'number' ? `${variant.price.toFixed(2)} EUR` : variant.price}</td>
-                        <td className="py-2 pr-2">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="font-mono cursor-help">{variant.sku}</span>
-                            </TooltipTrigger>
-                            <TooltipContent sideOffset={8}>{variant.variantName}</TooltipContent>
-                          </Tooltip>
+                        <td className="py-3 px-4 text-sm font-semibold text-foreground text-right align-top">
+                          {typeof variant.price === 'number' ? `${variant.price.toFixed(2)} EUR` : variant.price}
                         </td>
-                        <td className="py-2 pr-2">
-                          <div className="flex flex-wrap md:flex-nowrap gap-2">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button size="sm" variant="secondary" onClick={() => {/* TODO: Add to Canvas logic */}}>
-                                  <Layout className="size-4 mr-1" />
-                                  <span className="hidden sm:inline">To Canvas</span>
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Add to Canvas</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    cartStore.addToCart({
-                                      id: variant.id,
-                                      name: variant.variantName || variant.productName || '',
-                                      description: variant.productName || '',
-                                      price: typeof variant.price === 'number' ? variant.price : 0,
-                                      imageUrl: variant.imageUrl || '',
-                                      sku: variant.sku || '',
-                                    });
-                                    toast.success(`${variant.variantName || variant.productName} added to cart!`);
-                                  }}
-                                >
-                                  <ShoppingCart className="size-4 mr-1" />
-                                  <span className="hidden sm:inline">To Cart</span>
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Add to Cart</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button size="sm" variant="ghost" onClick={() => {/* TODO: Add to Quote logic */}}>
-                                  <FileText className="size-4 mr-1" />
-                                  <span className="hidden sm:inline">To Quote</span>
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Add to Quote</TooltipContent>
-                            </Tooltip>
+                        <td className="py-3 px-4 text-sm text-muted-foreground align-top">{variant.sku}</td>
+                        <td className="py-3 px-4 align-top">
+                          <div className="flex items-center justify-center space-x-2">
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="outline" 
+                                    size="icon" 
+                                    className="rounded-full w-8 h-8 group" 
+                                    onClick={() => {
+                                      cartStore.addToCart({
+                                        id: variant.id,
+                                        name: variant.variantName || variant.productName || '',
+                                        description: variant.productName || '',
+                                        price: typeof variant.price === 'number' ? variant.price : 0,
+                                        imageUrl: variant.imageUrl || '',
+                                        sku: variant.sku || '',
+                                      });
+                                      toast.success(`${variant.variantName || variant.productName} added to cart!`);
+                                    }}
+                                    disabled={variant.stockStatus === 'out_of_stock'}
+                                  >
+                                    <ShoppingCart className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top"><p>{variant.stockStatus === 'out_of_stock' ? 'Out of Stock' : 'Add to Cart'}</p></TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            {/* Add to Canvas / View Details Buttons if needed */}
                           </div>
                         </td>
                       </tr>
@@ -586,35 +617,36 @@ export default function LibraryPage() {
                   })}
                 </tbody>
               </Table>
-            )}
-            {/* <div className="mt-4 flex justify-between items-center">[Pagination] [Download CSV Button]</div> */}
-            {totalPages > 1 && (
-              <div className="mt-4 flex justify-center items-center gap-2">
-                <Button size="sm" variant="ghost" disabled={page === 1} onClick={() => setPage(page - 1)}>
-                  Previous
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center space-x-2 pt-6 mt-6 border-t">
                   <Button
-                    key={p}
+                    variant="outline"
                     size="sm"
-                    variant={p === page ? 'default' : 'ghost'}
-                    onClick={() => setPage(p)}
-                    className="w-8 h-8 px-0"
+                    className="rounded-3xl"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
                   >
-                    {p}
+                    Previous
                   </Button>
-                ))}
-                <Button size="sm" variant="ghost" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
-                  Next
-                </Button>
-              </div>
-            )}
-          </section>
-        </div>
-      </main>
-      {/* Optional Footer */}
-      {/* <footer className="py-4 text-center text-xs text-[#8A929B]">&copy; {new Date().getFullYear()} Microfluidic Standards</footer> */}
-    </div>
+                  <span className="text-sm text-muted-foreground">
+                    Page {page} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-3xl"
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </motion.section>
+      </div>
+    </motion.div>
   );
 }
 

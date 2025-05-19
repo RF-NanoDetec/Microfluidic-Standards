@@ -161,7 +161,7 @@ export default function LibraryClientContent({
     addToQuote({
       id: variant.id,
       name: variant.variantName || variant.productName || 'Unnamed Product',
-      imageUrl: variant.imageUrl || '/images/product-placeholder.webp',
+      imageUrl: variant.imageUrl || '/images/productplaceholder.png',
       attributes: formatVariantAttributesForQuote(variant.attributes),
     });
     // Toast is handled by the quoteStore itself upon successful add.

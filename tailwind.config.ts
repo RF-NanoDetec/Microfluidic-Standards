@@ -27,6 +27,9 @@ const config = {
         'accent-cyan': '#00D7FF', // Default Accent: Electric Cyan
         'accent-lime-yellow': '#D3FF00', // Alternative Accent
 
+
+
+        
         // ShadCN UI colors (referencing CSS variables from globals.css)
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -50,7 +53,7 @@ const config = {
           foreground: 'hsl(var(--muted-foreground))',
         },
         accent: {
-          DEFAULT: '#B91C1C', // Updated to use the new Scientific Deep Red directly
+          DEFAULT: 'hsl(var(--accent))', // Now references the --accent from globals.css
           foreground: 'hsl(var(--accent-foreground))', // Ensure this provides good contrast with the new red
         },
         popover: {

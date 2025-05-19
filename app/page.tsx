@@ -1,252 +1,805 @@
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import Image from 'next/image';
-import { TestTubeDiagonal, MousePointer2, Gauge, BookOpen, ActivitySquare, FlaskConical, SigmaSquare } from 'lucide-react';
+"use client"
 
-export default function HomePage() {
+import { useState, useEffect } from "react"
+import Image from "next/image"
+import Link from "next/link"
+import { motion } from "framer-motion"
+import {
+  ArrowRight,
+  ChevronRight,
+  Mail,
+  MapPin,
+  Phone,
+  Sparkles,
+  Zap,
+  Beaker,
+  FlaskConical,
+  Layers,
+  Laptop,
+  Share2,
+  Microscope,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Card } from "@/components/ui/card"
+
+// Animation variants
+const fadeIn = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6 },
+  },
+}
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+}
+
+const itemFadeIn = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5 },
+  },
+}
+
+interface FeatureCardProps {
+  icon: React.ReactNode
+  title: string
+  description: string
+}
+
+function FeatureCard({ icon, title, description }: FeatureCardProps) {
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Hero Section */}
-      <section className="bg-primary text-primary-foreground py-20 md:py-32">
-        <div className="container mx-auto px-6 text-center">
-          <h1 className="text-4xl md:text-6xl font-condensed font-bold mb-6 max-w-[32rem] mx-auto">
-            Precision Microfluidics, Simplified.
-          </h1>
-          <p className="text-lg md:text-xl font-body mb-8 max-w-2xl mx-auto">
-            Explore our innovative modular components or design your custom microfluidic circuits with ease.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4">
-            <Button asChild size="lg" className="bg-[#F5F7FA] text-primary hover:bg-[#E1E4E8] dark:bg-primary-foreground dark:text-primary dark:hover:bg-primary-foreground/90">
-              <Link href="/canvas">Start Designing</Link>
-            </Button>
-            <Button asChild size="lg" variant="ghost" className="text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground focus-visible:ring-offset-primary-foreground">
-              <Link href="/products">Browse Components</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+    <motion.div
+      variants={itemFadeIn}
+      whileHover={{ y: -10, transition: { duration: 0.3 } }}
+      className="group relative overflow-hidden rounded-3xl border p-6 shadow-sm transition-all hover:shadow-md bg-background/80"
+    >
+      <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-all duration-300"></div>
+      <div className="relative space-y-3">
+        <div className="mb-4">{icon}</div>
+        <h3 className="text-xl font-bold">{title}</h3>
+        <p className="text-muted-foreground">{description}</p>
+      </div>
+      <div className="mt-4 flex items-center justify-between">
+        <Link href="#" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+          Learn more
+        </Link>
+        <motion.div whileHover={{ x: 5 }} transition={{ type: "spring", stiffness: 400, damping: 10 }}>
+          <ArrowRight className="h-4 w-4 text-primary" />
+        </motion.div>
+      </div>
+    </motion.div>
+  )
+}
 
-      {/* Key Features Section */}
-      <section className="py-16 md:py-24 bg-background">
-        <div className="container mx-auto px-6">
-          <h2 className="text-3xl md:text-4xl font-condensed font-bold text-center mb-12 text-primary">
-            Why Choose Us?
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {/* Feature 1 - Standardized Glass Components */}
-            <Card className="bg-card text-center shadow-lg hover:shadow-xl transition-transform duration-200 ease-in-out hover:-translate-y-1">
-              <CardHeader className="flex flex-col items-center">
-                <TestTubeDiagonal size={48} className="mb-4 text-primary" />
-                <CardTitle className="text-xl font-condensed font-semibold mb-3 text-primary text-center">Standardized Glass Components</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="font-body text-muted-foreground">
-                  Glass-based chips & holders engineered to a universal standard for plug-and-play microfluidics.
-                </p>
-              </CardContent>
-            </Card>
-            {/* Feature 2 - Intuitive Designer */}
-            <Card className="bg-card text-center shadow-lg hover:shadow-xl transition-transform duration-200 ease-in-out hover:-translate-y-1">
-              <CardHeader className="flex flex-col items-center">
-                <MousePointer2 size={48} className="mb-4 text-primary" />
-                <CardTitle className="text-xl font-condensed font-semibold mb-3 text-primary text-center">Intuitive Web Designer</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="font-body text-muted-foreground">
-                  Browser-native design canvas for drag-and-drop prototyping. No login for sandbox use.
-                </p>
-              </CardContent>
-            </Card>
-            {/* Feature 3 - Performance & Price */}
-            <Card className="bg-card text-center shadow-lg hover:shadow-xl transition-transform duration-200 ease-in-out hover:-translate-y-1">
-              <CardHeader className="flex flex-col items-center">
-                <Gauge size={48} className="mb-4 text-primary" />
-                <CardTitle className="text-xl font-condensed font-semibold mb-3 text-primary text-center">Performance at Polymer Price</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="font-body text-muted-foreground">
-                  Superior thermal, pressure, and optical performance of glass, at competitive price points.
-                </p>
-              </CardContent>
-            </Card>
-            {/* Feature 4 - Open Standard */}
-            <Card className="bg-card text-center shadow-lg hover:shadow-xl transition-transform duration-200 ease-in-out hover:-translate-y-1">
-              <CardHeader className="flex flex-col items-center">
-                <BookOpen size={48} className="mb-4 text-primary" />
-                <CardTitle className="text-xl font-condensed font-semibold mb-3 text-primary text-center">Open Standard & Ecosystem</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="font-body text-muted-foreground">
-                  Free documentation and APIs, enabling community contributions and platform growth.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
+function MicrofluidicsLandingPage() {
+  return (
+    <div className="flex min-h-screen flex-col bg-background">
+      {/* Header Removed - Global header from layout.tsx will be used */}
 
-      {/* Use-Case Tiles Section */}
-      <section className="py-16 md:py-24 bg-light-grey-1 dark:bg-background">
-        <div className="container mx-auto px-6">
-          <h2 className="text-3xl md:text-4xl font-condensed font-bold text-center mb-12 text-primary">
-            Tailored for Your Application
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Diagnostics Tile */}
-            <Link href="/library?use_case=diagnostics" className="block group">
-              <Card className="bg-card text-primary shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out hover:border-primary border-2 border-transparent group-hover:scale-105">
-                <CardHeader className="flex flex-col items-center pt-8">
-                  <ActivitySquare size={48} className="mb-4 text-primary" />
-                  <CardTitle className="text-2xl font-condensed font-semibold text-primary text-center">Diagnostics</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center pb-8">
-                  <p className="font-body text-muted-foreground">
-                    Components optimized for diagnostic assays and point-of-care devices.
-                  </p>
-                  <Button variant="link" className="mt-4 text-primary group-hover:underline">
-                    Explore Diagnostic Solutions <span aria-hidden="true" className="ml-1 group-hover:translate-x-1 transition-transform duration-200 ease-in-out">→</span>
+      {/* Mobile Menu Removed - Global header from layout.tsx will handle mobile navigation */}
+
+      <main className="flex-1">
+        {/* Hero Section */}
+        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 overflow-hidden">
+          <div className="container px-4 md:px-6">
+            <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
+              <motion.div
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+                variants={fadeIn}
+                className="flex flex-col justify-center space-y-4"
+              >
+                <div className="space-y-2">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="inline-flex items-center rounded-3xl bg-muted px-3 py-1 text-sm"
+                  >
+                    <Zap className="mr-1 h-3 w-3" />
+                    Revolutionizing Microfluidics
+                  </motion.div>
+                  <motion.h1
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.7, delay: 0.2 }}
+                    className="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none"
+                  >
+                    Modular Glass Microfluidics at{" "}
+                    <span className="text-primary">
+                      Polymer Prices
+                    </span>
+                  </motion.h1>
+                  <motion.p
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.7, delay: 0.4 }}
+                    className="max-w-[600px] text-muted-foreground md:text-xl"
+                  >
+                    Our disruptive platform combines high-performance glass microfluidic chips with a true modular ecosystem, all at a fraction of traditional costs.
+                  </motion.p>
+                </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.7, delay: 0.6 }}
+                  className="flex flex-col gap-3 sm:flex-row"
+                >
+                  <Link href="/products" passHref>
+                    <Button size="lg" className="rounded-3xl group">
+                      Browse Products
+                      <motion.span
+                        initial={{ x: 0 }}
+                        whileHover={{ x: 5 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                      >
+                        <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      </motion.span>
+                    </Button>
+                  </Link>
+                  <Link href="/canvas" passHref>
+                    <Button variant="outline" size="lg" className="rounded-3xl">
+                      Start Designing
+                    </Button>
+                  </Link>
+                </motion.div>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, x: 100 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.8 }}
+                className="flex items-center justify-center"
+              >
+                <div className="relative h-[350px] w-full md:h-[450px] lg:h-[500px] xl:h-[550px] overflow-hidden rounded-3xl">
+                  <Image
+                    src="/placeholder.svg"
+                    alt="Microfluidic chip"
+                    fill
+                    className="object-cover"
+                    priority
+                  />
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </section>
+
+        {/* Core Differentiators */}
+        <section id="differentiators" className="w-full py-12 md:py-24 lg:py-32 bg-muted/20">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+            className="container px-4 md:px-6"
+          >
+            <div className="flex flex-col items-center justify-center space-y-4 text-center">
+              <div className="space-y-2">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="inline-block rounded-3xl bg-background px-3 py-1 text-sm"
+                >
+                  Core Differentiators
+                </motion.div>
+                <motion.h2
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                  className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl"
+                >
+                  What Sets Us Apart
+                </motion.h2>
+                <motion.p
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3 }}
+                  className="mx-auto max-w-[700px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed"
+                >
+                  Our revolutionary approach to microfluidics is changing the industry
+                </motion.p>
+              </div>
+            </div>
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="mx-auto grid max-w-5xl items-center gap-6 py-12 md:grid-cols-2 lg:grid-cols-3"
+            >
+              <FeatureCard
+                icon={<Beaker className="h-10 w-10 text-primary" />}
+                title="Disruptive Cost Model"
+                description="Glass microfluidic chips priced on par with polymer devices (≈€20–50 each), versus €100+ from incumbents."
+              />
+              <FeatureCard
+                icon={<Layers className="h-10 w-10 text-primary" />}
+                title="Miniaturized Technology"
+                description="Very small footprint chips clamped in a low-cost, reusable holder that supports high-pressure (≈100 bar), leak-free connections."
+              />
+              <FeatureCard
+                icon={<Share2 className="h-10 w-10 text-primary" />}
+                title="True Modular Ecosystem"
+                description="A standardized library of interchangeable chips and auxiliary modules, all plug-and-play."
+              />
+              <FeatureCard
+                icon={<Laptop className="h-10 w-10 text-primary" />}
+                title="Integrated Digital Platform"
+                description="Browser-based drag-and-drop design tool, built-in flow simulation, and one-click ordering—no separate CAD or quoting process."
+              />
+              <FeatureCard
+                icon={<Sparkles className="h-10 w-10 text-primary" />}
+                title="Community Marketplace"
+                description="Open partner program where academics and startups can upload, share, or sell their chip designs, earning royalties."
+              />
+              <FeatureCard
+                icon={<Microscope className="h-10 w-10 text-primary" />}
+                title="High-Performance Glass"
+                description="Retains all glass advantages (chemical/thermal resistance, optical clarity, low autofluorescence) at a fraction of the usual cost."
+              />
+            </motion.div>
+          </motion.div>
+        </section>
+
+        {/* Products Catalog Preview */}
+        <section id="products" className="w-full py-12 md:py-24 lg:py-32">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+            className="container px-4 md:px-6"
+          >
+            <div className="flex flex-col items-center justify-center space-y-4 text-center">
+              <div className="space-y-2">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="inline-block rounded-3xl bg-muted px-3 py-1 text-sm"
+                >
+                  Products
+                </motion.div>
+                <motion.h2
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                  className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl"
+                >
+                  Our Product Catalog
+                </motion.h2>
+                <motion.p
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3 }}
+                  className="mx-auto max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed"
+                >
+                  Browse our comprehensive range of microfluidic components and accessories
+                </motion.p>
+              </div>
+            </div>
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="mx-auto grid max-w-7xl gap-6 py-12 md:grid-cols-2 lg:grid-cols-4"
+            >
+              {[
+                { title: "Microchip Holders", image: "/placeholder.svg" },
+                { title: "Glass Microfluidic Chips", image: "/placeholder.svg" },
+                { title: "Pumps & Flow Control", image: "/placeholder.svg" },
+                { title: "Sensors & Detectors", image: "/placeholder.svg" },
+                { title: "Tubing & Connectors", image: "/placeholder.svg" },
+                { title: "Valves & Mixers", image: "/placeholder.svg" },
+                { title: "Culture Chambers", image: "/placeholder.svg" },
+                { title: "Specialty Glass Chips", image: "/placeholder.svg" },
+              ].map((product, index) => (
+                <motion.div
+                  key={index}
+                  variants={itemFadeIn}
+                  whileHover={{ y: -10 }}
+                  className="group relative overflow-hidden rounded-3xl border bg-background"
+                >
+                  <div className="aspect-square overflow-hidden">
+                    <Image
+                      src={product.image}
+                      alt={product.title}
+                      width={300}
+                      height={300}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-medium">{product.title}</h3>
+                    <div className="mt-2 flex items-center justify-between">
+                      <Link href="/products" className="text-sm text-primary">
+                        View Products
+                      </Link>
+                      <ArrowRight className="h-4 w-4 text-primary" />
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+            <div className="flex justify-center">
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Link href="/products" passHref>
+                  <Button size="lg" className="rounded-3xl group">
+                    View Full Catalog
+                    <motion.span
+                      initial={{ x: 0 }}
+                      whileHover={{ x: 5 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                    >
+                      <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </motion.span>
                   </Button>
-                </CardContent>
-              </Card>
-            </Link>
+                </Link>
+              </motion.div>
+            </div>
+          </motion.div>
+        </section>
 
-            {/* Drug Discovery Tile */}
-            <Link href="/library?use_case=drug-discovery" className="block group">
-              <Card className="bg-card text-primary shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out hover:border-primary border-2 border-transparent group-hover:scale-105">
-                <CardHeader className="flex flex-col items-center pt-8">
-                  <FlaskConical size={48} className="mb-4 text-primary" />
-                  <CardTitle className="text-2xl font-condensed font-semibold text-primary text-center">Drug Discovery</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center pb-8">
-                  <p className="font-body text-muted-foreground">
-                    High-precision tools for screening, synthesis, and analysis in drug development.
-                  </p>
-                  <Button variant="link" className="mt-4 text-primary group-hover:underline">
-                    Discover Research Tools <span aria-hidden="true" className="ml-1 group-hover:translate-x-1 transition-transform duration-200 ease-in-out">→</span>
+        {/* Design Canvas Preview */}
+        <section id="design" className="w-full py-12 md:py-24 lg:py-32 bg-muted/20">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+            className="container px-4 md:px-6"
+          >
+            <div className="grid gap-6 lg:grid-cols-2 lg:gap-12 items-center">
+              <motion.div
+                initial={{ opacity: 0, x: -50 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6 }}
+                className="space-y-4"
+              >
+                <div className="inline-block rounded-3xl bg-background px-3 py-1 text-sm">Design Canvas</div>
+                <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
+                  Design Your Microfluidic System
+                </h2>
+                <p className="text-muted-foreground md:text-xl/relaxed">
+                  Our interactive drag-and-drop workspace makes it easy to design complex microfluidic systems. Combine components, simulate flows, and order your custom setup with just a few clicks.
+                </p>
+                <ul className="space-y-2">
+                  <li className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-primary"></div>
+                    <span>Intuitive drag-and-drop interface</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-primary"></div>
+                    <span>Real-time simulation feedback</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-primary"></div>
+                    <span>One-click ordering of your design</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-primary"></div>
+                    <span>Save and share your designs</span>
+                  </li>
+                </ul>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Link href="/canvas" passHref>
+                    <Button size="lg" className="rounded-3xl group">
+                      Try Design Canvas
+                      <motion.span
+                        initial={{ x: 0 }}
+                        whileHover={{ x: 5 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                      >
+                        <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      </motion.span>
+                    </Button>
+                  </Link>
+                  <Button variant="outline" size="lg" className="rounded-3xl">
+                    View Tutorial
                   </Button>
-                </CardContent>
-              </Card>
-            </Link>
+                </div>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, x: 50 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6 }}
+                className="flex items-center justify-center"
+              >
+                <div className="relative h-[350px] w-full md:h-[450px] overflow-hidden rounded-3xl border-2 border-muted shadow-xl">
+                  <Image
+                    src="/placeholder.svg"
+                    alt="Design Canvas Interface"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
+        </section>
 
-            {/* Lab Automation Tile */}
-            <Link href="/library?use_case=lab-automation" className="block group">
-              <Card className="bg-card text-primary shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out hover:border-primary border-2 border-transparent group-hover:scale-105">
-                <CardHeader className="flex flex-col items-center pt-8">
-                  <SigmaSquare size={48} className="mb-4 text-primary" />
-                  <CardTitle className="text-2xl font-condensed font-semibold text-primary text-center">Lab Automation</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center pb-8">
-                  <p className="font-body text-muted-foreground">
-                    Modular components to streamline and automate complex laboratory workflows.
-                  </p>
-                  <Button variant="link" className="mt-4 text-primary group-hover:underline">
-                    Automate Your Experiments <span aria-hidden="true" className="ml-1 group-hover:translate-x-1 transition-transform duration-200 ease-in-out">→</span>
+        {/* Library Preview */}
+        <section id="library" className="w-full py-12 md:py-24 lg:py-32">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+            className="container px-4 md:px-6"
+          >
+            <div className="flex flex-col items-center justify-center space-y-4 text-center">
+              <div className="space-y-2">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="inline-block rounded-3xl bg-muted px-3 py-1 text-sm"
+                >
+                  Component Library
+                </motion.div>
+                <motion.h2
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                  className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl"
+                >
+                  Comprehensive Component Library
+                </motion.h2>
+                <motion.p
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3 }}
+                  className="mx-auto max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed"
+                >
+                  Access our extensive inventory of microfluidic components with powerful search and filtering tools
+                </motion.p>
+              </div>
+            </div>
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="mx-auto max-w-7xl mt-12 overflow-hidden rounded-3xl border shadow-lg"
+            >
+              <div className="bg-muted p-4 flex items-center justify-between border-b">
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="Search components..."
+                    className="w-64 rounded-3xl"
+                  />
+                  <Button variant="outline" size="sm" className="rounded-3xl">
+                    Filter
                   </Button>
-                </CardContent>
-              </Card>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="rounded-3xl">
+                    Sort
+                  </Button>
+                  <Button variant="outline" size="sm" className="rounded-3xl">
+                    View
+                  </Button>
+                </div>
+              </div>
+              <div className="p-4 bg-background">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[1, 2, 3].map((item) => (
+                    <Card key={item} className="p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                          <FlaskConical className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium">Mixer Chip MX-{item}00</h3>
+                          <p className="text-sm text-muted-foreground">Glass, 2 inputs, 1 output</p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex justify-between items-center">
+                        <span className="font-medium">€{20 + item * 5}</span>
+                        <Button variant="outline" size="sm" className="rounded-3xl">
+                          Add to Design
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+                <div className="mt-4 text-center">
+                  <Link href="/library" passHref>
+                    <Button variant="link">View all 250+ components</Button>
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        </section>
+
+        {/* About/Team Section */}
+        <section id="about" className="w-full py-12 md:py-24 lg:py-32 bg-muted/20">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+            className="container px-4 md:px-6"
+          >
+            <div className="grid gap-6 lg:grid-cols-2 lg:gap-12">
+              <motion.div
+                initial={{ opacity: 0, x: -50 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6 }}
+                className="space-y-4"
+              >
+                <div className="inline-block rounded-3xl bg-background px-3 py-1 text-sm">About Us</div>
+                <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Our Vision</h2>
+                <p className="text-muted-foreground md:text-xl/relaxed">
+                  We're revolutionizing microfluidics by making high-performance glass chips accessible to everyone. Our mission is to accelerate scientific discovery and innovation by removing cost barriers and complexity from microfluidic technology.
+                </p>
+                <p className="text-muted-foreground md:text-xl/relaxed">
+                  Our academia-first adoption strategy focuses on rapid validation and publications, building grassroots credibility that will later unlock biotech and diagnostics markets.
+                </p>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Button variant="outline" size="lg" className="rounded-3xl">
+                    Our Team
+                  </Button>
+                  <Button variant="outline" size="lg" className="rounded-3xl">
+                    Join Us
+                  </Button>
+                </div>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, x: 50 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6 }}
+                className="flex items-center justify-center"
+              >
+                <div className="relative h-[350px] w-full md:h-[450px] overflow-hidden rounded-3xl">
+                  <Image
+                    src="/placeholder.svg"
+                    alt="Team Photo"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
+        </section>
+
+        {/* Contact Section */}
+        <section id="contact" className="w-full py-12 md:py-24 lg:py-32">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+            className="container grid items-center gap-6 px-4 md:px-6 lg:grid-cols-2"
+          >
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+              className="space-y-4"
+            >
+              <div className="inline-block rounded-3xl bg-muted px-3 py-1 text-sm">Contact</div>
+              <h2 className="text-3xl font-bold tracking-tighter md:text-4xl/tight">Get In Touch</h2>
+              <p className="max-w-[600px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+                Have questions about our products or technology? We'd love to hear from you.
+              </p>
+              <div className="mt-8 space-y-4">
+                <motion.div whileHover={{ x: 5 }} className="flex items-start gap-3">
+                  <div className="rounded-3xl bg-muted p-2">
+                    <MapPin className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Our Location</h3>
+                    <p className="text-sm text-muted-foreground">123 Innovation Street, Tech City, 10001</p>
+                  </div>
+                </motion.div>
+                <motion.div whileHover={{ x: 5 }} className="flex items-start gap-3">
+                  <div className="rounded-3xl bg-muted p-2">
+                    <Mail className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Email Us</h3>
+                    <p className="text-sm text-muted-foreground">info@microfluidics.com</p>
+                  </div>
+                </motion.div>
+                <motion.div whileHover={{ x: 5 }} className="flex items-start gap-3">
+                  <div className="rounded-3xl bg-muted p-2">
+                    <Phone className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Call Us</h3>
+                    <p className="text-sm text-muted-foreground">+1 (555) 123-4567</p>
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+              className="rounded-3xl border bg-background p-6 shadow-sm"
+            >
+              <h3 className="text-xl font-bold">Send Us a Message</h3>
+              <p className="text-sm text-muted-foreground">
+                Fill out the form below and we'll get back to you shortly.
+              </p>
+              <form className="mt-6 space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="first-name"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      First name
+                    </label>
+                    <Input id="first-name" placeholder="Enter your first name" className="rounded-3xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="last-name"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Last name
+                    </label>
+                    <Input id="last-name" placeholder="Enter your last name" className="rounded-3xl" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="email"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Email
+                  </label>
+                  <Input id="email" type="email" placeholder="Enter your email" className="rounded-3xl" />
+                </div>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="message"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Message
+                  </label>
+                  <Textarea id="message" placeholder="Enter your message" className="min-h-[120px] rounded-3xl" />
+                </div>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button type="submit" className="w-full rounded-3xl">
+                    Send Message
+                  </Button>
+                </motion.div>
+              </form>
+            </motion.div>
+          </motion.div>
+        </section>
+      </main>
+
+      {/* Footer */}
+      <footer className="w-full border-t">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={fadeIn}
+          className="container grid gap-8 px-4 py-10 md:px-6 lg:grid-cols-4"
+        >
+          <div className="space-y-4">
+            <Link href="/" className="flex items-center space-x-3">
+              <motion.div
+                whileHover={{ rotate: 5, scale: 1.1 }}
+                transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                className="h-10 w-10 rounded-3xl bg-primary flex items-center justify-center"
+              >
+                <FlaskConical className="h-5 w-5 text-primary-foreground" />
+              </motion.div>
+              <span className="font-bold text-xl">Microfluidics</span>
             </Link>
+            <p className="text-sm text-muted-foreground">
+              Revolutionizing microfluidics with affordable glass chips and a modular ecosystem that accelerates scientific discovery.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-2 lg:grid-cols-3">
+            <div>
+              <h3 className="text-lg font-medium">Products</h3>
+              <nav className="mt-4 flex flex-col space-y-2 text-sm">
+                <Link href="/products" className="text-muted-foreground hover:text-foreground">
+                  Microchip Holders
+                </Link>
+                <Link href="/products" className="text-muted-foreground hover:text-foreground">
+                  Glass Chips
+                </Link>
+                <Link href="/products" className="text-muted-foreground hover:text-foreground">
+                  Pumps & Flow Control
+                </Link>
+                <Link href="/products" className="text-muted-foreground hover:text-foreground">
+                  Accessories
+                </Link>
+              </nav>
+            </div>
+            <div>
+              <h3 className="text-lg font-medium">Resources</h3>
+              <nav className="mt-4 flex flex-col space-y-2 text-sm">
+                <Link href="/canvas" className="text-muted-foreground hover:text-foreground">
+                  Design Canvas
+                </Link>
+                <Link href="/library" className="text-muted-foreground hover:text-foreground">
+                  Component Library
+                </Link>
+                <Link href="#" className="text-muted-foreground hover:text-foreground">
+                  Documentation
+                </Link>
+                <Link href="#" className="text-muted-foreground hover:text-foreground">
+                  Tutorials
+                </Link>
+              </nav>
+            </div>
+            <div>
+              <h3 className="text-lg font-medium">Company</h3>
+              <nav className="mt-4 flex flex-col space-y-2 text-sm">
+                <Link href="#about" className="text-muted-foreground hover:text-foreground">
+                  About Us
+                </Link>
+                <Link href="#" className="text-muted-foreground hover:text-foreground">
+                  Blog
+                </Link>
+                <Link href="#" className="text-muted-foreground hover:text-foreground">
+                  Careers
+                </Link>
+                <Link href="#contact" className="text-muted-foreground hover:text-foreground">
+                  Contact
+                </Link>
+              </nav>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Stay Updated</h3>
+            <p className="text-sm text-muted-foreground">
+              Subscribe to our newsletter for the latest product updates and industry news.
+            </p>
+            <form className="flex space-x-2">
+              <Input type="email" placeholder="Enter your email" className="rounded-3xl" />
+              <Button type="submit" className="rounded-3xl">
+                Subscribe
+              </Button>
+            </form>
+          </div>
+        </motion.div>
+        <div className="border-t">
+          <div className="container flex flex-col items-center justify-between gap-4 py-6 md:h-16 md:flex-row md:py-0">
+            <p className="text-xs text-muted-foreground">
+              &copy; {new Date().getFullYear()} Microfluidics. All rights reserved.
+            </p>
+            <div className="flex gap-4">
+              <Link href="#" className="text-xs text-muted-foreground hover:text-foreground">
+                Privacy Policy
+              </Link>
+              <Link href="#" className="text-xs text-muted-foreground hover:text-foreground">
+                Terms of Service
+              </Link>
+            </div>
           </div>
         </div>
-      </section>
-
-      {/* Product Categories Preview Section */}
-      <section className="py-16 md:py-24 bg-background">
-        <div className="container mx-auto px-6">
-          <h2 className="text-3xl md:text-4xl font-condensed font-bold text-center mb-12 text-primary">
-            Explore Our Product Lines
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {/* Category 1 - Pumps & Flow Control */}
-            <Card className="text-center shadow-md bg-white hover:shadow-xl transition-transform duration-200 ease-in-out hover:-translate-y-1">
-              <CardHeader>
-                <CardTitle className="text-lg font-condensed font-semibold mb-2 text-primary">Pumps & Flow Control</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="relative w-full h-32 rounded-md mb-4 overflow-hidden">
-                  <Image
-                    src="/images/product-placeholder.webp"
-                    alt="Pumps & Flow Control Category"
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="bg-gray-200 object-cover"
-                    loading="lazy"
-                  />
-                </div>
-                <Button asChild variant="link" className="mt-4 text-primary hover:text-primary/80">
-                  <Link href="/products/pumps">View Products</Link>
-                </Button>
-              </CardContent>
-            </Card>
-            {/* Category 2 - Mixers & Reactors */}
-            <Card className="text-center shadow-md bg-white hover:shadow-xl transition-transform duration-200 ease-in-out hover:-translate-y-1">
-              <CardHeader>
-                <CardTitle className="text-lg font-condensed font-semibold mb-2 text-primary">Mixers & Reactors</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="relative w-full h-32 rounded-md mb-4 overflow-hidden">
-                  <Image
-                    src="/images/product-placeholder.webp"
-                    alt="Mixers & Reactors Category"
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="bg-gray-200 object-cover"
-                    loading="lazy"
-                  />
-                </div>
-                <Button asChild variant="link" className="mt-4 text-primary hover:text-primary/80">
-                  <Link href="/products/mixers">View Products</Link>
-                </Button>
-              </CardContent>
-            </Card>
-            {/* Category 3 - Microfluidic Chips */}
-            <Card className="text-center shadow-md bg-white hover:shadow-xl transition-transform duration-200 ease-in-out hover:-translate-y-1">
-              <CardHeader>
-                <CardTitle className="text-lg font-condensed font-semibold mb-2 text-primary">Microfluidic Chips</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="relative w-full h-32 rounded-md mb-4 overflow-hidden">
-                  <Image
-                    src="/images/product-placeholder.webp"
-                    alt="Microfluidic Chips Category"
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="bg-gray-200 object-cover"
-                    loading="lazy"
-                  />
-                </div>
-                <Button asChild variant="link" className="mt-4 text-primary hover:text-primary/80">
-                  <Link href="/products/chips">View Products</Link>
-                </Button>
-              </CardContent>
-            </Card>
-            {/* Category 4 - Holders & Accessories */}
-            <Card className="text-center shadow-md bg-white hover:shadow-xl transition-transform duration-200 ease-in-out hover:-translate-y-1">
-              <CardHeader>
-                <CardTitle className="text-lg font-condensed font-semibold mb-2 text-primary">Holders & Accessories</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="relative w-full h-32 rounded-md mb-4 overflow-hidden">
-                  <Image
-                    src="/images/product-placeholder.webp"
-                    alt="Holders & Accessories Category"
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="bg-gray-200 object-cover"
-                    loading="lazy"
-                  />
-                </div>
-                <Button asChild variant="link" className="mt-4 text-primary hover:text-primary/80">
-                  <Link href="/products/accessories">View Products</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Call to Action (Optional secondary) */}
-      {/* Consider adding another CTA if appropriate */}
+      </footer>
     </div>
-  );
+  )
+}
+
+export default function LandingPage() {
+  return <MicrofluidicsLandingPage />
 }

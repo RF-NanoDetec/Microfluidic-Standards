@@ -134,15 +134,17 @@ export default function QuotePage() {
             <CardContent className="space-y-4">
               {quoteItems.map((item) => (
                 <div key={item.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border rounded-lg">
-                  {item.imageUrl && (
-                     <div className="relative w-20 h-20 aspect-square rounded overflow-hidden flex-shrink-0">
-                        <Image
-                        src={item.imageUrl}
+                  {(
+                    item.imageUrl || true // Always render the image block, fallback if missing
+                  ) && (
+                    <div className="relative w-20 h-20 aspect-square rounded overflow-hidden flex-shrink-0">
+                      <Image
+                        src={item.imageUrl || '/images/productplaceholder.png'}
                         alt={item.name}
                         fill
                         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-contain"
-                        />
+                      />
                     </div>
                   )}
                   <div className="flex-grow">
