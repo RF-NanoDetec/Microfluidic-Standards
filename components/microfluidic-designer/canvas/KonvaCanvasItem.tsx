@@ -3,6 +3,7 @@
 import type { CanvasItemData, Port, Connection } from "@/lib/microfluidic-designer/types";
 import { Rect, Line, Circle, Group, Path, Image } from 'react-konva';
 import { useState, useEffect, useRef } from 'react';
+import Konva from 'konva';
 import {
   CHIP_WIDTH,
   CHIP_HEIGHT,
@@ -51,6 +52,7 @@ export default function KonvaCanvasItem({
   isSimulationActive, // Destructure the new prop
   conceptualCanvasDimensions, // Changed from stageDimensions
 }: KonvaCanvasItemProps) {
+  const groupRef = useRef<Konva.Group>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   
@@ -108,7 +110,6 @@ export default function KonvaCanvasItem({
       strokeWidth={strokeWidth}
       cornerRadius={0} // No rounded corners to match original
       name="component-border"
-      {...shadowProps}
     />
   );
 
@@ -458,7 +459,6 @@ export default function KonvaCanvasItem({
             height={PUMP_CANVAS_HEIGHT} // Use new constant
             x={(CHIP_WIDTH - PUMP_CANVAS_WIDTH) / 2} // Center based on CHIP_WIDTH
             y={(CHIP_HEIGHT - PUMP_CANVAS_HEIGHT) / 2} // Center based on CHIP_HEIGHT
-            {...shadowProps}
           />
         </Group>
       ) : (
@@ -473,7 +473,6 @@ export default function KonvaCanvasItem({
             opacity={fillOpacity}
             stroke={strokeColor}
             strokeWidth={strokeWidth}
-            {...shadowProps}
           />
         </Group>
       );
@@ -491,7 +490,6 @@ export default function KonvaCanvasItem({
             height={OUTLET_HEIGHT} // Changed from OUTLET_HEIGHT * 0.9
             x={(CHIP_WIDTH - OUTLET_WIDTH) / 2} // Centered within CHIP_WIDTH
             y={(CHIP_HEIGHT - OUTLET_HEIGHT) / 2 + 2} // Centered within CHIP_HEIGHT, kept +2 offset
-            {...shadowProps}
           />
         </Group>
       ) : (
@@ -504,7 +502,6 @@ export default function KonvaCanvasItem({
           strokeWidth={strokeWidth}
           cornerRadius={0}
           opacity={isDragging ? 0.5 : 1}
-          {...shadowProps}
         />
       );
       break;
@@ -517,10 +514,18 @@ export default function KonvaCanvasItem({
           stroke="#FC8181" 
           fill="#FFF5F5" 
           cornerRadius={0} 
-          {...shadowProps}
         />
       );
   }
+
+  useEffect(() => {
+    if (groupRef.current) {
+      // Clear cache before recaching if visual aspects like selection or image change.
+      // The dependencies of this useEffect should cover these changes.
+      groupRef.current.clearCache();
+      groupRef.current.cache();
+    }
+  }, [item.chipType, item.id, isSelected, pumpImage, outletImage, shapes]); // Added shapes to deps
 
   // Function to calculate visual offset for port
   const getPortOffset = (orientation: string): { offsetX: number, offsetY: number } => {
@@ -541,6 +546,7 @@ export default function KonvaCanvasItem({
 
   return (
     <Group
+      ref={groupRef}
       key={item.id}
       id={item.id}
       x={item.x}
