@@ -43,12 +43,13 @@ export type FlowDisplayMode = 'velocity' | 'rate';
 const GRID_SIZE = 20; // Size of each grid cell in pixels
 const GRID_COLOR = '#D1D5DB'; // Updated: More visible grid (e.g., zinc-300)
 const GRID_STROKE_WIDTH = 0.75; // Updated: Slightly thicker grid lines
+const SHADOW_VISIBILITY_MARGIN = 20; // New margin for shadow visibility
 
 // Drawing area boundary styling
 const CANVAS_BOUNDARY_COLOR = '#94A3B8'; // Slate-400
 const CANVAS_BOUNDARY_WIDTH = 2;
-const CANVAS_SHADOW_BLUR = 12;
-const CANVAS_SHADOW_COLOR = 'rgba(0, 0, 0, 0.15)';
+const CANVAS_SHADOW_BLUR = 20; // Base blur, we are overriding this on the Rect itself
+const CANVAS_SHADOW_COLOR = 'rgba(0, 0, 0, 0.6)';
 
 // Connection style constants
 const CONNECTION_OUTLINE_COLOR = '#555555'; // Dark gray, same as channel outline
@@ -170,12 +171,12 @@ const formatFlowVelocityForDisplay = (flowVelocityMps: number): string => {
 function EmptyCanvasPrompt() {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none bg-transparent z-10">
-      <div className="bg-white/80 px-6 py-5 rounded-lg shadow-md backdrop-blur-sm border border-[#E1E4E8]">
+      <div className="bg-white/60 px-6 py-5 rounded-lg shadow-lg border border-[#E1E4E8]">
         <div className="mb-3 flex justify-center">
-          <Move size={36} className="text-[#003C7E] animate-pulse" />
+          <SquareDashedMousePointer size={40} className="text-[#003C7E]" />
         </div>
         <h2 className="font-roboto-condensed font-bold text-xl text-[#003C7E] mb-2 text-center">Start Designing</h2>
-        <p className="font-inter text-sm text-[#8A929B] mb-3 text-center max-w-xs">
+        <p className="font-inter text-sm text-slate-500 mb-3 text-center max-w-xs">
           Drag components from the left panel and drop them here.
         </p>
       </div>
@@ -402,6 +403,11 @@ export default function CanvasArea({
     const currentWidth = stageDimensions.width; // Use dynamic width
     const currentHeight = stageDimensions.height; // Use dynamic height
 
+    const minGridX = SHADOW_VISIBILITY_MARGIN;
+    const maxGridX = currentWidth - SHADOW_VISIBILITY_MARGIN;
+    const minGridY = SHADOW_VISIBILITY_MARGIN;
+    const maxGridY = currentHeight - SHADOW_VISIBILITY_MARGIN;
+
     gridLines.push(
       <Rect
         key="extended-canvas-background"
@@ -417,44 +423,48 @@ export default function CanvasArea({
     gridLines.push(
       <Rect
         key="conceptual-canvas-bounds" // This is now the dynamic stage bounds
-        x={0}
-        y={0}
-        width={currentWidth} // Use dynamic width
-        height={currentHeight} // Use dynamic height
-        fill="#FBF9F6"
+        x={SHADOW_VISIBILITY_MARGIN} // Apply margin
+        y={SHADOW_VISIBILITY_MARGIN} // Apply margin
+        width={currentWidth - SHADOW_VISIBILITY_MARGIN * 2} // Adjust width for margin
+        height={currentHeight - SHADOW_VISIBILITY_MARGIN * 2} // Adjust height for margin
+        fill="#FFFFFF" // Set to white
         stroke={CANVAS_BOUNDARY_COLOR}
         strokeWidth={CANVAS_BOUNDARY_WIDTH}
-        shadowColor={CANVAS_SHADOW_COLOR}
-        shadowBlur={CANVAS_SHADOW_BLUR}
-        shadowOffset={{ x: 0, y: 0 }}
-        shadowOpacity={0.6}
-        cornerRadius={2}
+        shadowColor='black'
+        shadowBlur={5} // User's preference from last change
+        shadowOffset={{ x: 5, y: 5 }} // User's preference from last change
+        shadowOpacity={0.15} // User's preference from last change
+        cornerRadius={0} // User's preference from last change
         listening={false}
       />
     );
     
-    for (let x = 0; x <= currentWidth; x += GRID_SIZE) { // Use dynamic width
-      gridLines.push(
-        <Line
-          key={`v-${x}`}
-          points={[x, 0, x, currentHeight]} // Use dynamic height
-          stroke={GRID_COLOR}
-          strokeWidth={GRID_STROKE_WIDTH}
-          listening={false}
-        />
-      );
+    for (let x = 0; x <= currentWidth; x += GRID_SIZE) {
+      if (x >= minGridX && x <= maxGridX) {
+        gridLines.push(
+          <Line
+            key={`v-${x}`}
+            points={[x, minGridY, x, maxGridY]}
+            stroke={GRID_COLOR}
+            strokeWidth={GRID_STROKE_WIDTH}
+            listening={false}
+          />
+        );
+      }
     }
     
-    for (let y = 0; y <= currentHeight; y += GRID_SIZE) { // Use dynamic height
-      gridLines.push(
-        <Line
-          key={`h-${y}`}
-          points={[0, y, currentWidth, y]} // Use dynamic width
-          stroke={GRID_COLOR}
-          strokeWidth={GRID_STROKE_WIDTH}
-          listening={false}
-        />
-      );
+    for (let y = 0; y <= currentHeight; y += GRID_SIZE) {
+      if (y >= minGridY && y <= maxGridY) {
+        gridLines.push(
+          <Line
+            key={`h-${y}`}
+            points={[minGridX, y, maxGridX, y]}
+            stroke={GRID_COLOR}
+            strokeWidth={GRID_STROKE_WIDTH}
+            listening={false}
+          />
+        );
+      }
     }
     
     return gridLines;

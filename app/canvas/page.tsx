@@ -41,8 +41,6 @@ import { ChevronLeft, ChevronRight, X, Move } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Trash2, PlayCircle, RotateCcw, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { KonvaEventObject } from 'konva/lib/Node';
 
 const CanvasArea = dynamic(() => import('@/components/microfluidic-designer/CanvasArea'), {
@@ -66,11 +64,10 @@ const GRID_SIZE = 20; // Matching the one in CanvasArea.tsx for consistency
 const FILTERS = [
   { label: "All", value: "all" },
   { label: "Chips", value: "chip" },
-  { label: "Pumps", value: "pump" },
   { label: "Outlets", value: "outlet" },
 ];
 
-const CATEGORY_ORDER = ["Microfluidic Chips", "Pumps & Flow Control", "Other"] as const;
+const CATEGORY_ORDER = ["Microfluidic Chips", "Other"] as const;
 type CategoryKey = typeof CATEGORY_ORDER[number];
 
 // Helper function to check port connection status
@@ -142,11 +139,9 @@ export default function MicrofluidicDesignerPage() {
 
     if (itemType && (itemType.includes('chip') || itemType.includes('junction') || itemType.includes('channel') || itemType.includes('meander'))) {
       categoryKey = "Microfluidic Chips";
-    } else if (itemType === 'pump') {
-      categoryKey = "Pumps & Flow Control";
-    } else if (itemType === 'outlet') {
+    } else if (itemType === 'pump' || itemType === 'outlet') {
       categoryKey = "Other";
-    } else if (itemCat && (itemCat === "Microfluidic Chips" || itemCat === "Pumps & Flow Control" || itemCat === "Other")) {
+    } else if (itemCat === "Microfluidic Chips") {
       categoryKey = itemCat as CategoryKey;
     }
 
@@ -177,7 +172,6 @@ export default function MicrofluidicDesignerPage() {
       const matchesFilter =
         paletteActiveFilter === "all" ||
         (paletteActiveFilter === "chip" && (item.category?.toLowerCase().includes("chip") || item.chipType?.toLowerCase().includes("chip") || item.chipType?.toLowerCase().includes("junction") || item.chipType === 'straight' || item.chipType === 'meander' || item.chipType === 't-type' || item.chipType === 'x-type')) ||
-        (paletteActiveFilter === "pump" && item.chipType === "pump") ||
         (paletteActiveFilter === "outlet" && item.chipType === "outlet");
       return matchesSearch && matchesFilter;
     });
@@ -804,9 +798,9 @@ export default function MicrofluidicDesignerPage() {
         {/* Inspection Toggle UI - Positioned dynamically */}
         {showSimulationSummary && (
           <div 
-            className="absolute top-4 z-40 flex flex-row items-center gap-2 pointer-events-auto"
+            className="absolute top-9 z-40 flex flex-row items-center gap-2 pointer-events-auto"
             style={{ 
-              left: '16px',
+              left: '36px',
               transition: 'left 0.3s ease-in-out' 
             }}
           >
@@ -828,7 +822,7 @@ export default function MicrofluidicDesignerPage() {
         )}
 
         {/* Floating action buttons at bottom - Positioned dynamically */}
-        <div className="absolute bottom-4 left-4 z-50 pointer-events-auto">
+        <div className="absolute bottom-9 left-9 z-50 pointer-events-auto">
           <Button 
             variant="outline" 
             size="sm" 
@@ -839,7 +833,7 @@ export default function MicrofluidicDesignerPage() {
             <span className="font-inter text-xs">Clear</span>
           </Button>
         </div>
-        <div className="absolute bottom-4 right-4 z-50 flex flex-row gap-2 pointer-events-auto">
+        <div className="absolute bottom-9 right-9 z-50 flex flex-row gap-2 pointer-events-auto">
           <Button
             variant="outline"
             size="sm"
@@ -889,29 +883,25 @@ export default function MicrofluidicDesignerPage() {
             </div>
           </div>
 
-          <Tabs 
-            value={paletteActiveFilter} 
-            onValueChange={setPaletteActiveFilter} 
-            className={`w-full mb-3 ${leftPanelOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
-          >
-            <TabsList className="grid w-full grid-cols-2 h-auto">
-              {FILTERS.slice(0, 2).map(f => (
-                <TabsTrigger key={f.value} value={f.value} className="text-xs px-2 py-1.5 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  {f.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            <TabsList className="grid w-full grid-cols-2 h-auto mt-1">
-              {FILTERS.slice(2).map(f => (
-                <TabsTrigger key={f.value} value={f.value} className="text-xs px-2 py-1.5 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  {f.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          {/* Updated Filter Buttons */}
+          <div className={`flex flex-wrap gap-2 mb-3 ${leftPanelOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
+            {FILTERS.map(f => (
+              <Button
+                key={f.value}
+                variant={paletteActiveFilter === f.value ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPaletteActiveFilter(f.value)}
+                className={`h-7 px-3 text-xs rounded-full font-inter transition-all duration-200 ease-in-out
+                            ${paletteActiveFilter === f.value 
+                              ? 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90' 
+                              : 'bg-background/70 border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:shadow-sm'
+                            }`}
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
           
-          <Separator className={`mb-3 ${leftPanelOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}/>
-
           <div className="flex-grow overflow-y-auto">
             <PaletteSidebar 
               orderedCategories={orderedPaletteCategories}

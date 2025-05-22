@@ -11,7 +11,7 @@ const PaletteItem = dynamic(() => import('./palette/PaletteItem'), {
 
 // Define a type for the category keys based on CATEGORY_ORDER (still needed for prop typing)
 // This could also be imported from types.ts if it were defined there globally
-const CATEGORY_ORDER_FOR_TYPES = ["Microfluidic Chips", "Pumps & Flow Control", "Other"] as const;
+const CATEGORY_ORDER_FOR_TYPES = ["Microfluidic Chips", "Other"] as const;
 type CategoryKey = typeof CATEGORY_ORDER_FOR_TYPES[number];
 
 interface PaletteSidebarProps {
