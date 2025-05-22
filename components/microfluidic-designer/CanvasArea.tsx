@@ -40,14 +40,14 @@ import TooltipBox from '@/components/ui/TooltipBox';
 export type FlowDisplayMode = 'velocity' | 'rate';
 
 // Grid configuration
-const GRID_SIZE = 20; // Size of each grid cell in pixels
+const GRID_SIZE = 10; // Size of each grid cell in pixels
 const GRID_COLOR = '#D1D5DB'; // Updated: More visible grid (e.g., zinc-300)
 const GRID_STROKE_WIDTH = 0.75; // Updated: Slightly thicker grid lines
 const SHADOW_VISIBILITY_MARGIN = 20; // New margin for shadow visibility
 
 // Drawing area boundary styling
 const CANVAS_BOUNDARY_COLOR = '#94A3B8'; // Slate-400
-const CANVAS_BOUNDARY_WIDTH = 2;
+const CANVAS_BOUNDARY_WIDTH = 1;
 const CANVAS_SHADOW_BLUR = 20; // Base blur, we are overriding this on the Rect itself
 const CANVAS_SHADOW_COLOR = 'rgba(0, 0, 0, 0.6)';
 

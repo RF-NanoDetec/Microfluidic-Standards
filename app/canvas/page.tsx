@@ -882,7 +882,7 @@ export default function MicrofluidicDesignerPage() {
           transition: 'width 0.3s ease-in-out',
         }}
       >
-        <div className={`relative h-full bg-[#E1E4E8]/80 flex flex-col overflow-y-auto transition-all duration-300 ${
+        <div className={`relative h-full bg-[#E1E4E8]/80 flex flex-col overflow-y-auto transition-all duration-300 border border-slate-300 ${
           leftPanelOpen 
             ? 'shadow-[0_0_15px_rgba(0,0,0,0.1)] rounded-r-xl p-4' 
             : 'p-0 shadow-none opacity-0'
@@ -950,7 +950,7 @@ export default function MicrofluidicDesignerPage() {
           transition: 'width 0.3s ease-in-out'
         }}
       >
-        <div className={`relative h-full bg-[#E1E4E8]/80 flex flex-col overflow-y-auto transition-all duration-300 ${
+        <div className={`relative h-full bg-[#E1E4E8]/80 flex flex-col overflow-y-auto transition-all duration-300 border border-slate-300 ${
           rightPanelOpen 
             ? 'shadow-lg rounded-l-xl p-4' 
             : 'p-0 shadow-none opacity-0'
