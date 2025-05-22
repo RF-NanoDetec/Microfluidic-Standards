@@ -17,8 +17,8 @@ const Header = () => {
           <Image
             src="/logo.svg" // Assuming logo.svg is designed to work on light/dark backgrounds or a specific version is chosen.
             alt="Microfluidics Company Logo" // Primary Blue: #003C7E
-            width={160} // Adjusted for potential better visual balance, can be fine-tuned
-            height={40} // Adjusted to maintain aspect ratio of original viewBox (391.21 x 96.63)
+            width={180} // Adjusted for potential better visual balance, can be fine-tuned
+            height={80} // Adjusted to maintain aspect ratio of original viewBox (391.21 x 96.63)
             className="h-auto" // Ensures responsive height. Add filter for dark mode if needed and logo isn't dual-colored.
           />
         </Link>

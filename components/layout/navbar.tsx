@@ -7,16 +7,16 @@ import { useQuoteStore } from '@/store/quoteStore';
 // import CartIcon from '@/components/ui/cart-icon';
 
 const Navbar = () => {
-  const quoteCount = useQuoteStore((state) => state.getQuoteCount());
+  const quoteCount = useQuoteStore((state) => state.getItemCount());
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         <Link href="/" className="mr-6 flex items-center space-x-2">
           <Image
-            src="/logo.svg"
+            src="/logo.png"
             alt="Microfluidics Company Logo"
-            width={150} // Adjust width as needed, maintain aspect ratio
+            width={200} // Adjust width as needed, maintain aspect ratio
             height={38} // Adjust height based on the actual aspect ratio of your SVG
             className="h-auto" // Ensure responsive height
           />

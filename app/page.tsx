@@ -10,14 +10,14 @@ import {
   Mail,
   MapPin,
   Phone,
-  Sparkles,
   Zap,
-  Beaker,
   FlaskConical,
-  Layers,
-  Laptop,
-  Share2,
-  Microscope,
+  Gem,
+  BadgeEuro,
+  Minimize2,
+  Blocks,
+  MousePointerSquareDashed,
+  Store,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -63,15 +63,14 @@ function FeatureCard({ icon, title, description }: FeatureCardProps) {
   return (
     <motion.div
       variants={itemFadeIn}
-      whileHover={{ y: -10, transition: { duration: 0.3 } }}
-      className="group relative overflow-hidden rounded-3xl border p-6 shadow-sm transition-all hover:shadow-md bg-background/80"
+      whileHover={{ y: -4 }}
+      className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-shadow"
     >
-      <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-all duration-300"></div>
-      <div className="relative space-y-3">
-        <div className="mb-4">{icon}</div>
-        <h3 className="text-xl font-bold">{title}</h3>
-        <p className="text-muted-foreground">{description}</p>
+      <div className="bg-primary/10 rounded-full p-3 mb-4 inline-flex">
+        {icon}
       </div>
+      <h3 className="text-lg md:text-xl font-semibold mb-2">{title}</h3>
+      <p className="text-muted-foreground leading-relaxed">{description}</p>
       <div className="mt-4 flex items-center justify-between">
         <Link href="#" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
           Learn more
@@ -166,7 +165,7 @@ function MicrofluidicsLandingPage() {
               >
                 <div className="relative h-[350px] w-full md:h-[450px] lg:h-[500px] xl:h-[550px] overflow-hidden rounded-3xl">
                   <Image
-                    src="/placeholder.svg"
+                    src="/images/holder_placeholder.png"
                     alt="Microfluidic chip"
                     fill
                     className="object-cover"
@@ -223,36 +222,37 @@ function MicrofluidicsLandingPage() {
               className="mx-auto grid max-w-5xl items-center gap-6 py-12 md:grid-cols-2 lg:grid-cols-3"
             >
               <FeatureCard
-                icon={<Beaker className="h-10 w-10 text-primary" />}
-                title="Disruptive Cost Model"
+                icon={<Gem strokeWidth={1.5} className="h-6 w-6 text-primary group-hover:text-primary transition-colors" />}
+                title="High-Performance Glass, Low Cost"
+                description="Retains all glass advantages (chemical/thermal resistance, optical clarity, low autofluorescence) at a fraction of the usual cost."
+              />
+              <FeatureCard
+                icon={<BadgeEuro strokeWidth={1.5} className="h-6 w-6 text-primary group-hover:text-primary transition-colors" />}
+                title="Polymer-Level Pricing for Glass"
                 description="Glass microfluidic chips priced on par with polymer devices (≈€20–50 each), versus €100+ from incumbents."
               />
               <FeatureCard
-                icon={<Layers className="h-10 w-10 text-primary" />}
-                title="Miniaturized Technology"
+                icon={<Minimize2 strokeWidth={1.5} className="h-6 w-6 text-primary group-hover:text-primary transition-colors" />}
+                title="Miniaturized for Max Efficiency"
                 description="Very small footprint chips clamped in a low-cost, reusable holder that supports high-pressure (≈100 bar), leak-free connections."
               />
               <FeatureCard
-                icon={<Share2 className="h-10 w-10 text-primary" />}
-                title="True Modular Ecosystem"
+                icon={<Blocks strokeWidth={1.5} className="h-6 w-6 text-primary group-hover:text-primary transition-colors" />}
+                title="Plug & Play Modular Ecosystem"
                 description="A standardized library of interchangeable chips and auxiliary modules, all plug-and-play."
               />
               <FeatureCard
-                icon={<Laptop className="h-10 w-10 text-primary" />}
-                title="Integrated Digital Platform"
+                icon={<MousePointerSquareDashed strokeWidth={1.5} className="h-6 w-6 text-primary group-hover:text-primary transition-colors" />}
+                title="Integrated Online Design Platform"
                 description="Browser-based drag-and-drop design tool, built-in flow simulation, and one-click ordering—no separate CAD or quoting process."
               />
               <FeatureCard
-                icon={<Sparkles className="h-10 w-10 text-primary" />}
-                title="Community Marketplace"
+                icon={<Store strokeWidth={1.5} className="h-6 w-6 text-primary group-hover:text-primary transition-colors" />}
+                title="Community-Driven Marketplace"
                 description="Open partner program where academics and startups can upload, share, or sell their chip designs, earning royalties."
               />
-              <FeatureCard
-                icon={<Microscope className="h-10 w-10 text-primary" />}
-                title="High-Performance Glass"
-                description="Retains all glass advantages (chemical/thermal resistance, optical clarity, low autofluorescence) at a fraction of the usual cost."
-              />
             </motion.div>
+            
           </motion.div>
         </section>
 
@@ -569,10 +569,10 @@ function MicrofluidicsLandingPage() {
               >
                 <div className="relative h-[350px] w-full md:h-[450px] overflow-hidden rounded-3xl">
                   <Image
-                    src="/placeholder.svg"
-                    alt="Team Photo"
+                    src="/PPORTRAIT.jpg"
+                    alt="Team member portrait"
                     fill
-                    className="object-cover"
+                    className="object-contain bg-muted"
                   />
                 </div>
               </motion.div>

@@ -42,6 +42,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${roboto_condensed.variable} h-full antialiased`}>
+      <head>
+        <link rel="icon" type="image/svg+xml" href="/flavicon.svg" />
+        <link rel="icon" type="image/png" href="/flavicon.png" />
+        {/* Optionally, add ICO fallback if available: */}
+        {/* <link rel="icon" type="image/x-icon" href="/favicon.ico" /> */}
+      </head>
       <body className="flex flex-col min-h-full">
         <Header />
         <main className="flex flex-col flex-1 min-h-0 h-full">
