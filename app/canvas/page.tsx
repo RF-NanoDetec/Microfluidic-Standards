@@ -41,6 +41,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Trash2, PlayCircle, RotateCcw, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { KonvaEventObject } from 'konva/lib/Node';
+import Konva from 'konva'; // Import Konva namespace
 
 const CanvasArea = dynamic(() => import('@/components/microfluidic-designer/CanvasArea'), {
   ssr: false,
@@ -494,52 +495,116 @@ export default function MicrofluidicDesignerPage() {
     }
   }, [inProgressConnection, droppedItems, connections]);
 
-  const handleStageClick = useCallback((konvaEvent: any) => {
-    if (konvaEvent.target === konvaEvent.target.getStage()) {
-      setSelectedItemId(null);
-      setSelectedConnectionId(null);
-      if (inProgressConnection) {
-        setInProgressConnection(null);
-      }
-    } else {
-      let node = konvaEvent.target;
-      let identifiedItemId: string | null = null;
-      while (node && node !== konvaEvent.target.getStage()) {
-        const groupId = node.id(); 
-        if (groupId && typeof groupId === 'string' && droppedItems.some(item => item.id === groupId)) {
-          identifiedItemId = groupId;
-          break; 
+  const handleStageClick = useCallback(
+  (
+    konvaEvent: KonvaEventObject<MouseEvent>, // Updated type
+    snappedTarget: { item: CanvasItemData; port: Port } | null // New second argument
+  ) => {
+    // 1. Handle connection in progress FIRST
+    if (inProgressConnection) {
+      if (snappedTarget) {
+        // A snap is active! Form connection to snappedTarget.
+        const sourceItem = inProgressConnection.sourceItem;
+        const sourcePort = inProgressConnection.sourcePort;
+        const targetItem = snappedTarget.item;
+        const targetPort = snappedTarget.port;
+
+        if (sourceItem.id === targetItem.id) {
+          console.warn("Cannot connect an item to itself. Connection cancelled.");
+          setInProgressConnection(null);
+          return;
         }
-        node = node.getParent(); 
-      }
-      if (identifiedItemId) {
-        setSelectedItemId(prevId => (prevId === identifiedItemId ? null : identifiedItemId));
-        setSelectedConnectionId(null); 
+        // Ensure the target port ID is the base ID if your system relies on that for isPortConnected check
+        const baseTargetPortId = targetPort.id.startsWith(targetItem.id + '_') 
+                               ? targetPort.id.substring(targetItem.id.length + 1) 
+                               : targetPort.id;
+                               
+        if (isPortConnected(targetItem.id, baseTargetPortId, connections)) {
+          console.warn(`Target port ${baseTargetPortId} on item ${targetItem.id} is already connected. Connection cancelled.`);
+          setInProgressConnection(null);
+          return;
+        }
+
+        const pathData = calculateTubePathData(sourceItem, sourcePort, targetItem, targetPort);
+        const isPumpConnection = sourceItem.chipType === 'pump' || targetItem.chipType === 'pump';
+        const physicalLengthMeters = isPumpConnection ? 0.3 : 0.05;
+        const defaultTubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === 'default_0.02_inch_ID_silicone') || AVAILABLE_TUBING_TYPES[0];
+
+        if (!defaultTubingType) {
+          console.error("Default tubing type not found!");
+          setInProgressConnection(null);
+          return;
+        }
+
+        const tubeResistance = calculateTubingResistance(physicalLengthMeters, defaultTubingType.innerRadiusMeters);
+        // Ensure port IDs in the connection ID are base IDs if that's the convention
+        const baseSourcePortId = sourcePort.id.startsWith(sourceItem.id + '_')
+                               ? sourcePort.id.substring(sourceItem.id.length + 1)
+                               : sourcePort.id;
+
+        const newConnectionId = `conn-${sourceItem.id}_${baseSourcePortId}-${targetItem.id}_${baseTargetPortId}-${Date.now()}`;
+        const newConnection: Connection = {
+          id: newConnectionId,
+          fromItemId: sourceItem.id,
+          fromPortId: sourcePort.id, // Store the full port ID from CanvasItemData.ports
+          toItemId: targetItem.id,
+          toPortId: targetPort.id,   // Store the full port ID from CanvasItemData.ports
+          pathData: pathData,
+          tubingTypeId: defaultTubingType.id,
+          lengthMeters: physicalLengthMeters,
+          resistance: tubeResistance,
+        };
+
+        setConnections(prev => [...prev, newConnection]);
+        setInProgressConnection(null);
+        console.log('Connection formed to SNAPPED target via stage click:', newConnection);
+        setSelectedItemId(null); // Deselect source item after connection
+        return; // Connection handled
       } else {
-        // This branch means the click was on the stage, but not directly on an item's main group,
-        // nor on the empty stage background (that's handled above).
-        // It could be a click on a port or a tube, which have their own handlers.
-        // If it's truly a misclick on some other stage element while drawing, then cancel.
-        // However, to be safe and rely on specific handlers for ports/tubes, 
-        // we only cancel here if the click wasn't on anything identifiable and a connection is in progress.
-        // The first `if` (konvaEvent.target === konvaEvent.target.getStage()) already handles empty stage clicks.
-        // So, this `else` might not even be strictly necessary for cancelling if port/tube clicks stop propagation.
-        // For now, let's assume if it reaches here and a connection is in progress, it was an unintended click.
-        // However, if port/tube click handlers (`onPortClick`, `onTubeClick`) always `e.cancelBubble = true;`,
-        // then a click on them shouldn't reach here anyway.
-        // Let's assume that port/tube clicks manage their own interaction and stop bubbling if they handle the event.
-        // Thus, if a click reaches here and a connection is in progress, it was likely a misclick not on a port/item.
-        // This is still a bit tricky. The original code in this block was:
-        // setSelectedItemId(null);
-        // setSelectedConnectionId(null);
-        // if (inProgressConnection) {
-        //   setInProgressConnection(null);
-        // }
-        // For now, if it's not an item, and not the stage background, we probably don't want to change selection
-        // or cancel connection UNLESS it's a true misclick. Ports/tubes handle their own logic.
+        // Connection in progress, but no snap was active during this click.
+        // This means the user clicked somewhere else (e.g., stage background) to cancel.
+        console.log('Connection attempt cancelled by stage click (no snap active).');
+        setInProgressConnection(null);
+        // If the click was directly on the stage background, also deselect items.
+        if (konvaEvent.target === konvaEvent.target.getStage()) {
+          setSelectedItemId(null);
+          setSelectedConnectionId(null);
+        }
+        return; // Connection attempt cancelled or click was not for connection finalization
       }
     }
-  }, [inProgressConnection, droppedItems, setSelectedItemId, setSelectedConnectionId, setInProgressConnection]);
+
+    // 2. If NO connection was in progress, handle normal stage clicks (selection, deselection)
+    // This part of the logic is for selecting/deselecting items if no connection is being drawn.
+    if (konvaEvent.target === konvaEvent.target.getStage()) {
+      // Click on stage background
+      setSelectedItemId(null);
+      setSelectedConnectionId(null);
+    } else {
+      // Click on an item (or part of an item) - attempt to identify and select it.
+      let currentNode: Konva.Node | null = konvaEvent.target; // More general Node type
+      let identifiedItemId: string | null = null;
+
+      while (currentNode && currentNode !== konvaEvent.target.getStage()) {
+        const groupId = currentNode.id();
+        if (groupId && typeof groupId === 'string' && droppedItems.some(item => item.id === groupId)) {
+          identifiedItemId = groupId;
+          break;
+        }
+        currentNode = currentNode.getParent();
+      }
+
+      if (identifiedItemId) {
+        setSelectedItemId(prevId => (prevId === identifiedItemId ? null : identifiedItemId));
+        setSelectedConnectionId(null);
+      }
+      // If click was on a port, onPortClick would have handled it.
+      // If click was on a tube, onTubeClick would have handled it.
+      // If click was on something else non-identifiable on the stage, it effectively does nothing here.
+    }
+  },
+  [inProgressConnection, droppedItems, connections, setInProgressConnection, setConnections, setSelectedItemId, setSelectedConnectionId]
+);
 
   const handleStageContextMenu = useCallback((konvaEvent: any) => {
     konvaEvent.evt.preventDefault();
@@ -876,15 +941,15 @@ export default function MicrofluidicDesignerPage() {
       {/* Left Panel - Component Palette - Positioned in the middle left */}
       <div 
         className="fixed top-1/2 left-0 transform -translate-y-1/2 z-40"
-        style={{ 
-          width: leftPanelOpen ? (isMobile ? '220px' : '220px') : '0px',
-          maxHeight: 'calc(100vh - 10rem)',
+        style={{
+          width: leftPanelOpen ? (isMobile ? '240px' : '280px') : '0px',
+          maxHeight: 'calc(100vh - 8rem)', // Adjust to account for header/footer or other global UI
           transition: 'width 0.3s ease-in-out',
         }}
       >
-        <div className={`relative h-full bg-[#E1E4E8]/80 flex flex-col overflow-y-auto transition-all duration-300 border border-slate-300 ${
+        <div className={`relative h-full bg-background/90 flex flex-col overflow-y-auto transition-all duration-300 border-r border-border ${
           leftPanelOpen 
-            ? 'shadow-[0_0_15px_rgba(0,0,0,0.1)] rounded-r-xl p-4' 
+            ? 'shadow-[5px_5px_30px_rgba(0,0,0,0.2)] rounded-r-xl p-4' 
             : 'p-0 shadow-none opacity-0'
         }`}>
           {leftPanelOpen && (
@@ -934,7 +999,7 @@ export default function MicrofluidicDesignerPage() {
         
         <button
           onClick={() => setLeftPanelOpen(!leftPanelOpen)}
-          className="absolute top-1/2 -right-4 transform -translate-y-1/2 z-50 bg-[#E1E4E8] rounded-full h-8 w-8 flex items-center justify-center border border-slate-200 transition-all hover:bg-slate-50"
+          className="absolute top-1/2 -right-4 transform -translate-y-1/2 z-50 bg-background rounded-full h-8 w-8 flex items-center justify-center border border-border transition-all hover:bg-accent/10"
           aria-label={leftPanelOpen ? "Collapse sidebar" : "Expand sidebar"}
         >
           {leftPanelOpen ? <ChevronLeft size={16} className="text-[#003C7E]" /> : <ChevronRight size={16} className="text-[#003C7E]" />}
@@ -950,9 +1015,9 @@ export default function MicrofluidicDesignerPage() {
           transition: 'width 0.3s ease-in-out'
         }}
       >
-        <div className={`relative h-full bg-[#E1E4E8]/80 flex flex-col overflow-y-auto transition-all duration-300 border border-slate-300 ${
+        <div className={`relative h-full bg-background/90 flex flex-col overflow-y-auto transition-all duration-300 border border-slate-300 ${
           rightPanelOpen 
-            ? 'shadow-lg rounded-l-xl p-4' 
+            ? 'shadow-[0px_5px_30px_rgba(0,0,0,0.2)] rounded-l-xl p-4' 
             : 'p-0 shadow-none opacity-0'
         }`}>
           {rightPanelOpen && (
@@ -978,7 +1043,7 @@ export default function MicrofluidicDesignerPage() {
         
         <button
           onClick={() => setRightPanelOpen(!rightPanelOpen)}
-          className="absolute top-1/2 -left-4 transform -translate-y-1/2 z-50 bg-[#E1E4E8] rounded-full h-8 w-8 flex items-center justify-center border border-slate-200 transition-all hover:bg-slate-50"
+          className="absolute top-1/2 -left-4 transform -translate-y-1/2 z-50 bg-background rounded-full h-8 w-8 flex items-center justify-center border border-border transition-all hover:bg-accent/10"
           aria-label={rightPanelOpen ? "Collapse sidebar" : "Expand sidebar"}
         >
           {rightPanelOpen ? <ChevronRight size={16} className="text-[#003C7E]" /> : <ChevronLeft size={16} className="text-[#003C7E]" />}

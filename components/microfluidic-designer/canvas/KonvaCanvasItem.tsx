@@ -39,8 +39,10 @@ interface KonvaCanvasItemProps {
   isSelected: boolean; // Still needed for visual styling if selected
   onPortClick?: (itemId: string, port: Port, event: any) => void; // For left-click on port
   connections?: Connection[]; 
-  isSimulationActive?: boolean; // New prop to indicate if simulation is active
-  conceptualCanvasDimensions: { width: number; height: number }; // Changed from stageDimensions
+  isSimulationActive: boolean;
+  conceptualCanvasDimensions: { width: number; height: number };
+  itemRotation: number;
+  snappedPortTarget?: { item: CanvasItemData; port: Port } | null; // Added for snap highlighting
 }
 
 export default function KonvaCanvasItem({ 
@@ -49,8 +51,10 @@ export default function KonvaCanvasItem({
   isSelected, 
   onPortClick,
   connections,
-  isSimulationActive, // Destructure the new prop
-  conceptualCanvasDimensions, // Changed from stageDimensions
+  isSimulationActive,
+  conceptualCanvasDimensions,
+  itemRotation,
+  snappedPortTarget,
 }: KonvaCanvasItemProps) {
   const groupRef = useRef<Konva.Group>(null);
   const [isDragging, setIsDragging] = useState(false);

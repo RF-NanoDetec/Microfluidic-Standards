@@ -68,6 +68,7 @@ export interface CanvasItemData {
   width: number;     // Actual rendered width on canvas
   height: number;    // Actual rendered height on canvas
   ports: Port[];     // Instance of ports, with absolute positions potentially calculated later or relative to x,y
+  rotation?: number; // Added for item rotation
   
   // Current physical properties for this instance, can be modified from product defaults by user later
   currentChannelWidthMicrons: number;

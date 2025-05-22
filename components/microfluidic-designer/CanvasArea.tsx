@@ -40,10 +40,13 @@ import TooltipBox from '@/components/ui/TooltipBox';
 export type FlowDisplayMode = 'velocity' | 'rate';
 
 // Grid configuration
-const GRID_SIZE = 10; // Size of each grid cell in pixels
+const GRID_SIZE = 25; // Size of each grid cell in pixels
 const GRID_COLOR = '#D1D5DB'; // Updated: More visible grid (e.g., zinc-300)
 const GRID_STROKE_WIDTH = 0.75; // Updated: Slightly thicker grid lines
 const SHADOW_VISIBILITY_MARGIN = 20; // New margin for shadow visibility
+
+// NEW: Snap distance for connecting tubes to ports
+const SNAP_DISTANCE_WORLD = GRID_SIZE * 0.75; // Approx 18.75 world units
 
 // Drawing area boundary styling
 const CANVAS_BOUNDARY_COLOR = '#94A3B8'; // Slate-400
@@ -91,7 +94,7 @@ interface CanvasAreaProps {
   inProgressConnection?: { sourceItem: CanvasItemData; sourcePort: Port; targetMousePos: {x: number, y: number} } | null;
   
   // Event handlers from page.tsx
-  onStageClick: (event: any) => void;
+  onStageClick: (event: KonvaEventObject<MouseEvent>, snappedTarget: { item: CanvasItemData; port: Port } | null) => void;
   onStageContextMenu: (event: any) => void;
   onPortClick: (itemId: string, port: Port, event: any) => void; // Left-click on port
   onTubeClick: (connectionId: string, event: any) => void; // Left-click on tube
@@ -238,6 +241,7 @@ export default function CanvasArea({
   const stageRef = useRef<Konva.Stage>(null);
   const [hoveredPressureNode, setHoveredPressureNode] = useState<null | { nodeId: string; x: number; y: number; content: string }>(null);
   const [tooltip, setTooltip] = useState<{ visible: boolean, x: number, y: number, content: string } | null>(null);
+  const [snappedPortTarget, setSnappedPortTarget] = useState<null | { item: CanvasItemData; port: Port }>(null);
 
   const minMaxFlowValues = useMemo(() => {
     let minValue = Infinity;
@@ -369,6 +373,42 @@ export default function CanvasArea({
       console.log("[CanvasArea] Simulation visuals key changed:", simulationVisualsKey);
     }
   }, [simulationVisualsKey]);
+
+  useEffect(() => {
+    if (inProgressConnection && inProgressConnection.targetMousePos && stageRef.current) {
+      const { sourceItem, targetMousePos } = inProgressConnection;
+      const worldMousePos = targetMousePos; // targetMousePos is already in world coordinates
+
+      let closestSnapTarget: { item: CanvasItemData; port: Port; distance: number } | null = null;
+
+      droppedItems.forEach(item => {
+        if (item.id === sourceItem.id) return; // Don't snap to source item's own ports
+
+        item.ports.forEach(port => {
+          // Future enhancement: check if port is connectable (e.g., not already at max connections)
+          const portAbsPos = { x: item.x + port.x, y: item.y + port.y };
+          const dx = worldMousePos.x - portAbsPos.x;
+          const dy = worldMousePos.y - portAbsPos.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < SNAP_DISTANCE_WORLD) {
+            if (!closestSnapTarget || distance < closestSnapTarget.distance) {
+              closestSnapTarget = { item, port, distance };
+            }
+          }
+        });
+      });
+
+      if (closestSnapTarget) {
+        const { item, port } = closestSnapTarget;
+        setSnappedPortTarget({ item, port });
+      } else {
+        setSnappedPortTarget(null);
+      }
+    } else {
+      setSnappedPortTarget(null); // Clear snap if no connection in progress or missing data
+    }
+  }, [inProgressConnection, droppedItems, stageRef]);
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -895,7 +935,11 @@ export default function CanvasArea({
             y={0}
             scaleX={1}
             scaleY={1}
-            onClick={onStageClick}
+            onClick={(e: KonvaEventObject<MouseEvent>) => {
+              if (onStageClick) {
+                onStageClick(e, snappedPortTarget);
+              }
+            }}
             onContextMenu={onStageContextMenu}
             onPointerMove={internalHandleStageMouseMove}
           >
@@ -1013,17 +1057,35 @@ export default function CanvasArea({
                     connections={connections} 
                     isSimulationActive={hasActiveSimulationResults}
                     conceptualCanvasDimensions={{ width: stageDimensions.width, height: stageDimensions.height }}
+                    itemRotation={item.rotation || 0}
+                    snappedPortTarget={snappedPortTarget}
                   />
                 );
               })}
               
               {inProgressConnection && inProgressConnection.sourceItem && inProgressConnection.sourcePort && inProgressConnection.targetMousePos && (
                 (() => {
-                  const tempPathData = calculateInProgressPath(
-                    inProgressConnection.sourceItem,
-                    inProgressConnection.sourcePort,
-                    inProgressConnection.targetMousePos
-                  );
+                  let tempPathData;
+                  const sourceItem = inProgressConnection.sourceItem;
+                  const sourcePort = inProgressConnection.sourcePort;
+
+                  if (snappedPortTarget && snappedPortTarget.item.id !== sourceItem.id) {
+                    const targetItem = snappedPortTarget.item;
+                    const targetPort = snappedPortTarget.port;
+
+                    // Pass the full item and port objects as per calculateTubePathData signature
+                    tempPathData = calculateTubePathData(sourceItem, sourcePort, targetItem, targetPort);
+                  } else {
+                    // Not snapped, or targetMousePos is explicitly needed for direct mouse following.
+                    // calculateInProgressPath takes world coordinates for its targetMousePos argument.
+                    tempPathData = calculateInProgressPath(
+                      sourceItem,
+                      sourcePort,
+                      inProgressConnection.targetMousePos
+                    );
+                  }
+
+                  if (!tempPathData) return null;
                   
                   return (
                     <>
