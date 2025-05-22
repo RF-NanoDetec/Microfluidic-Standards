@@ -91,6 +91,9 @@ const initialSimulationResults: SimulationResults = {
 
 // Default canvas size (can be adjusted or made dynamic if needed)
 const HEADER_HEIGHT = 64; // px, matches top-16
+const MIN_CANVAS_WIDTH = 900; // Minimum width for the canvas content area
+const DEFAULT_SIDE_PADDING = 100; // Default padding on each side when space allows
+const TOP_BOTTOM_PADDING = 20; // Fixed top and bottom padding
 
 export default function MicrofluidicDesignerPage() {
   const mainContainerRef = useRef<HTMLDivElement>(null);
@@ -720,8 +723,53 @@ export default function MicrofluidicDesignerPage() {
     });
   }, []); // No specific dependencies here as it only sets state or uses latest state in setDroppedItems
 
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 0);
+  const [sidePadding, setSidePadding] = useState(DEFAULT_SIDE_PADDING);
+
+  // Effect to update windowWidth on resize
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    // Set initial width
+    handleResize(); 
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Effect to update sidePadding based on windowWidth
+  useEffect(() => {
+    let newSidePadding = DEFAULT_SIDE_PADDING;
+    const totalDefaultPadding = DEFAULT_SIDE_PADDING * 2;
+
+    if (windowWidth < MIN_CANVAS_WIDTH) {
+      newSidePadding = 0; // Canvas takes full width, padding disappears
+    } else if (windowWidth < MIN_CANVAS_WIDTH + totalDefaultPadding) {
+      // Window is wide enough for min canvas, but not for full default padding
+      // Distribute remaining space as padding
+      const remainingSpaceForPadding = windowWidth - MIN_CANVAS_WIDTH;
+      newSidePadding = Math.max(0, remainingSpaceForPadding / 2);
+    } else {
+      // Window is wide enough for min canvas + full default padding
+      newSidePadding = DEFAULT_SIDE_PADDING;
+    }
+    setSidePadding(newSidePadding);
+  }, [windowWidth]);
+
   return (
-    <div className="fixed top-16 bottom-0 left-0 right-0 w-screen overflow-hidden bg-[#F5F7FA] px-[100px] pt-[20px] pb-[20px] box-border flex flex-col">
+    <div 
+      className="fixed top-16 bottom-0 left-0 right-0 w-screen overflow-hidden bg-[#F5F7FA] box-border flex flex-col"
+      style={{
+        paddingLeft: `${sidePadding}px`,
+        paddingRight: `${sidePadding}px`,
+        paddingTop: `${TOP_BOTTOM_PADDING}px`,
+        paddingBottom: `${TOP_BOTTOM_PADDING}px`,
+      }}
+    >
       {/* This div establishes the padded area below the header */}
       <div className="relative w-full h-full flex-1">
         {/* CanvasArea and its sibling controls (buttons, inspection toggles) will be positioned within this relative container */}
