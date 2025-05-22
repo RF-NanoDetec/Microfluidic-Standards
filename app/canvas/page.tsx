@@ -89,6 +89,9 @@ const initialSimulationResults: SimulationResults = {
   errors: [],
 };
 
+// Default canvas size (can be adjusted or made dynamic if needed)
+const HEADER_HEIGHT = 64; // px, matches top-16
+
 export default function MicrofluidicDesignerPage() {
   const mainContainerRef = useRef<HTMLDivElement>(null);
 
@@ -115,18 +118,18 @@ export default function MicrofluidicDesignerPage() {
 
   // State for responsive UI
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
-  // State for Panning
-  const [isSpacebarPressed, setIsSpacebarPressed] = useState(false);
-  const [isPanning, setIsPanning] = useState(false);
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
-  const [panStartPoint, setPanStartPoint] = useState({ x: 0, y: 0 });
 
   // State for Palette filtering (lifted from PaletteSidebar)
   const [paletteSearch, setPaletteSearch] = useState("");
   const [paletteActiveFilter, setPaletteActiveFilter] = useState("all");
+
+  // Add state to track if right panel was ever opened
+  const [wasRightPanelEverOpened, setWasRightPanelEverOpened] = useState(false);
+
+  // State to track the current actual canvas dimensions from CanvasArea
+  const [currentCanvasDimensions, setCurrentCanvasDimensions] = useState({ width: 0, height: 0 });
 
   // Grouped and ordered items logic (lifted and adapted from PaletteSidebar)
   const groupedPaletteItems = useMemo(() => PALETTE_ITEMS.reduce((acc, item) => {
@@ -199,69 +202,6 @@ export default function MicrofluidicDesignerPage() {
     };
   }, []);
 
-  // Effect for Spacebar detection
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code === 'Space') {
-        event.preventDefault();
-        setIsSpacebarPressed(true);
-      }
-    };
-    const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.code === 'Space') {
-        event.preventDefault();
-        setIsSpacebarPressed(false);
-        if (isPanning) { // Stop panning if spacebar is released during a pan
-          setIsPanning(false);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [isPanning]); // Add isPanning to dependency array
-
-  // Panning Mouse Handlers (global)
-  const handleWindowMouseMoveForPanning = useCallback((event: MouseEvent) => {
-    if (isPanning) {
-      setPanOffset(prevOffset => ({
-        x: prevOffset.x + (event.clientX - panStartPoint.x),
-        y: prevOffset.y + (event.clientY - panStartPoint.y),
-      }));
-      setPanStartPoint({ x: event.clientX, y: event.clientY });
-    }
-  }, [isPanning, panStartPoint]);
-
-  const handleWindowMouseUpForPanning = useCallback(() => {
-    if (isPanning) {
-      setIsPanning(false);
-    }
-    // Listeners are removed in the useEffect below
-  }, [isPanning]);
-
-  // Effect to add/remove global mouse listeners for panning
-  useEffect(() => {
-    if (isPanning) {
-      window.addEventListener('mousemove', handleWindowMouseMoveForPanning);
-      window.addEventListener('mouseup', handleWindowMouseUpForPanning);
-      // Change cursor to 'grabbing' when panning
-      document.body.style.cursor = 'grabbing';
-    } else {
-      window.removeEventListener('mousemove', handleWindowMouseMoveForPanning);
-      window.removeEventListener('mouseup', handleWindowMouseUpForPanning);
-      document.body.style.cursor = 'default'; // Reset cursor
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleWindowMouseMoveForPanning);
-      window.removeEventListener('mouseup', handleWindowMouseUpForPanning);
-      document.body.style.cursor = 'default'; // Ensure cursor is reset on unmount
-    };
-  }, [isPanning, handleWindowMouseMoveForPanning, handleWindowMouseUpForPanning]);
-
   // Simulation callback functions
   const handleUpdateSimulationResults = useCallback((results: SimulationResults) => {
     console.log("Simulation results updated:", results);
@@ -304,21 +244,22 @@ export default function MicrofluidicDesignerPage() {
     console.log("Initiating simulation run...");
     setInspectionMode('flow'); // Set inspection mode to flow after simulation
     setFlowDisplayMode('velocity'); // Set to velocity by default after simulation
+    setRightPanelOpen(true); // Ensure right panel is open when simulation runs
     runFluidSimulationLogic(
       droppedItems,
       connections,
       handleUpdateSimulationResults,
-      handleClearVisualization, // Clears previous visuals before new run
-      handleVisualizeResults,   // Triggers visualization of new results
+      handleClearVisualization,
+      handleVisualizeResults,
       handleShowNotification,
       handleSetRunButtonState
     );
   }, [
-    droppedItems, 
-    connections, 
-    handleUpdateSimulationResults, 
-    handleClearVisualization, 
-    handleVisualizeResults, 
+    droppedItems,
+    connections,
+    handleUpdateSimulationResults,
+    handleClearVisualization,
+    handleVisualizeResults,
     handleShowNotification,
     handleSetRunButtonState,
     runButtonState.disabled
@@ -355,26 +296,29 @@ export default function MicrofluidicDesignerPage() {
     event.preventDefault();
     const itemDataString = event.dataTransfer.getData('application/json');
     const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!containerRect) return;
+    if (!containerRect || containerRect.width === 0 || containerRect.height === 0) {
+      console.warn("[Drop] Container dimensions are invalid or zero. Aborting drop.", containerRect);
+      return;
+    }
 
     let dropX = event.clientX - containerRect.left;
     let dropY = event.clientY - containerRect.top;
-
-    // Adjust for panOffset
-    const worldDropX = dropX - panOffset.x;
-    const worldDropY = dropY - panOffset.y;
 
     if (itemDataString) {
       try {
         const paletteItem = JSON.parse(itemDataString) as PaletteItemData;
 
-        // Calculate initial position considering item dimensions for centering
-        const initialX = worldDropX - (paletteItem.defaultWidth || 80) / 2;
-        const initialY = worldDropY - (paletteItem.defaultHeight || 40) / 2;
+        const itemWidth = paletteItem.defaultWidth || 80;
+        const itemHeight = paletteItem.defaultHeight || 40;
 
-        // Snapping logic removed
-        // const snappedX = Math.round(initialX / GRID_SIZE) * GRID_SIZE;
-        // const snappedY = Math.round(initialY / GRID_SIZE) * GRID_SIZE;
+        // Calculate initial position considering item dimensions for centering within the drop coordinates
+        const initialX = dropX - itemWidth / 2;
+        const initialY = dropY - itemHeight / 2;
+
+        // Clamp to actual container bounds (which is the stage itself)
+        // The coordinates are already relative to the containerRect (stage)
+        const clampedX = Math.max(0, Math.min(initialX, containerRect.width - itemWidth));
+        const clampedY = Math.max(0, Math.min(initialY, containerRect.height - itemHeight));
 
         const newItemId = `${paletteItem.chipType || 'item'}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
@@ -423,10 +367,10 @@ export default function MicrofluidicDesignerPage() {
           productId: paletteItem.id,
           name: paletteItem.name,
           chipType: paletteItem.chipType,
-          x: initialX, // Use initialX directly
-          y: initialY, // Use initialY directly
-          width: paletteItem.defaultWidth || 80,
-          height: paletteItem.defaultHeight || 40,
+          x: clampedX, // Use clampedX (stage-local)
+          y: clampedY, // Use clampedY (stage-local)
+          width: itemWidth,
+          height: itemHeight,
           ports: paletteItem.defaultPorts.map((p: Port) => ({...p, id: `${newItemId}_${p.id}`})),
           
           currentChannelWidthMicrons: initialChannelWidth,
@@ -456,7 +400,7 @@ export default function MicrofluidicDesignerPage() {
         console.error("Failed to parse or process dropped item data:", error);
       }
     }
-  }, [droppedItems, connections, panOffset]);
+  }, [droppedItems, connections]);
 
   const handleItemDragEnd = useCallback((itemId: string, newX: number, newY: number) => {
     // Snapping logic removed
@@ -555,8 +499,6 @@ export default function MicrofluidicDesignerPage() {
   }, [inProgressConnection, droppedItems, connections]);
 
   const handleStageClick = useCallback((konvaEvent: any) => {
-    if (isPanning || isSpacebarPressed) return; // Do nothing if panning or spacebar is pressed
-
     if (konvaEvent.target === konvaEvent.target.getStage()) {
       setSelectedItemId(null);
       setSelectedConnectionId(null);
@@ -601,18 +543,14 @@ export default function MicrofluidicDesignerPage() {
         // or cancel connection UNLESS it's a true misclick. Ports/tubes handle their own logic.
       }
     }
-  }, [isPanning, isSpacebarPressed, inProgressConnection, droppedItems, setSelectedItemId, setSelectedConnectionId, setInProgressConnection]);
+  }, [inProgressConnection, droppedItems, setSelectedItemId, setSelectedConnectionId, setInProgressConnection]);
 
   const handleStageContextMenu = useCallback((konvaEvent: any) => {
     konvaEvent.evt.preventDefault();
-    if (isPanning || isSpacebarPressed) return; // Allow context menu if not panning, but might want to refine this
-
-    setSelectedItemId(null);
-    setSelectedConnectionId(null);
     if (inProgressConnection) {
       setInProgressConnection(null);
     }
-  }, [isPanning, isSpacebarPressed, inProgressConnection, setSelectedItemId, setSelectedConnectionId, setInProgressConnection]);
+  }, [inProgressConnection, setSelectedItemId, setSelectedConnectionId, setInProgressConnection]);
 
   const handleTubeClick = useCallback((connectionId: string, konvaEvent: any) => {
     konvaEvent.cancelBubble = true;
@@ -636,25 +574,6 @@ export default function MicrofluidicDesignerPage() {
     }
   }, [selectedConnectionId]);
   
-  const handleStageMouseDown = useCallback((konvaEvent: KonvaEventObject<MouseEvent>) => {
-    if (isSpacebarPressed) {
-      setIsPanning(true);
-      // Use clientX/clientY from the original DOM event for panStartPoint, as window listeners use these.
-      setPanStartPoint({ x: konvaEvent.evt.clientX, y: konvaEvent.evt.clientY });
-      konvaEvent.evt.preventDefault(); // Prevent text selection or other default browser actions
-    }
-    // If not spacebar pressed, normal click logic will be handled by onStageClick for item selection/deselection
-    // and port click for connections. This handler is primarily for initiating pan.
-    // Note: onStageClick is called by CanvasArea separately if this isn't a pan-initiating click.
-  }, [isSpacebarPressed]);
-
-  const handleStageMouseUp = useCallback(() => {
-    // This is called by Konva's onMouseUp on the Stage.
-    // Panning state (isPanning) is now primarily managed by the window mouseup listener.
-    // We can leave this empty or use for other stage-specific mouseup logic if needed later.
-    // For example, if we had a drawing tool active.
-  }, []);
-
   const handleStageMouseMove = useCallback((stagePointerPos: {x: number, y:number}) => {
     // This handler is now ONLY for the inProgressConnection line preview.
     // Panning movement is handled by handleWindowMouseMoveForPanning.
@@ -731,10 +650,81 @@ export default function MicrofluidicDesignerPage() {
      (simulationResults.errors && simulationResults.errors.length > 0) || 
      (simulationResults.warnings && simulationResults.warnings.length > 0));
 
+  // Add effect to handle automatic right panel opening on first item selection
+  useEffect(() => {
+    if (selectedItemId && !wasRightPanelEverOpened) {
+      setRightPanelOpen(true);
+      setWasRightPanelEverOpened(true);
+    }
+  }, [selectedItemId, wasRightPanelEverOpened]);
+
+  const handleStageResize = useCallback((newDimensions: { width: number; height: number }) => {
+    setCurrentCanvasDimensions(newDimensions);
+    // Check if any items are out of bounds and adjust them
+    setDroppedItems(prevItems => {
+      let itemsChanged = false;
+      const updatedItems = prevItems.map(item => {
+        let newX = item.x;
+        let newY = item.y;
+        let itemModified = false;
+
+        // Check and clamp right boundary
+        if (item.x + item.width > newDimensions.width) {
+          newX = newDimensions.width - item.width;
+          itemModified = true;
+        }
+        // Check and clamp left boundary (shouldn't happen if x is always >= 0, but good practice)
+        if (newX < 0) {
+          newX = 0;
+          itemModified = true;
+        }
+
+        // Check and clamp bottom boundary
+        if (item.y + item.height > newDimensions.height) {
+          newY = newDimensions.height - item.height;
+          itemModified = true;
+        }
+        // Check and clamp top boundary (shouldn't happen if y is always >= 0, but good practice)
+        if (newY < 0) {
+          newY = 0;
+          itemModified = true;
+        }
+
+        if (itemModified) {
+          itemsChanged = true;
+          return { ...item, x: newX, y: newY };
+        }
+        return item;
+      });
+
+      if (itemsChanged) {
+        // If items moved, connections might need updating
+        setConnections(prevConnections => 
+          prevConnections.map(conn => {
+            const fromItem = updatedItems.find(i => i.id === conn.fromItemId);
+            const toItem = updatedItems.find(i => i.id === conn.toItemId);
+            if (fromItem && toItem) {
+              const fromPort = fromItem.ports.find(p => p.id === conn.fromPortId || `${fromItem.id}_${p.id}` === conn.fromPortId );
+              const toPort = toItem.ports.find(p => p.id === conn.toPortId || `${toItem.id}_${p.id}` === conn.toPortId);
+              if (fromPort && toPort) {
+                const newPathData = calculateTubePathData(fromItem, fromPort, toItem, toPort);
+                return { ...conn, pathData: newPathData };
+              }
+            }
+            return conn;
+          })
+        );
+        return updatedItems;
+      }
+      return prevItems; // No changes, return original items
+    });
+  }, []); // No specific dependencies here as it only sets state or uses latest state in setDroppedItems
+
   return (
-    <div className="fixed top-16 bottom-0 left-0 right-0 w-screen overflow-hidden bg-[#F5F7FA]">
-      {/* New relative wrapper for CanvasArea and its overlay controls */}
-      <div className="relative w-full h-full">
+    <div className="fixed top-16 bottom-0 left-0 right-0 w-screen overflow-hidden bg-[#F5F7FA] px-[100px] pt-[20px] pb-[20px] box-border flex flex-col">
+      {/* This div establishes the padded area below the header */}
+      <div className="relative w-full h-full flex-1">
+        {/* CanvasArea and its sibling controls (buttons, inspection toggles) will be positioned within this relative container */}
         <CanvasArea
           droppedItems={droppedItems}
           onDrop={handleDrop}
@@ -749,9 +739,6 @@ export default function MicrofluidicDesignerPage() {
           onTubeClick={handleTubeClick}
           onDeleteConnection={handleDeleteConnection}
           onStagePointerMove={handleStageMouseMove}
-          onStageMouseDown={handleStageMouseDown}
-          onStageMouseUp={handleStageMouseUp}
-          panOffset={panOffset}
           simulationResults={simulationResults}
           simulationVisualsKey={simulationVisualsKey}
           onClearCanvas={handleClearCanvas}
@@ -762,6 +749,7 @@ export default function MicrofluidicDesignerPage() {
           setInspectionMode={setInspectionMode}
           flowDisplayMode={flowDisplayMode}
           setFlowDisplayMode={setFlowDisplayMode}
+          onStageResize={handleStageResize} // Pass the new handler
         />
 
         {/* === MOVED CONTROLS START === */}
@@ -770,7 +758,7 @@ export default function MicrofluidicDesignerPage() {
           <div 
             className="absolute top-4 z-40 flex flex-row items-center gap-2 pointer-events-auto"
             style={{ 
-              left: leftPanelOpen ? `${(isMobile ? 280 : 320) + 16}px` : '16px',
+              left: '16px',
               transition: 'left 0.3s ease-in-out' 
             }}
           >
@@ -792,35 +780,23 @@ export default function MicrofluidicDesignerPage() {
         )}
 
         {/* Floating action buttons at bottom - Positioned dynamically */}
-        <div 
-          className="absolute bottom-4 z-50 pointer-events-auto"
-          style={{ 
-            left: leftPanelOpen ? `${(isMobile ? 280 : 320) + 16}px` : '16px',
-            transition: 'left 0.3s ease-in-out'
-          }}
-        >
+        <div className="absolute bottom-4 left-4 z-50 pointer-events-auto">
           <Button 
             variant="outline" 
             size="sm" 
             onClick={handleClearCanvas} 
-            className="h-8 bg-white/80 shadow-md border-[#E1E4E8] text-[#8A929B] hover:text-[#003C7E] hover:border-[#003C7E] transition-colors"
+            className="h-8 bg-white/80 shadow-md border-[#E1E4E8] text-[#8A929B] hover:bg-[#F8F9FA] hover:text-[#2D3748] hover:shadow-lg hover:scale-105 transition-all duration-200"
           >
             <Trash2 className="h-4 w-4 mr-1" />
             <span className="font-inter text-xs">Clear</span>
           </Button>
         </div>
-        <div 
-          className="absolute bottom-4 z-50 flex flex-row gap-2 pointer-events-auto"
-          style={{ 
-            right: rightPanelOpen ? `${(isMobile ? 280 : 320) + 16}px` : '16px',
-            transition: 'right 0.3s ease-in-out'
-          }}
-        >
+        <div className="absolute bottom-4 right-4 z-50 flex flex-row gap-2 pointer-events-auto">
           <Button
             variant="outline"
             size="sm"
             onClick={handleRunSimulation}
-            className={`h-8 bg-white/80 shadow-md border-[#E1E4E8] text-[#003C7E] hover:bg-[#003C7E]/10 transition-colors ${runButtonState.color ? runButtonState.color : ''}`}
+            className={`h-8 bg-white/80 shadow-md border-[#E1E4E8] text-[#003C7E] hover:bg-[#003C7E] hover:text-white hover:border-[#003C7E] hover:shadow-lg hover:scale-105 transition-all duration-200 ${runButtonState.color ? runButtonState.color : ''}`}
             disabled={runButtonState.disabled}
           >
             <PlayCircle className="h-4 w-4 mr-1" />
@@ -830,8 +806,8 @@ export default function MicrofluidicDesignerPage() {
             variant="outline"
             size="sm"
             onClick={handleResetSimulation}
-            className="h-8 bg-white/80 shadow-md border-[#E1E4E8] text-[#8A929B] hover:text-[#003C7E] hover:border-[#003C7E] transition-colors"
-            disabled={!showSimulationSummary} // Reset is enabled if summary is shown (i.e. there are results or errors)
+            className="h-8 bg-white/80 shadow-md border-[#E1E4E8] text-[#8A929B] hover:bg-[#F8F9FA] hover:text-[#2D3748] hover:shadow-lg hover:scale-105 transition-all duration-200"
+            disabled={!showSimulationSummary}
           >
             <RotateCcw className="h-4 w-4 mr-1" />
             <span className="font-inter text-xs">Reset</span>
@@ -840,14 +816,20 @@ export default function MicrofluidicDesignerPage() {
         {/* === MOVED CONTROLS END === */}
       </div>
       
-      {/* Left Panel - Component Palette */}
+      {/* Left Panel - Component Palette - Positioned in the middle left */}
       <div 
-        className={`fixed top-16 left-0 z-40 transition-all duration-300 transform ${
-          leftPanelOpen ? 'translate-x-0' : '-translate-x-full'
-        } ${isMobile ? 'w-[220px]' : 'w-[220px]'}`}
+        className="fixed top-1/2 left-0 transform -translate-y-1/2 z-40 h-[calc(100vh-8rem)] max-h-[800px] overflow-visible"
+        style={{ 
+          width: leftPanelOpen ? (isMobile ? '220px' : '220px') : '0px',
+          transition: 'width 0.3s ease-in-out'
+        }}
       >
-        <div className="relative h-auto max-h-[calc(100vh-4rem)] bg-white/70  shadow-lg flex flex-col rounded-r-xl p-4">
-          <div className="flex items-center justify-between mb-3">
+        <div className={`relative h-full bg-white/90 flex flex-col overflow-hidden transition-all duration-300 ${
+          leftPanelOpen 
+            ? 'shadow-lg rounded-r-xl p-4' 
+            : 'p-0 shadow-none'
+        }`}>
+          <div className={`flex items-center justify-between mb-3 ${leftPanelOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
             <div className="relative flex-grow mr-2">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -859,7 +841,11 @@ export default function MicrofluidicDesignerPage() {
             </div>
           </div>
 
-          <Tabs value={paletteActiveFilter} onValueChange={setPaletteActiveFilter} className="w-full mb-3">
+          <Tabs 
+            value={paletteActiveFilter} 
+            onValueChange={setPaletteActiveFilter} 
+            className={`w-full mb-3 ${leftPanelOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
+          >
             <TabsList className="grid w-full grid-cols-2 h-auto">
               {FILTERS.slice(0, 2).map(f => (
                 <TabsTrigger key={f.value} value={f.value} className="text-xs px-2 py-1.5 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
@@ -876,44 +862,46 @@ export default function MicrofluidicDesignerPage() {
             </TabsList>
           </Tabs>
           
-          <Separator className="mb-3"/>
+          <Separator className={`mb-3 ${leftPanelOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}/>
 
           <div className="flex-grow overflow-y-auto">
             <PaletteSidebar 
               orderedCategories={orderedPaletteCategories}
               groupedItems={groupedPaletteItems}
               getFilteredItems={getFilteredPaletteItems}
+              isOpen={leftPanelOpen}
+              onToggle={() => {}} // Don't handle toggle here
             />
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setLeftPanelOpen(false)}
-            className="absolute bottom-4 right-4 w-8 h-8 p-0 text-[#8A929B] hover:text-[#64707D] transition-colors bg-transparent hover:bg-transparent"
-          >
-            <X size={16} />
-          </Button>
         </div>
+        
+        {/* Toggle button attached to the outer container */}
+        <button
+          onClick={() => setLeftPanelOpen(!leftPanelOpen)}
+          className="absolute top-1/2 -right-4 transform -translate-y-1/2 z-50 bg-white shadow-md rounded-full h-8 w-8 flex items-center justify-center border border-slate-200 transition-all hover:bg-slate-50"
+          aria-label={leftPanelOpen ? "Collapse sidebar" : "Expand sidebar"}
+        >
+          {leftPanelOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+        </button>
       </div>
 
       {/* Right Panel - Properties */}
       <div 
-        className={`fixed top-16 right-0 z-40 transition-all duration-300 transform ${
-          rightPanelOpen ? 'translate-x-0' : 'translate-x-full'
-        } ${isMobile ? 'w-[280px]' : 'w-[320px]'}`}
+        className="fixed top-1/2 right-0 transform -translate-y-1/2 z-40 h-[calc(100vh-8rem)] max-h-[800px] overflow-visible"
+        style={{
+          width: rightPanelOpen ? (isMobile ? '280px' : '320px') : '0px',
+          transition: 'width 0.3s ease-in-out'
+        }}
       >
-        <div className="relative h-auto max-h-[calc(100vh-4rem)] bg-white/70 shadow-lg flex flex-col rounded-l-xl">
-          <div className="p-4 border-b flex items-center justify-end">
-          </div>
-          <div className="flex-grow overflow-y-auto p-4">
-            {/* Properties panel - Moved to the top */}
-            <DetailsSidebar
-              selectedItem={currentSelectedItem}
-              onItemPropertyChange={handleItemPropertyChange}
-            />
-            {/* Conditionally show simulation results below properties */}
+        <div className={`relative h-full bg-white/90 flex flex-col overflow-hidden transition-all duration-300 ${
+          rightPanelOpen 
+            ? 'shadow-lg rounded-l-xl p-4' 
+            : 'p-0 shadow-none'
+        }`}>
+          <div className={`flex-grow overflow-y-auto ${rightPanelOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
+            {/* Show simulation results first if they exist */}
             {showSimulationSummary && (
-              <div className="mt-6"> {/* Added margin-top for spacing */}
+              <div className="mb-6 border-b pb-6">
                 <SimulationSummaryPanel
                   results={simulationResults}
                   inspectionMode={inspectionMode}
@@ -923,40 +911,23 @@ export default function MicrofluidicDesignerPage() {
                 />
               </div>
             )}
+            {/* Properties panel below simulation results */}
+            <DetailsSidebar
+              selectedItem={currentSelectedItem}
+              onItemPropertyChange={handleItemPropertyChange}
+            />
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setRightPanelOpen(false)}
-            className="absolute bottom-4 left-4 w-8 h-8 p-0 text-[#8A929B] hover:text-[#64707D] transition-colors bg-transparent hover:bg-transparent"
-          >
-            <X size={16} />
-          </Button>
         </div>
+        
+        {/* Toggle button attached to the outer container */}
+        <button
+          onClick={() => setRightPanelOpen(!rightPanelOpen)}
+          className="absolute top-1/2 -left-4 transform -translate-y-1/2 z-50 bg-white shadow-md rounded-full h-8 w-8 flex items-center justify-center border border-slate-200 transition-all hover:bg-slate-50"
+          aria-label={rightPanelOpen ? "Collapse sidebar" : "Expand sidebar"}
+        >
+          {rightPanelOpen ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
       </div>
-
-      {/* Toggle buttons for sidebars - only shown when panel is closed */}
-      {!leftPanelOpen && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setLeftPanelOpen(true)}
-          className="fixed top-20 left-4 z-50 h-9 w-9 p-0 text-[#8A929B] hover:text-[#64707D] transition-colors bg-transparent hover:bg-transparent"
-        >
-          <ChevronRight size={18} />
-        </Button>
-      )}
-
-      {!rightPanelOpen && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setRightPanelOpen(true)}
-          className="fixed top-20 right-4 z-50 h-9 w-9 p-0 text-[#8A929B] hover:text-[#64707D] transition-colors bg-transparent hover:bg-transparent"
-        >
-          <ChevronLeft size={18} />
-        </Button>
-      )}
     </div>
   );
 } 

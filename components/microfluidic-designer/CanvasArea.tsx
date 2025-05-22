@@ -76,10 +76,6 @@ const MIN_ZOOM = 1; // Updated based on user feedback
 const MAX_ZOOM = 3.0;
 const ZOOM_SENSITIVITY = 0.001; // Adjusted sensitivity
 
-// Conceptual Canvas Size (independent of viewport)
-const CONCEPTUAL_CANVAS_WIDTH = 1900; 
-const CONCEPTUAL_CANVAS_HEIGHT = 1000;
-
 // Extended Canvas Area (the full area including under sidebars)
 const EXTENDED_CANVAS_WIDTH = 3000;
 const EXTENDED_CANVAS_HEIGHT = 1500;
@@ -114,10 +110,8 @@ interface CanvasAreaProps {
   flowDisplayMode: 'rate' | 'velocity';
   setFlowDisplayMode: React.Dispatch<React.SetStateAction<'rate' | 'velocity'>>;
 
-  // Props for Panning
-  panOffset?: { x: number; y: number };
-  onStageMouseDown?: (event: KonvaEventObject<MouseEvent>) => void;
-  onStageMouseUp?: (event: KonvaEventObject<MouseEvent>) => void;
+  // New prop to notify parent of stage resize
+  onStageResize?: (newDimensions: { width: number; height: number }) => void;
 }
 
 // Helper to convert flow rate in m³/s to µL/min for display
@@ -234,9 +228,7 @@ export default function CanvasArea({
   setInspectionMode,
   flowDisplayMode,
   setFlowDisplayMode,
-  panOffset = { x: 0, y: 0 },
-  onStageMouseDown,
-  onStageMouseUp,
+  onStageResize,
 }: CanvasAreaProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [stageDimensions, setStageDimensions] = useState({ width: 100, height: 100 });
@@ -245,10 +237,6 @@ export default function CanvasArea({
   const stageRef = useRef<Konva.Stage>(null);
   const [hoveredPressureNode, setHoveredPressureNode] = useState<null | { nodeId: string; x: number; y: number; content: string }>(null);
   const [tooltip, setTooltip] = useState<{ visible: boolean, x: number, y: number, content: string } | null>(null);
-  const [isSpacePressed, setIsSpacePressed] = useState(false);
-  const [stageScale, setStageScale] = useState(1);
-  const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
-  const [hasCenteredInitially, setHasCenteredInitially] = useState(false);
 
   const minMaxFlowValues = useMemo(() => {
     let minValue = Infinity;
@@ -338,10 +326,21 @@ export default function CanvasArea({
       if (entry && entry.contentRect) {
         const { width, height } = entry.contentRect;
         console.log(`[CanvasArea] ResizeObserver detected size: ${width}x${height}`);
-        setStageDimensions({
-          width,
-          height,
-        });
+        // Ensure width and height are positive before setting stage dimensions
+        if (width > 0 && height > 0) {
+          setStageDimensions({
+            width,
+            height,
+          });
+          // Call the new onStageResize callback
+          if (onStageResize) {
+            onStageResize({ width, height });
+          }
+        } else {
+          // Optionally, set to a small default or log if dimensions are zero
+          // For now, we'll just avoid setting zero dimensions
+          console.warn(`[CanvasArea] ResizeObserver detected zero or negative dimensions: ${width}x${height}. Not updating stage dimensions.`);
+        }
       }
     });
     
@@ -350,38 +349,15 @@ export default function CanvasArea({
       console.log("[CanvasArea] Started observing stageContainerRef");
     }
     
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !e.repeat && !isSpacePressed) {
-        setIsSpacePressed(true);
-        if (stageContainerRef.current) {
-          stageContainerRef.current.style.cursor = 'grab';
-        }
-      }
-    };
-    
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
-        setIsSpacePressed(false);
-        if (stageContainerRef.current) {
-          stageContainerRef.current.style.cursor = 'default';
-        }
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    
     return () => {
       if (stageContainerRef.current) {
          resizeObserver.unobserve(stageContainerRef.current);
          console.log("[CanvasArea] Stopped observing stageContainerRef");
       }
       resizeObserver.disconnect();
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
       setIsMounted(false);
     };
-  }, [isSpacePressed]);
+  }, [onStageResize]);
 
   useEffect(() => {
     console.log("[CanvasArea] Received simulation results:", simulationResults);
@@ -423,12 +399,14 @@ export default function CanvasArea({
   
   const renderGrid = () => {
     const gridLines = [];
-    
+    const currentWidth = stageDimensions.width; // Use dynamic width
+    const currentHeight = stageDimensions.height; // Use dynamic height
+
     gridLines.push(
       <Rect
         key="extended-canvas-background"
-        x={-EXTENDED_CANVAS_WIDTH/2}
-        y={-EXTENDED_CANVAS_HEIGHT/2}
+        x={-EXTENDED_CANVAS_WIDTH/2} // This can remain for off-screen buffer if needed
+        y={-EXTENDED_CANVAS_HEIGHT/2} // This can remain for off-screen buffer if needed
         width={EXTENDED_CANVAS_WIDTH}
         height={EXTENDED_CANVAS_HEIGHT}
         fill="#F5F7FA"
@@ -438,11 +416,11 @@ export default function CanvasArea({
     
     gridLines.push(
       <Rect
-        key="conceptual-canvas-bounds"
+        key="conceptual-canvas-bounds" // This is now the dynamic stage bounds
         x={0}
         y={0}
-        width={CONCEPTUAL_CANVAS_WIDTH}
-        height={CONCEPTUAL_CANVAS_HEIGHT}
+        width={currentWidth} // Use dynamic width
+        height={currentHeight} // Use dynamic height
         fill="#FBF9F6"
         stroke={CANVAS_BOUNDARY_COLOR}
         strokeWidth={CANVAS_BOUNDARY_WIDTH}
@@ -455,11 +433,11 @@ export default function CanvasArea({
       />
     );
     
-    for (let x = 0; x <= CONCEPTUAL_CANVAS_WIDTH; x += GRID_SIZE) {
+    for (let x = 0; x <= currentWidth; x += GRID_SIZE) { // Use dynamic width
       gridLines.push(
         <Line
           key={`v-${x}`}
-          points={[x, 0, x, CONCEPTUAL_CANVAS_HEIGHT]}
+          points={[x, 0, x, currentHeight]} // Use dynamic height
           stroke={GRID_COLOR}
           strokeWidth={GRID_STROKE_WIDTH}
           listening={false}
@@ -467,11 +445,11 @@ export default function CanvasArea({
       );
     }
     
-    for (let y = 0; y <= CONCEPTUAL_CANVAS_HEIGHT; y += GRID_SIZE) {
+    for (let y = 0; y <= currentHeight; y += GRID_SIZE) { // Use dynamic height
       gridLines.push(
         <Line
           key={`h-${y}`}
-          points={[0, y, CONCEPTUAL_CANVAS_WIDTH, y]}
+          points={[0, y, currentWidth, y]} // Use dynamic width
           stroke={GRID_COLOR}
           strokeWidth={GRID_STROKE_WIDTH}
           listening={false}
@@ -487,7 +465,23 @@ export default function CanvasArea({
     sourcePort: Port, 
     mousePos: {x: number, y: number}
   ) => {
-    return calculateTemporaryConnectionPath(sourceItem, sourcePort, mousePos);
+    // Convert mouse position from screen coordinates to world coordinates
+    // to account for stage scaling and panning
+    const stage = stageRef.current;
+    if (!stage) return calculateTemporaryConnectionPath(sourceItem, sourcePort, mousePos);
+    
+    // Calculate the inverse transform to convert from screen to world coordinates
+    const stageScale = stage.scaleX();
+    const stageX = stage.x();
+    const stageY = stage.y();
+    
+    // Apply inverse transform to get world coordinates
+    const worldMousePos = {
+      x: (mousePos.x - stageX) / stageScale,
+      y: (mousePos.y - stageY) / stageScale
+    };
+    
+    return calculateTemporaryConnectionPath(sourceItem, sourcePort, worldMousePos);
   };
 
   const getRelativeMousePos = (evt: any) => {
@@ -872,102 +866,8 @@ export default function CanvasArea({
     return [...flowVisuals, ...pressureNodeVisuals];
   };
 
-  const handleStageWheel = (e: KonvaEventObject<WheelEvent>) => {
-    e.evt.preventDefault();
-    if (!stageRef.current) return;
-
-    const stage = stageRef.current;
-    const oldScale = stage.scaleX();
-    
-    let sensitivity = ZOOM_SENSITIVITY;
-    if (e.evt.deltaMode === 1) {
-      sensitivity *= 33;
-    } else if (e.evt.deltaMode === 2) {
-      sensitivity *= stageDimensions.height * 0.8;
-    }
-
-    const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, oldScale - e.evt.deltaY * sensitivity));
-
-    const pointer = stage.getPointerPosition();
-
-    if (!pointer) return;
-
-    const mousePointTo = {
-      x: (pointer.x - stage.x()) / oldScale,
-      y: (pointer.y - stage.y()) / oldScale,
-    };
-
-    const newPos = {
-      x: pointer.x - mousePointTo.x * newScale,
-      y: pointer.y - mousePointTo.y * newScale,
-    };
-
-    setStageScale(newScale);
-    setStagePos(newPos);
-  };
-
-  const handleStageDragStart = (e: KonvaEventObject<DragEvent>) => {
-    if (!isSpacePressed) {
-      e.evt.preventDefault();
-      e.cancelBubble = true;
-      if (stageRef.current) {
-        stageRef.current.position(stagePos);
-      }
-    } else if (stageContainerRef.current) {
-      stageContainerRef.current.style.cursor = 'grabbing';
-    }
-  };
-  
-  const handleStageDragEnd = (e: KonvaEventObject<DragEvent>) => {
-    if (isSpacePressed) {
-      setStagePos(e.target.position());
-      if (stageContainerRef.current) {
-        stageContainerRef.current.style.cursor = 'grab';
-      }
-    }
-  };
-
-  const stageDragBoundFunc = (pos: {x: number, y: number}) => {
-    const minX = -(EXTENDED_CANVAS_WIDTH * stageScale);
-    const minY = -(EXTENDED_CANVAS_HEIGHT * stageScale);
-    const maxX = stageDimensions.width;
-    const maxY = stageDimensions.height;
-
-    const newX = Math.min(maxX, Math.max(minX, pos.x));
-    const newY = Math.min(maxY, Math.max(minY, pos.y));
-    
-    return { x: newX, y: newY };
-  };
-
-  useEffect(() => {
-    if (isMounted && !hasCenteredInitially) {
-      if (stageDimensions.width > 100 && stageDimensions.height > 100) {
-        const initialScaleValue = 1;
-        const centerX = (stageDimensions.width - CONCEPTUAL_CANVAS_WIDTH * initialScaleValue) / 2;
-        const centerY = (stageDimensions.height - CONCEPTUAL_CANVAS_HEIGHT * initialScaleValue) / 2;
-        setStagePos({ x: centerX, y: centerY });
-        setHasCenteredInitially(true);
-        console.log(`[CanvasArea] Initial centering complete with actual dims at (${centerX}, ${centerY}). Viewport: ${stageDimensions.width}x${stageDimensions.height}`);
-      } else {
-        console.log(`[CanvasArea] Waiting for actual stage dimensions before centering. Current: ${stageDimensions.width}x${stageDimensions.height}`);
-      }
-    }
-  }, [isMounted, stageDimensions, hasCenteredInitially, CONCEPTUAL_CANVAS_WIDTH, CONCEPTUAL_CANVAS_HEIGHT]);
-
-  const internalStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
-    if (onStageMouseDown) {
-        onStageMouseDown(e);
-    }
-  };
-
-  const internalStageMouseUp = (e: KonvaEventObject<MouseEvent>) => {
-    if (onStageMouseUp) {
-      onStageMouseUp(e);
-    }
-  };
-
   return (
-    <div ref={containerRef} className="fixed inset-0 w-screen h-screen overflow-hidden" onDragOver={e => e.preventDefault()}>
+    <div ref={containerRef} className="relative w-full h-full overflow-hidden" onDragOver={e => e.preventDefault()}>
       {droppedItems.length === 0 && <EmptyCanvasPrompt />}
       
       <div 
@@ -976,30 +876,18 @@ export default function CanvasArea({
         onDrop={(e) => onDrop(e, containerRef)}
         onDragOver={handleDragOver}
       >
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 pointer-events-none">
-          <div className="bg-white/80 text-xs text-[#8A929B] px-3 py-1.5 rounded-md shadow-sm border border-[#E1E4E8]">
-            <span className="font-inter flex items-center">
-              Hold <kbd className="px-1.5 py-0.5 bg-[#F5F7FA] border border-[#E1E4E8] rounded-sm mx-1.5 font-mono text-[#003C7E]">Space</kbd> to pan the canvas
-            </span>
-          </div>
-        </div>
-        
-        {isMounted ? (
+        <div className="w-full h-full flex justify-center items-center">
           <Stage 
             ref={stageRef}
             width={stageDimensions.width}
             height={stageDimensions.height}
-            x={panOffset.x}
-            y={panOffset.y}
-            scaleX={stageScale}
-            scaleY={stageScale}
-            onWheel={handleStageWheel}
+            x={0}
+            y={0}
+            scaleX={1}
+            scaleY={1}
             onClick={onStageClick}
             onContextMenu={onStageContextMenu}
             onPointerMove={internalHandleStageMouseMove}
-            onMouseDown={internalStageMouseDown}
-            onMouseUp={internalStageMouseUp}
-            draggable={false}
           >
             <Layer x={0} y={0}>
               {renderGrid()}
@@ -1114,7 +1002,7 @@ export default function CanvasArea({
                     onPortClick={onPortClick} 
                     connections={connections} 
                     isSimulationActive={hasActiveSimulationResults}
-                    conceptualCanvasDimensions={{ width: CONCEPTUAL_CANVAS_WIDTH, height: CONCEPTUAL_CANVAS_HEIGHT }}
+                    conceptualCanvasDimensions={{ width: stageDimensions.width, height: stageDimensions.height }}
                   />
                 );
               })}
@@ -1158,16 +1046,7 @@ export default function CanvasArea({
               {simulationResults && inspectionMode !== 'none' && renderSimulationVisuals(inspectionMode)}
             </Layer>
           </Stage>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="bg-white/80 px-6 py-5 rounded-lg shadow-md backdrop-blur-sm border border-[#E1E4E8]">
-              <div className="flex items-center justify-center mb-3">
-                <div className="animate-spin h-6 w-6 border-3 border-[#003C7E] border-t-transparent rounded-full"></div>
-              </div>
-              <p className="font-inter text-sm text-[#8A929B] text-center">Loading Canvas...</p>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
       
       {tooltip?.visible && (
