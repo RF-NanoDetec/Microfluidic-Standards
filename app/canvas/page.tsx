@@ -860,60 +860,63 @@ export default function MicrofluidicDesignerPage() {
       
       {/* Left Panel - Component Palette - Positioned in the middle left */}
       <div 
-        className="fixed top-1/2 left-0 transform -translate-y-1/2 z-40 h-[calc(100vh-8rem)] max-h-[800px] overflow-visible"
+        className="fixed top-1/2 left-0 transform -translate-y-1/2 z-40"
         style={{ 
           width: leftPanelOpen ? (isMobile ? '220px' : '220px') : '0px',
-          transition: 'width 0.3s ease-in-out'
+          maxHeight: 'calc(100vh - 10rem)',
+          transition: 'width 0.3s ease-in-out',
         }}
       >
-        <div className={`relative h-full bg-white/90 flex flex-col overflow-hidden transition-all duration-300 ${
+        <div className={`relative h-full bg-white/90 flex flex-col overflow-y-auto transition-all duration-300 ${
           leftPanelOpen 
             ? 'shadow-lg rounded-r-xl p-4' 
-            : 'p-0 shadow-none'
+            : 'p-0 shadow-none opacity-0'
         }`}>
-          <div className={`flex items-center justify-between mb-3 ${leftPanelOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
-            <div className="relative flex-grow mr-2">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search components..."
-                value={paletteSearch}
-                onChange={e => setPaletteSearch(e.target.value)}
-                className="h-9 pl-8 text-sm rounded-lg border-border focus:ring-1 focus:ring-primary focus:border-primary shadow-sm bg-background/80 w-full"
-              />
-            </div>
-          </div>
+          {leftPanelOpen && (
+            <>
+              <div className="flex items-center justify-between mb-3">
+                <div className="relative flex-grow mr-2">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search components..."
+                    value={paletteSearch}
+                    onChange={e => setPaletteSearch(e.target.value)}
+                    className="h-9 pl-8 text-sm rounded-lg border-border focus:ring-1 focus:ring-primary focus:border-primary shadow-sm bg-background/80 w-full"
+                  />
+                </div>
+              </div>
 
-          {/* Updated Filter Buttons */}
-          <div className={`flex flex-wrap gap-2 mb-3 ${leftPanelOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
-            {FILTERS.map(f => (
-              <Button
-                key={f.value}
-                variant={paletteActiveFilter === f.value ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPaletteActiveFilter(f.value)}
-                className={`h-7 px-3 text-xs rounded-full font-inter transition-all duration-200 ease-in-out
-                            ${paletteActiveFilter === f.value 
-                              ? 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90' 
-                              : 'bg-background/70 border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:shadow-sm'
-                            }`}
-              >
-                {f.label}
-              </Button>
-            ))}
-          </div>
-          
-          <div className="flex-grow overflow-y-auto">
-            <PaletteSidebar 
-              orderedCategories={orderedPaletteCategories}
-              groupedItems={groupedPaletteItems}
-              getFilteredItems={getFilteredPaletteItems}
-              isOpen={leftPanelOpen}
-              onToggle={() => {}} // Don't handle toggle here
-            />
-          </div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {FILTERS.map(f => (
+                  <Button
+                    key={f.value}
+                    variant={paletteActiveFilter === f.value ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPaletteActiveFilter(f.value)}
+                    className={`h-7 px-3 text-xs rounded-full font-inter transition-all duration-200 ease-in-out
+                                ${paletteActiveFilter === f.value 
+                                  ? 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90' 
+                                  : 'bg-background/70 border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:shadow-sm'
+                                }`}
+                  >
+                    {f.label}
+                  </Button>
+                ))}
+              </div>
+              
+              <div>
+                <PaletteSidebar 
+                  orderedCategories={orderedPaletteCategories}
+                  groupedItems={groupedPaletteItems}
+                  getFilteredItems={getFilteredPaletteItems}
+                  isOpen={leftPanelOpen}
+                  onToggle={() => {}}
+                />
+              </div>
+            </>
+          )}
         </div>
         
-        {/* Toggle button attached to the outer container */}
         <button
           onClick={() => setLeftPanelOpen(!leftPanelOpen)}
           className="absolute top-1/2 -right-4 transform -translate-y-1/2 z-50 bg-white shadow-md rounded-full h-8 w-8 flex items-center justify-center border border-slate-200 transition-all hover:bg-slate-50"
@@ -925,39 +928,39 @@ export default function MicrofluidicDesignerPage() {
 
       {/* Right Panel - Properties */}
       <div 
-        className="fixed top-1/2 right-0 transform -translate-y-1/2 z-40 h-[calc(100vh-8rem)] max-h-[800px] overflow-visible"
+        className="fixed top-1/2 right-0 transform -translate-y-1/2 z-40"
         style={{
           width: rightPanelOpen ? (isMobile ? '280px' : '320px') : '0px',
+          maxHeight: 'calc(100vh - 8rem)',
           transition: 'width 0.3s ease-in-out'
         }}
       >
-        <div className={`relative h-full bg-white/90 flex flex-col overflow-hidden transition-all duration-300 ${
+        <div className={`relative h-full bg-white/90 flex flex-col overflow-y-auto transition-all duration-300 ${
           rightPanelOpen 
             ? 'shadow-lg rounded-l-xl p-4' 
-            : 'p-0 shadow-none'
+            : 'p-0 shadow-none opacity-0'
         }`}>
-          <div className={`flex-grow overflow-y-auto ${rightPanelOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
-            {/* Show simulation results first if they exist */}
-            {showSimulationSummary && (
-              <div className="mb-6 border-b pb-6">
-                <SimulationSummaryPanel
-                  results={simulationResults}
-                  inspectionMode={inspectionMode}
-                  flowDisplayMode={flowDisplayMode}
-                  droppedItems={droppedItems}
-                  connections={connections}
-                />
-              </div>
-            )}
-            {/* Properties panel below simulation results */}
-            <DetailsSidebar
-              selectedItem={currentSelectedItem}
-              onItemPropertyChange={handleItemPropertyChange}
-            />
-          </div>
+          {rightPanelOpen && (
+            <>
+              {showSimulationSummary && (
+                <div className="mb-6 border-b pb-6">
+                  <SimulationSummaryPanel
+                    results={simulationResults}
+                    inspectionMode={inspectionMode}
+                    flowDisplayMode={flowDisplayMode}
+                    droppedItems={droppedItems}
+                    connections={connections}
+                  />
+                </div>
+              )}
+              <DetailsSidebar
+                selectedItem={currentSelectedItem}
+                onItemPropertyChange={handleItemPropertyChange}
+              />
+            </>
+          )}
         </div>
         
-        {/* Toggle button attached to the outer container */}
         <button
           onClick={() => setRightPanelOpen(!rightPanelOpen)}
           className="absolute top-1/2 -left-4 transform -translate-y-1/2 z-50 bg-white shadow-md rounded-full h-8 w-8 flex items-center justify-center border border-slate-200 transition-all hover:bg-slate-50"
