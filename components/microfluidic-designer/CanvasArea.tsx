@@ -29,7 +29,7 @@ import {
   formatFlowVelocityForDisplay
 } from '@/lib/microfluidic-designer/utils/visualizationUtils';
 import { Button } from '@/components/ui/button';
-import { Trash2, PlayCircle, RotateCcw, SquareDashedMousePointer } from 'lucide-react';
+import { Trash2, PlayCircle, RotateCcw, SquareDashedMousePointer, Move } from 'lucide-react';
 import { KonvaEventObject } from 'konva/lib/Node';
 import FlowDisplayLegend from './canvas/FlowDisplayLegend';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -41,8 +41,14 @@ export type FlowDisplayMode = 'velocity' | 'rate';
 
 // Grid configuration
 const GRID_SIZE = 20; // Size of each grid cell in pixels
-const GRID_COLOR = '#f0f0f0'; // Light gray for grid lines
-const GRID_STROKE_WIDTH = 0.5; // Thin grid lines
+const GRID_COLOR = '#D1D5DB'; // Updated: More visible grid (e.g., zinc-300)
+const GRID_STROKE_WIDTH = 0.75; // Updated: Slightly thicker grid lines
+
+// Drawing area boundary styling
+const CANVAS_BOUNDARY_COLOR = '#94A3B8'; // Slate-400
+const CANVAS_BOUNDARY_WIDTH = 2;
+const CANVAS_SHADOW_BLUR = 12;
+const CANVAS_SHADOW_COLOR = 'rgba(0, 0, 0, 0.15)';
 
 // Connection style constants
 const CONNECTION_OUTLINE_COLOR = '#555555'; // Dark gray, same as channel outline
@@ -64,6 +70,19 @@ const FLOW_COLOR_LOW = '#64b5f6'; // Light Blue
 // const FLOW_COLOR_MEDIUM = '#1e88e5'; // Blue - will be part of gradient
 const FLOW_COLOR_HIGH = '#d32f2f'; // Red
 // MAX_EXPECTED_FLOW_M3S will be determined dynamically
+
+// Zoom configuration
+const MIN_ZOOM = 1; // Updated based on user feedback
+const MAX_ZOOM = 3.0;
+const ZOOM_SENSITIVITY = 0.001; // Adjusted sensitivity
+
+// Conceptual Canvas Size (independent of viewport)
+const CONCEPTUAL_CANVAS_WIDTH = 1900; 
+const CONCEPTUAL_CANVAS_HEIGHT = 1000;
+
+// Extended Canvas Area (the full area including under sidebars)
+const EXTENDED_CANVAS_WIDTH = 3000;
+const EXTENDED_CANVAS_HEIGHT = 1500;
 
 interface CanvasAreaProps {
   droppedItems: CanvasItemData[];
@@ -94,6 +113,11 @@ interface CanvasAreaProps {
   setInspectionMode: React.Dispatch<React.SetStateAction<'none' | 'pressure' | 'flow'>>;
   flowDisplayMode: 'rate' | 'velocity';
   setFlowDisplayMode: React.Dispatch<React.SetStateAction<'rate' | 'velocity'>>;
+
+  // Props for Panning
+  panOffset?: { x: number; y: number };
+  onStageMouseDown?: (event: KonvaEventObject<MouseEvent>) => void;
+  onStageMouseUp?: (event: KonvaEventObject<MouseEvent>) => void;
 }
 
 // Helper to convert flow rate in m³/s to µL/min for display
@@ -152,16 +176,13 @@ const formatFlowVelocityForDisplay = (flowVelocityMps: number): string => {
 function EmptyCanvasPrompt() {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none bg-transparent z-10">
-      <SquareDashedMousePointer
-        size={48}
-        strokeWidth={2}
-        className="text-[#003C7E] mb-4 animate-fade-in"
-        aria-hidden="true"
-      />
-      <div className="text-center">
-        <h2 className="font-roboto-condensed font-bold text-2xl text-[#003C7E] mb-2">Start Designing</h2>
-        <p className="font-inter text-base text-[#003C7E] max-w-md mx-auto">
-          Drag a component from the <span className="font-semibold">left palette</span> and drop it here to build your microfluidic system.
+      <div className="bg-white/80 px-6 py-5 rounded-lg shadow-md backdrop-blur-sm border border-[#E1E4E8]">
+        <div className="mb-3 flex justify-center">
+          <Move size={36} className="text-[#003C7E] animate-pulse" />
+        </div>
+        <h2 className="font-roboto-condensed font-bold text-xl text-[#003C7E] mb-2 text-center">Start Designing</h2>
+        <p className="font-inter text-sm text-[#8A929B] mb-3 text-center max-w-xs">
+          Drag components from the left panel and drop them here.
         </p>
       </div>
     </div>
@@ -212,7 +233,10 @@ export default function CanvasArea({
   inspectionMode,
   setInspectionMode,
   flowDisplayMode,
-  setFlowDisplayMode
+  setFlowDisplayMode,
+  panOffset = { x: 0, y: 0 },
+  onStageMouseDown,
+  onStageMouseUp,
 }: CanvasAreaProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [stageDimensions, setStageDimensions] = useState({ width: 100, height: 100 });
@@ -221,8 +245,11 @@ export default function CanvasArea({
   const stageRef = useRef<Konva.Stage>(null);
   const [hoveredPressureNode, setHoveredPressureNode] = useState<null | { nodeId: string; x: number; y: number; content: string }>(null);
   const [tooltip, setTooltip] = useState<{ visible: boolean, x: number, y: number, content: string } | null>(null);
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const [stageScale, setStageScale] = useState(1);
+  const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
+  const [hasCenteredInitially, setHasCenteredInitially] = useState(false);
 
-  // Calculate min/max flow velocities or rates from simulation results for dynamic scaling
   const minMaxFlowValues = useMemo(() => {
     let minValue = Infinity;
     let maxValue = 0;
@@ -232,7 +259,6 @@ export default function CanvasArea({
       return { min: 0, max: 0 };
     }
 
-    // 1. Values from Connections (Tubes)
     connections.forEach(conn => {
       const port1BaseId = conn.fromPortId.startsWith(conn.fromItemId + '_') ? conn.fromPortId.substring(conn.fromItemId.length + 1) : conn.fromPortId;
       const port2BaseId = conn.toPortId.startsWith(conn.toItemId + '_') ? conn.toPortId.substring(conn.toItemId.length + 1) : conn.toPortId;
@@ -257,7 +283,6 @@ export default function CanvasArea({
       }
     });
 
-    // 2. Values from Internal Chip Paths (Straight/Meander for now)
     droppedItems.forEach(item => {
       if ((item.chipType === 'straight' || item.chipType === 'meander') && item.ports.length === 2) {
         const node1Id = item.ports[0].id;
@@ -280,12 +305,10 @@ export default function CanvasArea({
           }
         }
       }
-      // TODO: Extend to T/X junction internal segments for both modes
     });
 
     if (allValues.length > 0) {
       allValues.forEach(v => {
-        // For rates, 1e-13 m3/s is very small (6 nL/min). For velocity, 1e-9 m/s is very small.
         const nearZeroThreshold = flowDisplayMode === 'velocity' ? 1e-9 : 1e-13;
         if (v > nearZeroThreshold) { 
              minValue = Math.min(minValue, v);
@@ -310,9 +333,7 @@ export default function CanvasArea({
   useEffect(() => {
     setIsMounted(true);
     
-    // Use ResizeObserver to get accurate dimensions of the flex container for the stage
     const resizeObserver = new ResizeObserver(entries => {
-      // We expect only one entry since we are observing a single element
       const entry = entries[0];
       if (entry && entry.contentRect) {
         const { width, height } = entry.contentRect;
@@ -324,24 +345,44 @@ export default function CanvasArea({
       }
     });
     
-    // Start observing the stage container div
     if (stageContainerRef.current) {
       resizeObserver.observe(stageContainerRef.current);
       console.log("[CanvasArea] Started observing stageContainerRef");
     }
     
-    // Cleanup function to disconnect the observer when the component unmounts
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat && !isSpacePressed) {
+        setIsSpacePressed(true);
+        if (stageContainerRef.current) {
+          stageContainerRef.current.style.cursor = 'grab';
+        }
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpacePressed(false);
+        if (stageContainerRef.current) {
+          stageContainerRef.current.style.cursor = 'default';
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
     return () => {
       if (stageContainerRef.current) {
          resizeObserver.unobserve(stageContainerRef.current);
          console.log("[CanvasArea] Stopped observing stageContainerRef");
       }
       resizeObserver.disconnect();
-       setIsMounted(false); // Optionally reset mounted state
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      setIsMounted(false);
     };
-  }, []); // Empty dependency array means this effect runs only once on mount and cleans up on unmount
+  }, [isSpacePressed]);
 
-  // Log when simulation results or key change
   useEffect(() => {
     console.log("[CanvasArea] Received simulation results:", simulationResults);
   }, [simulationResults]);
@@ -349,7 +390,6 @@ export default function CanvasArea({
   useEffect(() => {
     if (simulationVisualsKey !== undefined) {
       console.log("[CanvasArea] Simulation visuals key changed:", simulationVisualsKey);
-      // This key change can be used to trigger re-rendering of specific visual elements if needed
     }
   }, [simulationVisualsKey]);
 
@@ -361,38 +401,65 @@ export default function CanvasArea({
     onDrop(event, containerRef);
   }, [onDrop]);
 
-  const internalHandleStageMouseMove = () => {
+  const internalHandleStageMouseMove = (e: KonvaEventObject<MouseEvent>) => {
     if (!stageRef.current) return;
-    const pos = stageRef.current.getPointerPosition();
-    if (pos && onStagePointerMove) {
-      onStagePointerMove(pos);
+    const stage = stageRef.current;
+    const pointerPosition = stage.getPointerPosition();
+    if (pointerPosition && onStagePointerMove) {
+      onStagePointerMove(pointerPosition);
     }
   };
   
   const getPortAbsolutePosition = (itemId: string, portIdSubstring: string): {x: number, y: number} | null => {
     const item = droppedItems.find(i => i.id === itemId);
     if (!item) return null;
-    // portIdSubstring in simulation node is like itemID_portID, we need the part after itemID_
     const actualPortId = portIdSubstring.startsWith(item.id + '_') ? portIdSubstring.substring(item.id.length + 1) : portIdSubstring;
     const port = item.ports.find(p => p.id === actualPortId || p.id === `${item.id}_${actualPortId}`);
     if (!port) {
-      // console.warn(`[CanvasArea] Port not found for item ${itemId}, portIdSubstring ${portIdSubstring} (actualPortId: ${actualPortId})`);
       return null;
     }
     return { x: item.x + port.x, y: item.y + port.y };
   };
   
-  // Generate grid lines for the canvas
   const renderGrid = () => {
     const gridLines = [];
-    const { width, height } = stageDimensions;
     
-    // Draw vertical grid lines
-    for (let x = 0; x < width; x += GRID_SIZE) {
+    gridLines.push(
+      <Rect
+        key="extended-canvas-background"
+        x={-EXTENDED_CANVAS_WIDTH/2}
+        y={-EXTENDED_CANVAS_HEIGHT/2}
+        width={EXTENDED_CANVAS_WIDTH}
+        height={EXTENDED_CANVAS_HEIGHT}
+        fill="#F5F7FA"
+        listening={false}
+      />
+    );
+    
+    gridLines.push(
+      <Rect
+        key="conceptual-canvas-bounds"
+        x={0}
+        y={0}
+        width={CONCEPTUAL_CANVAS_WIDTH}
+        height={CONCEPTUAL_CANVAS_HEIGHT}
+        fill="#FBF9F6"
+        stroke={CANVAS_BOUNDARY_COLOR}
+        strokeWidth={CANVAS_BOUNDARY_WIDTH}
+        shadowColor={CANVAS_SHADOW_COLOR}
+        shadowBlur={CANVAS_SHADOW_BLUR}
+        shadowOffset={{ x: 0, y: 0 }}
+        shadowOpacity={0.6}
+        cornerRadius={2}
+        listening={false}
+      />
+    );
+    
+    for (let x = 0; x <= CONCEPTUAL_CANVAS_WIDTH; x += GRID_SIZE) {
       gridLines.push(
         <Line
           key={`v-${x}`}
-          points={[x, 0, x, height]}
+          points={[x, 0, x, CONCEPTUAL_CANVAS_HEIGHT]}
           stroke={GRID_COLOR}
           strokeWidth={GRID_STROKE_WIDTH}
           listening={false}
@@ -400,12 +467,11 @@ export default function CanvasArea({
       );
     }
     
-    // Draw horizontal grid lines
-    for (let y = 0; y < height; y += GRID_SIZE) {
+    for (let y = 0; y <= CONCEPTUAL_CANVAS_HEIGHT; y += GRID_SIZE) {
       gridLines.push(
         <Line
           key={`h-${y}`}
-          points={[0, y, width, y]}
+          points={[0, y, CONCEPTUAL_CANVAS_WIDTH, y]}
           stroke={GRID_COLOR}
           strokeWidth={GRID_STROKE_WIDTH}
           listening={false}
@@ -416,7 +482,6 @@ export default function CanvasArea({
     return gridLines;
   };
 
-  // Simplified in-progress connection calculation - directly use the specialized function
   const calculateInProgressPath = (
     sourceItem: CanvasItemData, 
     sourcePort: Port, 
@@ -425,7 +490,6 @@ export default function CanvasArea({
     return calculateTemporaryConnectionPath(sourceItem, sourcePort, mousePos);
   };
 
-  // Helper to get relative mouse position in the canvas container
   const getRelativeMousePos = (evt: any) => {
     if (!containerRef.current) return { x: 0, y: 0 };
     const rect = containerRef.current.getBoundingClientRect();
@@ -435,27 +499,21 @@ export default function CanvasArea({
     };
   };
 
-  // Process internal segments for T-type and X-type junctions
   const renderInternalSegmentFlows = () => {
-    // Only render segment overlays in flow mode
     if (inspectionMode !== 'flow') return [];
     const flowElements: React.ReactNode[] = [];
     if (!simulationResults || !simulationResults.segmentFlows) return flowElements;
     
-    // Calculate min/max for internal flow scaling - temporary workaround
     let minVal = Infinity;
     let maxVal = 0;
 
     droppedItems.forEach(item => {
-      // Handle straight and meander chips
       if ((item.chipType === 'straight' || item.chipType === 'meander') && item.ports.length === 2) {
-        // Get the port positions
         const port1 = item.ports[0];
         const port2 = item.ports[1];
         const port1Pos = { x: item.x + port1.x, y: item.y + port1.y };
         const port2Pos = { x: item.x + port2.x, y: item.y + port2.y };
         
-        // Get flow segment ID - should match what's in simulationEngine
         const segmentIdKey = [port1.id, port2.id].sort().join('--');
         
         const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
@@ -473,7 +531,6 @@ export default function CanvasArea({
             displayValue = flowRateM3s;
           }
           
-          // Restore dynamic color calculation
           const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, inspectionMode === 'flow' ? 'velocity' : 'rate');
 
           const tooltipText = displayValue !== undefined 
@@ -509,15 +566,12 @@ export default function CanvasArea({
               onMouseLeave={() => setTooltip(null)}
             />
           );
-          // Optionally, add text for flow rate/velocity
         }
       } else if (item.chipType === 't-type' || item.chipType === 'x-type') {
-        // For T/X junctions, visualize flows for each internal segment
-        // This requires knowing the internal junction node ID and how ports connect to it.
-        const centralJunctionNodeId = `${item.id}_internal_junction`; // As defined in simulationEngine
+        const centralJunctionNodeId = `${item.id}_internal_junction`;
 
         item.ports.forEach(port => {
-          const portNodeId = port.id; // Already global: item.id + "_" + port.id (base)
+          const portNodeId = port.id;
           const segmentIdKey = [portNodeId, centralJunctionNodeId].sort().join('--');
           const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
           
@@ -535,7 +589,6 @@ export default function CanvasArea({
             }
           }
 
-          // Restore dynamic color calculation
           const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, inspectionMode === 'flow' ? 'velocity' : 'rate');
           
           const tooltipText = displayValue !== undefined 
@@ -545,8 +598,6 @@ export default function CanvasArea({
             : 'No flow data';
 
           const portAbsPos = { x: item.x + port.x, y: item.y + port.y };
-          // Approximate junction center visually for now.
-          // A more accurate representation would use the actual junction node coordinates if stored.
           const approxJunctionCenterX = item.x + item.width / 2;
           const approxJunctionCenterY = item.y + item.height / 2;
 
@@ -583,30 +634,27 @@ export default function CanvasArea({
     return flowElements;
   };
 
-  // Modify the renderSimulationVisuals function
   const renderSimulationVisuals = (mode: 'none' | 'pressure' | 'flow' = inspectionMode) => {
     const flowVisuals: React.ReactNode[] = [];
     const pressureNodeVisuals: React.ReactNode[] = [];
 
-    // Only add flow visuals in flow mode
     if (mode === 'flow') {
-      // Add internal segment flow visualizations
       const internalSegmentVisuals = renderInternalSegmentFlows();
       flowVisuals.push(...internalSegmentVisuals);
 
-      // Add flow visualizations for connections (tubes)
       if (simulationResults && simulationResults.segmentFlows) {
         connections.forEach(conn => {
-          // --- Start Calculation for this Connection --- 
           const getBasePortId = (fullPortId: string, itemId: string): string => {
             const prefix = itemId + '_';
             if (fullPortId.startsWith(prefix)) {
               return fullPortId.substring(prefix.length);
             }
-            return fullPortId; 
+            console.warn(`[getBasePortId] Port ID ${fullPortId} for item ${itemId} did not have expected prefix.`);
+            return fullPortId;
           };
           const port1BaseId = getBasePortId(conn.fromPortId, conn.fromItemId);
           const port2BaseId = getBasePortId(conn.toPortId, conn.toItemId);
+
           const node1Id = `${conn.fromItemId}_${port1BaseId}`;
           const node2Id = `${conn.toItemId}_${port2BaseId}`;
           const segmentIdKey = [node1Id, node2Id].sort().join('--');
@@ -621,7 +669,7 @@ export default function CanvasArea({
                 displayValueForTube = flowRateM3s / areaM2;
                 tooltipText = `Velocity: ${formatFlowVelocityForDisplay(displayValueForTube)}`;
               }
-            } else { // 'rate'
+            } else {
               displayValueForTube = flowRateM3s;
               tooltipText = `Flow Rate: ${formatFlowRateForDisplay(flowRateM3s)}`;
             }
@@ -644,36 +692,27 @@ export default function CanvasArea({
               onMouseLeave={() => setTooltip(null)}
             />
           );
-          // --- End Calculation/Push for this Connection ---
         });
       }
     }
 
-    // Next, collect all pressure node visualizations
     if (mode === 'pressure' && simulationResults && simulationResults.nodePressures) {
-      // Add debugging for number of nodes being processed
       console.log(`[CanvasArea] Processing ${Object.keys(simulationResults.nodePressures).length} node pressures`);
       
       for (const nodeId in simulationResults.nodePressures) {
         const pressurePa = simulationResults.nodePressures[nodeId];
         if (pressurePa === undefined || !isFinite(pressurePa)) continue;
 
-        // Debugging node processing
         console.log(`[CanvasArea] Processing node ${nodeId} with pressure ${pressurePa} Pa`);
 
-        // Check if this is an internal node (like a T or X junction)
         if (nodeId.includes('_internal_junction')) {
-          // This is an internal junction node - find the actual canvas item ID
-          // The format is usually: itemId_internal_junction
           const canvasItemId = nodeId.split('_internal_junction')[0];
           const item = droppedItems.find(item => item.id === canvasItemId);
           
           if (item && (item.chipType === 't-type' || item.chipType === 'x-type')) {
-            // Calculate center position
             const centerX = item.x + (item.width / 2);
             const centerY = item.y + (item.height / 2);
             
-            // Create pressure node for internal junction
             pressureNodeVisuals.push(
               <Group
                 key={`pressure-node-${nodeId}`}
@@ -684,7 +723,6 @@ export default function CanvasArea({
                 aria-label={`Pressure node: ${pressurePa.toFixed(1)} mbar`}
                 className="cursor-pointer focus:outline-none"
                 onMouseEnter={e => {
-                  // Get absolute position for tooltip
                   const stage = e.target.getStage();
                   if (stage) {
                     const pointerPos = stage.getPointerPosition();
@@ -719,55 +757,40 @@ export default function CanvasArea({
           }
         }
 
-        // NEW: If this point is reached for a regular port node (i.e., not an internal junction that was `continue`d above),
-        // check if the port is actually connected to anything.
-        // This filtering applies only when simulationResults are available.
         const isPortConnected = connections.some(conn => conn.fromPortId === nodeId || conn.toPortId === nodeId);
         if (!isPortConnected) {
-          // If the port is not connected, skip rendering its pressure visual.
           console.log(`[CanvasArea] Skipping pressure visual for unconnected port node ${nodeId}`);
           continue; 
         }
 
-        // Extract canvasItemId and portId from the node ID 
-        // The format from simulation is often: itemId_itemId_portId or itemId_portId
         let canvasItemId, portId;
         
-        // First, try to find an actual canvas item that might be part of the ID
-        // The nodeId may contain the canvasItemId repeated, so we need to extract it carefully
         const actualCanvasItem = droppedItems.find(item => nodeId.includes(item.id));
         
         if (actualCanvasItem) {
           canvasItemId = actualCanvasItem.id;
           
-          // Extract port ID by removing the item ID part(s)
           const remaining = nodeId.replace(canvasItemId + '_', '');
           
-          // If the remaining string still contains the item ID (duplicated), remove it too
           if (remaining.startsWith(canvasItemId + '_')) {
             portId = remaining.substring(canvasItemId.length + 1);
           } else {
             portId = remaining;
           }
           
-          // If portId still contains underscores, take just the last part
           if (portId.includes('_')) {
             portId = portId.split('_').pop() || portId;
           }
         } else {
-          // Fallback to the old approach if we can't find a direct match
           if (nodeId.includes('_')) {
             const parts = nodeId.split('_');
             
-            // Try to identify the most likely canvas item ID format (typically has hyphens)
             const candidateParts = parts.filter(part => part.includes('-'));
             
             if (candidateParts.length > 0) {
               canvasItemId = candidateParts[0];
-              // The port is usually the last part
               portId = parts[parts.length - 1];
             } else {
-              // Last resort fallback
               portId = parts[parts.length - 1];
               canvasItemId = parts.slice(0, -1).join('_');
             }
@@ -779,25 +802,20 @@ export default function CanvasArea({
 
         console.log(`[CanvasArea] Extracted canvasItemId: ${canvasItemId}, portId: ${portId} from nodeId: ${nodeId}`);
         
-        // Find the item and validate it exists
         const item = droppedItems.find(item => item.id === canvasItemId);
         if (!item) {
           console.warn(`[CanvasArea] Could not find canvas item with ID ${canvasItemId}`);
           continue;
         }
 
-        // Find the port in the item - need to handle full port IDs
-        // The portId we extracted might be 'port_left', 'left', etc. but the actual port.id might be 'itemId_port_left'
         let port = item.ports.find(p => p.id === portId);
         
-        // If not found directly, try with the full item prefix
         if (!port) {
           port = item.ports.find(p => p.id === `${canvasItemId}_${portId}`);
         }
         
-        // Check if 'port_' prefix is missing
         if (!port && !portId.startsWith('port_')) {
-          port = item.ports.find(p => p.id === `port_${portId}` || p.id === `${canvasItemId}_port_${portId}`);
+          port = item.ports.find(p => p.id === `port_${portId}`);
         }
 
         if (!port) {
@@ -805,11 +823,9 @@ export default function CanvasArea({
           continue;
         }
 
-        // Calculate absolute position of port
         const portX = item.x + port.x;
         const portY = item.y + port.y;
 
-        // Create pressure node
         pressureNodeVisuals.push(
           <Group
             key={`pressure-node-${nodeId}`}
@@ -820,7 +836,6 @@ export default function CanvasArea({
             aria-label={`Pressure node: ${pressurePa.toFixed(1)} mbar`}
             className="cursor-pointer focus:outline-none"
             onMouseEnter={e => {
-              // Get absolute position for tooltip
               const stage = e.target.getStage();
               if (stage) {
                 const pointerPos = stage.getPointerPosition();
@@ -854,110 +869,141 @@ export default function CanvasArea({
       }
     }
     
-    // Combine flow visuals and pressure node visuals, with pressure nodes last (on top)
     return [...flowVisuals, ...pressureNodeVisuals];
   };
 
+  const handleStageWheel = (e: KonvaEventObject<WheelEvent>) => {
+    e.evt.preventDefault();
+    if (!stageRef.current) return;
+
+    const stage = stageRef.current;
+    const oldScale = stage.scaleX();
+    
+    let sensitivity = ZOOM_SENSITIVITY;
+    if (e.evt.deltaMode === 1) {
+      sensitivity *= 33;
+    } else if (e.evt.deltaMode === 2) {
+      sensitivity *= stageDimensions.height * 0.8;
+    }
+
+    const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, oldScale - e.evt.deltaY * sensitivity));
+
+    const pointer = stage.getPointerPosition();
+
+    if (!pointer) return;
+
+    const mousePointTo = {
+      x: (pointer.x - stage.x()) / oldScale,
+      y: (pointer.y - stage.y()) / oldScale,
+    };
+
+    const newPos = {
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale,
+    };
+
+    setStageScale(newScale);
+    setStagePos(newPos);
+  };
+
+  const handleStageDragStart = (e: KonvaEventObject<DragEvent>) => {
+    if (!isSpacePressed) {
+      e.evt.preventDefault();
+      e.cancelBubble = true;
+      if (stageRef.current) {
+        stageRef.current.position(stagePos);
+      }
+    } else if (stageContainerRef.current) {
+      stageContainerRef.current.style.cursor = 'grabbing';
+    }
+  };
+  
+  const handleStageDragEnd = (e: KonvaEventObject<DragEvent>) => {
+    if (isSpacePressed) {
+      setStagePos(e.target.position());
+      if (stageContainerRef.current) {
+        stageContainerRef.current.style.cursor = 'grab';
+      }
+    }
+  };
+
+  const stageDragBoundFunc = (pos: {x: number, y: number}) => {
+    const minX = -(EXTENDED_CANVAS_WIDTH * stageScale);
+    const minY = -(EXTENDED_CANVAS_HEIGHT * stageScale);
+    const maxX = stageDimensions.width;
+    const maxY = stageDimensions.height;
+
+    const newX = Math.min(maxX, Math.max(minX, pos.x));
+    const newY = Math.min(maxY, Math.max(minY, pos.y));
+    
+    return { x: newX, y: newY };
+  };
+
+  useEffect(() => {
+    if (isMounted && !hasCenteredInitially) {
+      if (stageDimensions.width > 100 && stageDimensions.height > 100) {
+        const initialScaleValue = 1;
+        const centerX = (stageDimensions.width - CONCEPTUAL_CANVAS_WIDTH * initialScaleValue) / 2;
+        const centerY = (stageDimensions.height - CONCEPTUAL_CANVAS_HEIGHT * initialScaleValue) / 2;
+        setStagePos({ x: centerX, y: centerY });
+        setHasCenteredInitially(true);
+        console.log(`[CanvasArea] Initial centering complete with actual dims at (${centerX}, ${centerY}). Viewport: ${stageDimensions.width}x${stageDimensions.height}`);
+      } else {
+        console.log(`[CanvasArea] Waiting for actual stage dimensions before centering. Current: ${stageDimensions.width}x${stageDimensions.height}`);
+      }
+    }
+  }, [isMounted, stageDimensions, hasCenteredInitially, CONCEPTUAL_CANVAS_WIDTH, CONCEPTUAL_CANVAS_HEIGHT]);
+
+  const internalStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
+    if (onStageMouseDown) {
+        onStageMouseDown(e);
+    }
+  };
+
+  const internalStageMouseUp = (e: KonvaEventObject<MouseEvent>) => {
+    if (onStageMouseUp) {
+      onStageMouseUp(e);
+    }
+  };
+
   return (
-    <div ref={containerRef} className="relative w-full h-full flex flex-col bg-[#F5F7FA] overflow-hidden" onDragOver={e => e.preventDefault()}>
-      {/* Show prompt if canvas is empty */}
+    <div ref={containerRef} className="fixed inset-0 w-screen h-screen overflow-hidden" onDragOver={e => e.preventDefault()}>
       {droppedItems.length === 0 && <EmptyCanvasPrompt />}
-      {/* Inspection Toggle UI */}
-      {simulationResults && (Object.keys(simulationResults.nodePressures || {}).length > 0 || Object.keys(simulationResults.segmentFlows || {}).length > 0) && (
-        <div className="absolute top-4 left-8 z-20 flex flex-row items-center gap-2 pointer-events-none">
-          <div className="pointer-events-auto">
-            <ToggleGroup type="single" value={inspectionMode} onValueChange={v => {
-              setInspectionMode((v as any) || 'pressure');
-              if (v !== 'flow') setFlowDisplayMode('rate'); // Reset to rate if not in flow
-            }} className="bg-white/90 shadow rounded-md">
-              <ToggleGroupItem value="pressure" aria-label="Show Pressures" className="text-xs px-2 min-w-[64px] h-7">Pressure</ToggleGroupItem>
-              <ToggleGroupItem value="flow" aria-label="Show Flow" className="text-xs px-2 min-w-[64px] h-7">Flow</ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-          {/* Secondary toggle for flow display mode */}
-          {inspectionMode === 'flow' && (
-            <div className="pointer-events-auto ml-2">
-              <ToggleGroup type="single" value={flowDisplayMode} onValueChange={v => setFlowDisplayMode((v as any) || 'rate')} className="bg-white/90 shadow rounded-md">
-                <ToggleGroupItem value="rate" aria-label="Show Rate" className="text-xs px-2 min-w-[64px] h-7">Rate</ToggleGroupItem>
-                <ToggleGroupItem value="velocity" aria-label="Show Velocity" className="text-xs px-2 min-w-[64px] h-7">Velocity</ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-          )}
-        </div>
-      )}
-      {/* Main content area - Stage */}
+      
       <div 
         ref={stageContainerRef}
-        className="flex-1 min-w-0 h-full min-h-0 overflow-hidden" 
+        className="absolute inset-0 w-full h-full overflow-hidden"
+        onDrop={(e) => onDrop(e, containerRef)}
         onDragOver={handleDragOver}
-        onDrop={localHandleDrop}
       >
-        {/* Floating action buttons (bottom overlay) */}
-        <div className="absolute bottom-4 left-4 right-4 z-30 flex flex-row items-end justify-between pointer-events-none w-auto">
-          {/* Left: Clear button */}
-          <div className="pointer-events-auto">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={onClearCanvas} 
-              className="h-8"
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Clear
-            </Button>
-          </div>
-          {/* Right: Run and Reset buttons */}
-          <div className="flex flex-row gap-2 pointer-events-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={runSimulation}
-              className="h-8"
-              disabled={simulationInProgress}
-            >
-              <PlayCircle className="h-4 w-4 mr-1" />
-              Run
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={resetSimulation}
-              className="h-8"
-              disabled={!simulationResults}
-            >
-              <RotateCcw className="h-4 w-4 mr-1" />
-              Reset
-            </Button>
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 pointer-events-none">
+          <div className="bg-white/80 text-xs text-[#8A929B] px-3 py-1.5 rounded-md shadow-sm border border-[#E1E4E8]">
+            <span className="font-inter flex items-center">
+              Hold <kbd className="px-1.5 py-0.5 bg-[#F5F7FA] border border-[#E1E4E8] rounded-sm mx-1.5 font-mono text-[#003C7E]">Space</kbd> to pan the canvas
+            </span>
           </div>
         </div>
-        {/* End floating action buttons */}
+        
         {isMounted ? (
           <Stage 
             ref={stageRef}
             width={stageDimensions.width}
             height={stageDimensions.height}
-            x={0}
-            y={0}
+            x={panOffset.x}
+            y={panOffset.y}
+            scaleX={stageScale}
+            scaleY={stageScale}
+            onWheel={handleStageWheel}
             onClick={onStageClick}
             onContextMenu={onStageContextMenu}
-            onMouseMove={internalHandleStageMouseMove}
+            onPointerMove={internalHandleStageMouseMove}
+            onMouseDown={internalStageMouseDown}
+            onMouseUp={internalStageMouseUp}
+            draggable={false}
           >
-            {/* Base Layer: background grid, connections, etc. */}
             <Layer x={0} y={0}>
-              {/* Background */}
-              <Rect 
-                x={0}
-                y={0}
-                width={stageDimensions.width}
-                height={stageDimensions.height}
-                fill="#fafbfc"
-                listening={false}
-              />
-              
-              {/* Grid */}
               {renderGrid()}
               
-              {/* Connections (tubes) - Visual Rendering ONLY */}
               {connections.map(conn => {
                 if (!conn.pathData) { 
                   console.error("[CanvasArea] Connection has NO pathData! Rendering fallback line.", conn);
@@ -979,25 +1025,14 @@ export default function CanvasArea({
                 let tubeFillColor = isSelected ? CONNECTION_SELECTED_FILL_COLOR : CONNECTION_FILL_COLOR;
                 let tubeOutlineColor = isSelected ? CONNECTION_SELECTED_OUTLINE_COLOR : CONNECTION_OUTLINE_COLOR;
 
-                // Update visual color based on flow if results are available
                 if (simulationResults && simulationResults.segmentFlows) {
-                  // Construct the segmentId. Ensure port ID extraction matches simulation engine for robustness.
-                  // The port IDs on `conn` (e.g., conn.fromPortId) are the full unique IDs like `itemId_portBaseId`
-                  // The simulation engine typically uses `itemId_portBaseId` as node IDs directly.
-                  
-                  // ***** START REVISED LOGIC *****
-                  // Reconstruct node IDs consistently with minMaxFlowValues calculation and likely simulation key format
-                  // Handle cases where the prefix might already be included or missing.
                   const getBasePortId = (fullPortId: string, itemId: string): string => {
                     const prefix = itemId + '_';
                     if (fullPortId.startsWith(prefix)) {
                       return fullPortId.substring(prefix.length);
                     }
-                    // Consider if the fullPortId *is* the base ID already (e.g., from older data)
-                    // This might need adjustment based on actual port ID formats encountered.
-                    // For now, assume it contains the base ID if prefix is missing.
                     console.warn(`[getBasePortId] Port ID ${fullPortId} for item ${itemId} did not have expected prefix.`);
-                    return fullPortId; // Fallback, might be incorrect if format varies significantly
+                    return fullPortId;
                   };
 
                   const port1BaseId = getBasePortId(conn.fromPortId, conn.fromItemId);
@@ -1005,14 +1040,10 @@ export default function CanvasArea({
 
                   const node1Id = `${conn.fromItemId}_${port1BaseId}`;
                   const node2Id = `${conn.toItemId}_${port2BaseId}`;
-                  // ***** END REVISED LOGIC *****
                   
-                  // Ensure the segmentId construction here precisely matches how segment IDs are keyed in simulationResults.segmentFlows
-                  // This usually involves sorting the node IDs.
-                  const segmentIdKey = [node1Id, node2Id].sort().join('--'); // Use reconstructed IDs
+                  const segmentIdKey = [node1Id, node2Id].sort().join('--');
                   
                   const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
-                  // Add console log for debugging
                   console.log(`[TubeRender] ConnID: ${conn.id}, Trying SegmentKey: ${segmentIdKey}, Found Flow: ${flowRateM3s}`);
 
                   let displayValueForTube: number | undefined = undefined;
@@ -1031,8 +1062,6 @@ export default function CanvasArea({
                   if (displayValueForTube !== undefined) {
                     tubeFillColor = getDynamicFlowColor(displayValueForTube, minMaxFlowValues.min, minMaxFlowValues.max, inspectionMode === 'flow' ? 'velocity' : 'rate');
                   }
-                  // Optionally change outline too, or keep it standard
-                  // tubeOutlineColor = getDynamicFlowColor(displayValueForTube, minMaxFlowValues.min, minMaxFlowValues.max); 
                 }
                 
                 return (
@@ -1041,14 +1070,13 @@ export default function CanvasArea({
                     id={conn.id}
                     opacity={1} 
                   > 
-                    {/* Outline path (drawn first) */}
                     <Path
                       data={conn.pathData} 
                       stroke={tubeOutlineColor}
                       strokeWidth={CONNECTION_OUTLINE_WIDTH}
-                      lineCap="butt" // Match original channel caps
-                      lineJoin="miter" // Match original channel joins
-                      hitStrokeWidth={12} // Larger hit area for easier selection
+                      lineCap="butt"
+                      lineJoin="miter"
+                      hitStrokeWidth={12}
                       onClick={(e) => {
                         e.cancelBubble = true; 
                         onTubeClick(conn.id, e);
@@ -1057,14 +1085,13 @@ export default function CanvasArea({
                       name="tubeOutline"
                     />
                     
-                    {/* Fill path (drawn on top) */}
                     <Path
                       data={conn.pathData}
                       stroke={tubeFillColor}
                       strokeWidth={CONNECTION_FILL_WIDTH}
-                      lineCap="butt" // Match original channel caps
-                      lineJoin="miter" // Match original channel joins
-                      listening={false} // Only the outline receives clicks
+                      lineCap="butt"
+                      lineJoin="miter"
+                      listening={false}
                       id={`${conn.id}_tube`}
                       name="tubeFill"
                     />
@@ -1072,7 +1099,6 @@ export default function CanvasArea({
                 );
               })}
               
-              {/* Dropped items rendered on top of connections */}
               {droppedItems.map((item) => {
                 const hasActiveSimulationResults = 
                   simulationResults && 
@@ -1088,24 +1114,21 @@ export default function CanvasArea({
                     onPortClick={onPortClick} 
                     connections={connections} 
                     isSimulationActive={hasActiveSimulationResults}
+                    conceptualCanvasDimensions={{ width: CONCEPTUAL_CANVAS_WIDTH, height: CONCEPTUAL_CANVAS_HEIGHT }}
                   />
                 );
               })}
               
-              {/* In-progress connection line */}
               {inProgressConnection && inProgressConnection.sourceItem && inProgressConnection.sourcePort && inProgressConnection.targetMousePos && (
                 (() => {
-                  // Calculate a better looking temporary path instead with specialized function
                   const tempPathData = calculateInProgressPath(
                     inProgressConnection.sourceItem,
                     inProgressConnection.sourcePort,
                     inProgressConnection.targetMousePos
                   );
                   
-                  // Use a path with the calculated data
                   return (
                     <>
-                      {/* Outline (drawn first) */}
                       <Path
                         data={tempPathData}
                         stroke={CONNECTION_OUTLINE_COLOR}
@@ -1116,7 +1139,6 @@ export default function CanvasArea({
                         listening={false}
                       />
                       
-                      {/* Fill (drawn on top) */}
                       <Path
                         data={tempPathData}
                         stroke={CONNECTION_FILL_COLOR}
@@ -1132,18 +1154,22 @@ export default function CanvasArea({
               )}
             </Layer>
             
-            {/* Separate top Layer for simulation visuals (HOVER PATHS AND PRESSURE NODES) */}
             <Layer x={0} y={0}>
               {simulationResults && inspectionMode !== 'none' && renderSimulationVisuals(inspectionMode)}
             </Layer>
           </Stage>
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-slate-400">
-            Loading Canvas...
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="bg-white/80 px-6 py-5 rounded-lg shadow-md backdrop-blur-sm border border-[#E1E4E8]">
+              <div className="flex items-center justify-center mb-3">
+                <div className="animate-spin h-6 w-6 border-3 border-[#003C7E] border-t-transparent rounded-full"></div>
+              </div>
+              <p className="font-inter text-sm text-[#8A929B] text-center">Loading Canvas...</p>
+            </div>
           </div>
         )}
       </div>
-      {/* Tooltip Popover */}
+      
       {tooltip?.visible && (
         <Popover open={true}>
           <div

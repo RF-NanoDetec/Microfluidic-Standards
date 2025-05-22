@@ -39,6 +39,7 @@ interface KonvaCanvasItemProps {
   onPortClick?: (itemId: string, port: Port, event: any) => void; // For left-click on port
   connections?: Connection[]; 
   isSimulationActive?: boolean; // New prop to indicate if simulation is active
+  conceptualCanvasDimensions: { width: number; height: number }; // Changed from stageDimensions
 }
 
 export default function KonvaCanvasItem({ 
@@ -47,7 +48,8 @@ export default function KonvaCanvasItem({
   isSelected, 
   onPortClick,
   connections,
-  isSimulationActive // Destructure the new prop
+  isSimulationActive, // Destructure the new prop
+  conceptualCanvasDimensions, // Changed from stageDimensions
 }: KonvaCanvasItemProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -544,6 +546,20 @@ export default function KonvaCanvasItem({
       x={item.x}
       y={item.y}
       draggable
+      dragBoundFunc={(pos) => {
+        const newX = Math.max(
+          0, 
+          Math.min(pos.x, conceptualCanvasDimensions.width - (item.width || CHIP_WIDTH))
+        );
+        const newY = Math.max(
+          0, 
+          Math.min(pos.y, conceptualCanvasDimensions.height - (item.height || CHIP_HEIGHT))
+        );
+        return {
+          x: newX,
+          y: newY,
+        };
+      }}
       onDragStart={() => setIsDragging(true)}
       onDragEnd={(e) => {
         setIsDragging(false);

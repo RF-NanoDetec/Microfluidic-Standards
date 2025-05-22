@@ -1,115 +1,65 @@
 'use client';
 
-import { PALETTE_ITEMS } from "@/lib/microfluidic-designer/types";
+import type { PaletteItemData } from "@/lib/microfluidic-designer/types";
 import dynamic from 'next/dynamic';
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { useState } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const PaletteItem = dynamic(() => import('./palette/PaletteItem'), {
   ssr: false,
   loading: () => <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Loading...</div>
 });
 
-const FILTERS = [
-  { label: "All", value: "all" },
-  { label: "Chips", value: "chip" },
-  { label: "Pumps", value: "pump" },
-  { label: "Outlets", value: "outlet" },
-];
+// Define a type for the category keys based on CATEGORY_ORDER (still needed for prop typing)
+// This could also be imported from types.ts if it were defined there globally
+const CATEGORY_ORDER_FOR_TYPES = ["Microfluidic Chips", "Pumps & Flow Control", "Other"] as const;
+type CategoryKey = typeof CATEGORY_ORDER_FOR_TYPES[number];
 
-export default function PaletteSidebar() {
-  const [search, setSearch] = useState("");
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
-  const [activeFilter, setActiveFilter] = useState("all");
+interface PaletteSidebarProps {
+  orderedCategories: CategoryKey[];
+  groupedItems: Record<CategoryKey, PaletteItemData[]>;
+  getFilteredItems: (items: PaletteItemData[]) => PaletteItemData[];
+}
 
-  // Group palette items by category
-  const groupedItems = PALETTE_ITEMS.reduce((acc, item) => {
-    if (!acc[item.category]) {
-      acc[item.category] = [];
-    }
-    acc[item.category].push(item);
-    return acc;
-  }, {} as Record<string, typeof PALETTE_ITEMS>);
-
-  // Categories array for iteration
-  const categories = Object.keys(groupedItems);
-
-  // Filtered items by search and filter
-  const getFilteredItems = (items: typeof PALETTE_ITEMS) =>
-    items.filter((item) => {
-      const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
-      const matchesFilter =
-        activeFilter === "all" ||
-        (activeFilter === "chip" && item.category.toLowerCase().includes("chip")) ||
-        (activeFilter === "pump" && item.chipType === "pump") ||
-        (activeFilter === "outlet" && item.chipType === "outlet");
-      return matchesSearch && matchesFilter;
-    });
-
+export default function PaletteSidebar({ 
+  orderedCategories, 
+  groupedItems, 
+  getFilteredItems 
+}: PaletteSidebarProps) {
   return (
-    <aside className="h-full w-full min-w-[180px] max-w-[220px] flex flex-col bg-gradient-to-b from-[#F5F7FA] to-[#E1E4E8] border-r border-zinc-200">
-      <div className="flex flex-col h-full px-2 pt-4 pb-2">
-        {/* Search and filter row */}
-        <Input
-          placeholder="Search components..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="h-8 text-sm bg-white/80 border border-zinc-300 focus:ring-2 focus:ring-[#003C7E] shadow-sm mb-2"
-        />
-        <div className="flex flex-wrap gap-2 mb-4 w-full">
-          {FILTERS.map(f => (
-            <Badge
-              key={f.value}
-              variant={activeFilter === f.value ? "default" : "outline"}
-              className={`text-xs px-3 py-1 cursor-pointer select-none whitespace-nowrap min-w-max text-center ${activeFilter === f.value ? 'bg-[#003C7E] text-white' : 'text-[#003C7E] border-[#003C7E] bg-white/80'} transition-colors`}
-              onClick={() => setActiveFilter(f.value)}
-              tabIndex={0}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setActiveFilter(f.value); }}
-              aria-pressed={activeFilter === f.value}
-            >
-              {f.label}
-            </Badge>
-          ))}
-        </div>
-        <div className="flex-1 overflow-y-auto min-w-0">
-          {categories.map((category, idx) => {
-            const isOpen = openCategories[category] ?? true;
-            const filtered = getFilteredItems(groupedItems[category]);
-            if (filtered.length === 0) return null;
-            return (
-              <div key={category} className="mb-4 min-w-0">
-                {/* Section headline above grid */}
-                <h2 className="text-base font-bold text-[#003C7E] tracking-tight leading-tight m-0 p-0 min-w-0 truncate mb-2 mt-4 text-center w-full">
-                  {category}
-                </h2>
-                {/* Responsive grid, no card/box, just icon+label, centered */}
-                <div className="grid gap-2 min-w-0 mx-auto justify-items-center items-start pt-2 w-full" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))' }}>
-                  {filtered.map((item) => (
-                    <button
-                      key={item.id}
-                      className="group flex flex-col items-center justify-start p-1 rounded-md bg-transparent transition-transform min-w-0 w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003C7E] hover:scale-105 active:scale-100"
-                      draggable={false}
-                      tabIndex={0}
-                      aria-label={item.name}
-                    >
-                      <div className="flex items-center justify-center w-[60%] max-w-[40px] aspect-square min-w-0 mx-auto">
-                        <PaletteItem item={item} />
-                      </div>
-                      <span className="block w-full text-center text-xs text-zinc-700 mt-2 font-medium group-hover:text-[#003C7E] group-focus:text-[#003C7E] break-words min-w-0 max-w-[80px]">
-                        {item.name.split(/(?<=\w)[ -]/).length > 1
-                          ? item.name.split(/(?<=\w)[ -]/).join("\n")
-                          : item.name}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+    <ScrollArea className="flex-1 min-h-0"> {/* Ensures ScrollArea takes available space */}
+      <div className="pr-2"> {/* Original padding for scrollbar gap */}
+        {orderedCategories.map((category) => {
+          // Use the getFilteredItems function passed from the parent
+          const filteredCategoryItems = getFilteredItems(groupedItems[category] || []);
+          if (filteredCategoryItems.length === 0) return null;
+          
+          return (
+            <div key={category} className="mb-4">
+              <h2 className="text-sm font-semibold text-primary tracking-tight mb-2 px-1">
+                {category}
+              </h2>
+              <div className="grid gap-x-2 gap-y-3 min-w-0 justify-items-stretch" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(75px, 1fr))' }}>
+                {filteredCategoryItems.map((item) => (
+                  <button
+                    key={item.id}
+                    className="group flex flex-col items-center justify-start p-1.5 rounded-lg bg-transparent hover:bg-transparent border border-transparent transition-all min-w-0 w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    draggable={false} // Draggable is handled by PaletteItem itself now
+                    tabIndex={0}
+                    aria-label={item.name}
+                  >
+                    <div className="flex items-center justify-center w-[70%] max-w-[48px] aspect-square min-w-0 mx-auto mb-1.5 transform transition-transform group-hover:scale-105">
+                      <PaletteItem item={item} />
+                    </div>
+                    <span className="block w-full text-center text-[11px] leading-tight text-foreground font-medium group-hover:text-primary break-words min-w-0 max-w-[90px]">
+                      {item.name.length > 20 ? `${item.name.substring(0, 18)}...` : item.name}
+                    </span>
+                  </button>
+                ))}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
-    </aside>
+    </ScrollArea>
   );
 } 
