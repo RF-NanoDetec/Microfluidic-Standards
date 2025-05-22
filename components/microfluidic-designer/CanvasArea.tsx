@@ -171,13 +171,13 @@ const formatFlowVelocityForDisplay = (flowVelocityMps: number): string => {
 function EmptyCanvasPrompt() {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none bg-transparent z-10">
-      <div className="bg-white/60 px-6 py-5 rounded-lg shadow-lg border border-[#E1E4E8]">
-        <div className="mb-3 flex justify-center">
-          <SquareDashedMousePointer size={40} className="text-[#003C7E]" />
+      <div className="bg-[#E1E4E8]/70 px-6 py-5 rounded-lg shadow-lg border border-[#E1E4E8]">
+        <div className="mb-2 flex justify-center">
+          <SquareDashedMousePointer size={32} className="text-[#003C7E]" />
         </div>
-        <h2 className="font-roboto-condensed font-bold text-xl text-[#003C7E] mb-2 text-center">Start Designing</h2>
-        <p className="font-inter text-sm text-slate-500 mb-3 text-center max-w-xs">
-          Drag components from the left panel and drop them here.
+        <h2 className="font-roboto-condensed font-bold text-base text-[#003C7E] mb-1 text-center">Start Designing</h2>
+        <p className="font-inter text-sm text-slate-500 text-center max-w-xs">
+          Drag components from the palette to build your circuit.
         </p>
       </div>
     </div>
@@ -431,8 +431,8 @@ export default function CanvasArea({
         stroke={CANVAS_BOUNDARY_COLOR}
         strokeWidth={CANVAS_BOUNDARY_WIDTH}
         shadowColor='black'
-        shadowBlur={5} // User's preference from last change
-        shadowOffset={{ x: 5, y: 5 }} // User's preference from last change
+        shadowBlur={7} // User's preference from last change
+        shadowOffset={{ x: 0, y: 0 }} // User's preference from last change
         shadowOpacity={0.15} // User's preference from last change
         cornerRadius={0} // User's preference from last change
         listening={false}

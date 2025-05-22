@@ -19,6 +19,18 @@ export default function DetailsSidebar({ selectedItem, onItemPropertyChange }: D
     }
   };
 
+  const handlePortPressureChange = (portIdToUpdate: string, newPressureString: string) => {
+    if (!selectedItem || !onItemPropertyChange || selectedItem.chipType !== 'pump' || !selectedItem.portPressures) return;
+    const newPressure = parseFloat(newPressureString);
+    if (isNaN(newPressure)) return; // Or handle error
+
+    const updatedPortPressures = {
+      ...selectedItem.portPressures,
+      [portIdToUpdate]: newPressure,
+    };
+    onItemPropertyChange(selectedItem.id, 'portPressures', updatedPortPressures);
+  };
+
   let displayedResistance = 0;
   if (selectedItem && (selectedItem.chipType === 'straight' || selectedItem.chipType === 'meander')) {
     displayedResistance = calculateRectangularChannelResistance(
@@ -37,41 +49,43 @@ export default function DetailsSidebar({ selectedItem, onItemPropertyChange }: D
   // Body text: Inter
 
   return (
-    // Changed to bg-white, updated border, consistent padding for a card-like feel.
-    // The parent div in canvas/page.tsx already handles the border-l.
-    // So, this component itself doesn't need a left border or top-left rounding specifically, 
-    // but should have consistent padding and background.
-    <aside className="h-full w-full flex flex-col">
-      {/* Removed redundant flex-col flex-1 overflow-y-auto, assuming parent handles scroll */}
-      {/* <div className="flex flex-col flex-1 overflow-y-auto px-4 pt-6 pb-2"> */}
-      <h2 className="font-roboto-condensed text-xl font-bold text-primary tracking-tight mb-1">
-        Properties
-      </h2>
-      <p className="font-inter text-xs text-muted-foreground mb-4">
-        Details of the selected component.
-      </p>
-      <Separator className="mb-4" />
+    <aside className="h-full w-full flex flex-col font-inter">
+      {!selectedItem && (
+        <h3 className="font-roboto-condensed text-lg font-semibold text-primary tracking-tight mb-2">
+          Selected Component
+        </h3>
+      )}
+      
       {selectedItem ? (
-        <div className="space-y-4 font-inter">
-          <div>
-            <h3 className="font-roboto-condensed font-semibold text-lg mb-1 text-primary">
-              {selectedItem.name}
-            </h3>
-            <p className="text-xs text-muted-foreground">ID: {selectedItem.id}</p>
-            <p className="text-sm"><span className="font-medium">Type:</span> {selectedItem.chipType}</p>
-            {selectedItem.material && <p className="text-sm"><span className="font-medium">Material:</span> {selectedItem.material}</p>}
-          </div>
-          <Separator />
-          <div>
-            <h4 className="font-roboto-condensed font-medium text-base mb-2 text-primary">
-              Physical Properties
-            </h4>
-            <div className="space-y-3">
-              <p className="text-sm">
-                <span className="font-medium">Calc. Resistance:</span> {displayedResistance.toExponential(2)} Pa·s/m³
+        <>
+          <div className="space-y-3 text-xs pt-1">
+            <div>
+              <p className="text-sm font-medium text-foreground/90">
+                {selectedItem.name}
               </p>
-              {(selectedItem.chipType === 'straight' || selectedItem.chipType === 'meander') && onItemPropertyChange && (
-                <>
+            </div>
+
+            {/* Display Calculated Resistance for ALL chip types if a selectedItem exists */}
+            {selectedItem && (
+              <div className="space-y-1 pt-1">
+                <p className="text-xs text-muted-foreground">
+                  Calc. Resistance: {displayedResistance.toExponential(2)} Pa·s/m³
+                  {selectedItem.chipType === 't-type' && (
+                    <span className="italic text-muted-foreground/80"> (composite of 3 sections)</span>
+                  )}
+                  {selectedItem.chipType === 'x-type' && (
+                    <span className="italic text-muted-foreground/80"> (composite of 4 sections)</span>
+                  )}
+                </p>
+              </div>
+            )}
+
+            {/* Editable properties for Straight/Meander Channels */}
+            {(selectedItem.chipType === 'straight' || selectedItem.chipType === 'meander') && onItemPropertyChange && (
+              <>
+                <Separator className="my-2" />
+                <div className="space-y-2 pt-1">
+                  <p className="text-xs font-medium text-foreground/80 mb-1">Editable Properties:</p>
                   <div className="space-y-1.5">
                     <Label htmlFor="channelWidth" className="text-xs font-medium">Channel Width (µm)</Label>
                     <Input
@@ -102,26 +116,59 @@ export default function DetailsSidebar({ selectedItem, onItemPropertyChange }: D
                       className="h-9 text-sm rounded-lg w-full border-border focus:ring-1 focus:ring-primary focus:border-primary"
                     />
                   </div>
-                </>
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </div>
-          <Separator />
-          {selectedItem.chipType === 'pump' && selectedItem.portPressures && (
-            <div>
-              <h4 className="font-roboto-condensed font-medium text-base mb-2 text-primary">Port Pressures (Pa)</h4>
-              {Object.entries(selectedItem.portPressures).map(([portId, pressure]) => (
-                <p key={portId} className="text-xs pl-2">{portId.replace(selectedItem.id + '_', '')}: {pressure.toFixed(0)}</p>
-              ))}
-            </div>
+          
+          {selectedItem.chipType === 'pump' && selectedItem.portPressures && onItemPropertyChange && (
+            <>
+              <Separator className="my-2" />
+              <div className="space-y-2 pt-1">
+                <p className="text-xs font-medium text-foreground/80 mb-1">Port Pressures (mbar):</p>
+                {Object.entries(selectedItem.portPressures).map(([portId, pressureInPa]) => {
+                  const displayPortId = portId; 
+                  const pressureInMbar = pressureInPa / 100;
+
+                  return (
+                    <div key={displayPortId} className="space-y-1.5 mb-2">
+                      <Label htmlFor={`pressure-${displayPortId}`} className="text-xs font-medium">
+                        {selectedItem.ports.find(p => p.id.endsWith(displayPortId))?.name || `Port ${displayPortId}`}
+                      </Label>
+                      <Input
+                        id={`pressure-${displayPortId}`}
+                        type="number"
+                        value={pressureInMbar} // Display in mbar
+                        onChange={(e) => {
+                          const pressureMbar = parseFloat(e.target.value);
+                          if (!isNaN(pressureMbar)) {
+                            handlePortPressureChange(displayPortId, (pressureMbar * 100).toString()); // Convert back to Pa string for handler
+                          } else {
+                             // Handle case where input is not a valid number, maybe clear or set to 0 Pa
+                             handlePortPressureChange(displayPortId, "0");
+                          }
+                        }}
+                        className="h-9 text-sm rounded-lg w-full border-border focus:ring-1 focus:ring-primary focus:border-primary"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
-        </div>
+
+          <Separator className="my-2" />
+          <div>
+            <p className="text-xs text-muted-foreground">ID: {selectedItem.id}</p>
+          </div>
+        </>
       ) : (
-        <p className="font-inter text-sm text-muted-foreground text-center mt-8">
-          No component selected. Click a component on the canvas to see its details.
-        </p>
+        <div className="flex-grow flex items-center justify-center">
+            <p className="font-inter text-xs text-muted-foreground text-center">
+                Select a component on the canvas to see its details and edit properties.
+            </p>
+        </div>
       )}
-      {/* </div> */}
     </aside>
   );
 } 

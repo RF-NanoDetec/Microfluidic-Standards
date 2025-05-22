@@ -8,6 +8,9 @@ import { getDynamicFlowColor, getPressureIndicatorColor, formatFlowVelocityForDi
 import { AVAILABLE_TUBING_TYPES } from '@/lib/microfluidic-designer/types';
 import { Separator } from "@/components/ui/separator";
 
+// Conversion factor
+const PA_TO_MBAR = 0.01;
+
 interface SimulationSummaryPanelProps {
   results: SimulationResults | null;
   inspectionMode: 'none' | 'pressure' | 'flow';
@@ -27,10 +30,10 @@ const formatNumber = (num: number | undefined): string => {
 const SimulationSummaryPanel: React.FC<SimulationSummaryPanelProps> = ({ results, inspectionMode, flowDisplayMode, droppedItems, connections }) => {
   if (!results) {
     return (
-      <aside className="w-full">
-        <h2 className="font-roboto-condensed text-xl font-bold text-primary tracking-tight mb-1">
+      <aside className="w-full font-inter">
+        <h3 className="font-roboto-condensed text-lg font-semibold text-primary tracking-tight mb-1">
           Simulation Summary
-        </h2>
+        </h3>
         <p className="font-inter text-xs text-muted-foreground">
           No simulation has been run yet.
         </p>
@@ -42,25 +45,10 @@ const SimulationSummaryPanel: React.FC<SimulationSummaryPanelProps> = ({ results
   const hasWarnings = results.warnings && results.warnings.length > 0;
   const hasResultsData = Object.keys(results.nodePressures || {}).length > 0 || Object.keys(results.segmentFlows || {}).length > 0;
 
-  let statusText = "No results generated.";
-  let statusColor = "text-muted-foreground";
-  if (hasErrors) {
-    statusText = "Simulation Failed";
-    statusColor = "text-red-600 dark:text-red-500";
-  } else if (!hasResultsData && !hasWarnings) {
-    statusText = "Simulation Ran (No Flow/Pressure Detected)";
-    statusColor = "text-orange-600 dark:text-orange-500";
-  } else if (hasResultsData) {
-    statusText = "Simulation Complete";
-    statusColor = "text-green-600 dark:text-green-500";
-  }
-
   const nodePressures = Object.values(results.nodePressures || {});
   const segmentFlows = Object.values(results.segmentFlows || {});
   const minPressure = nodePressures.length > 0 ? Math.min(...nodePressures) : undefined;
   const maxPressure = nodePressures.length > 0 ? Math.max(...nodePressures) : undefined;
-  const minFlow = segmentFlows.length > 0 ? Math.min(...segmentFlows.map(f => Math.abs(f))) : undefined;
-  const maxFlow = segmentFlows.length > 0 ? Math.max(...segmentFlows.map(f => Math.abs(f))) : undefined;
 
   let minVelocity = undefined, maxVelocity = undefined;
   let minRate = undefined, maxRate = undefined;
@@ -112,43 +100,71 @@ const SimulationSummaryPanel: React.FC<SimulationSummaryPanelProps> = ({ results
     }
   }
 
+  const componentCounts: { [key: string]: number } = {};
+  droppedItems.forEach(item => {
+    const typeName = item.chipType.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    componentCounts[typeName] = (componentCounts[typeName] || 0) + 1;
+  });
+  componentCounts['Connections'] = connections.length;
+
   return (
     <aside className="w-full font-inter">
-      <h2 className="font-roboto-condensed text-xl font-bold text-primary tracking-tight mb-2">
+      <h3 className="font-roboto-condensed text-lg font-semibold text-primary tracking-tight mb-2">
         Simulation Summary
-      </h2>
-      <div className="space-y-3">
-        <div className="flex justify-between text-sm">
-          <span className="font-medium text-foreground/90">Status:</span>
-          <span className={statusColor}>{statusText}</span>
-        </div>
+      </h3>
+      <div className="space-y-2 text-xs">
         {hasResultsData && (
           <>
-            <Separator className="my-2" />
-            <div className="flex justify-between text-sm">
-              <span className="font-medium text-foreground/90">Min Pressure (Pa):</span>
-              <span className="text-muted-foreground">{formatNumber(minPressure)}</span>
+            { !Object.values(componentCounts).every(val => val === 0) && <Separator className="my-1.5" /> }
+            <div className="flex justify-between">
+              <span className="font-medium text-foreground/90">Min Pressure (mbar):</span>
+              <span className="text-muted-foreground">{formatNumber(minPressure !== undefined ? minPressure * PA_TO_MBAR : undefined)}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="font-medium text-foreground/90">Max Pressure (Pa):</span>
-              <span className="text-muted-foreground">{formatNumber(maxPressure)}</span>
+            <div className="flex justify-between">
+              <span className="font-medium text-foreground/90">Max Pressure (mbar):</span>
+              <span className="text-muted-foreground">{formatNumber(maxPressure !== undefined ? maxPressure * PA_TO_MBAR : undefined)}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="font-medium text-foreground/90">Min Flow (m³/s):</span>
-              <span className="text-muted-foreground">{formatNumber(minFlow)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="font-medium text-foreground/90">Max Flow (m³/s):</span>
-              <span className="text-muted-foreground">{formatNumber(maxFlow)}</span>
+            {flowDisplayMode === 'rate' && (minRate !== undefined || maxRate !== undefined) && (
+              <>
+                <div className="flex justify-between">
+                  <span className="font-medium text-foreground/90">Min Flow Rate (m³/s):</span>
+                  <span className="text-muted-foreground">{formatNumber(minRate)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-foreground/90">Max Flow Rate (m³/s):</span>
+                  <span className="text-muted-foreground">{formatNumber(maxRate)}</span>
+                </div>
+              </>
+            )}
+            {flowDisplayMode === 'velocity' && (minVelocity !== undefined || maxVelocity !== undefined) && (
+              <>
+                <div className="flex justify-between">
+                  <span className="font-medium text-foreground/90">Min Flow Velocity (m/s):</span>
+                  <span className="text-muted-foreground">{formatNumber(minVelocity)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-foreground/90">Max Flow Velocity (m/s):</span>
+                  <span className="text-muted-foreground">{formatNumber(maxVelocity)}</span>
+                </div>
+              </>
+            )}
+            <Separator className="my-1.5" />
+            <div>
+              <span className="font-medium text-foreground/90">Components Used:</span>
+              <ul className="list-disc list-inside pl-2 text-muted-foreground">
+                {Object.entries(componentCounts).map(([name, count]) => (
+                  <li key={name}>{name}: {count}</li>
+                ))}
+              </ul>
             </div>
           </>
         )}
         
         {(inspectionMode === 'flow' && flowDisplayMode === 'velocity' && (minVelocity !== undefined || maxVelocity !== undefined)) || 
          (inspectionMode === 'flow' && flowDisplayMode === 'rate' && (minRate !== undefined || maxRate !== undefined)) || 
-         hasWarnings || hasErrors ? <Separator className="my-3" /> : null}
+         hasWarnings || hasErrors ? <Separator className="my-2" /> : null}
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           {inspectionMode === 'flow' && flowDisplayMode === 'velocity' && (minVelocity !== undefined || maxVelocity !== undefined) && (
             <FlowDisplayLegend
               minDisplayValue={minVelocity ?? 0}
@@ -172,9 +188,9 @@ const SimulationSummaryPanel: React.FC<SimulationSummaryPanelProps> = ({ results
 
           {hasWarnings && (
             <div>
-              <p className="text-sm font-medium text-orange-600 dark:text-orange-500">Warnings:</p>
-              <ScrollArea className="h-auto max-h-20 text-xs">
-                <ul className="list-disc list-inside text-muted-foreground space-y-0.5 pr-2">
+              <p className="text-xs font-medium text-orange-600 dark:text-orange-500">Warnings:</p>
+              <ScrollArea className="h-auto max-h-20">
+                <ul className="list-disc list-inside text-muted-foreground space-y-0.5 pr-2 text-xs">
                   {results.warnings?.map((warn, index) => <li key={`warn-${index}`}>{warn}</li>)}
                 </ul>
               </ScrollArea>
@@ -182,9 +198,9 @@ const SimulationSummaryPanel: React.FC<SimulationSummaryPanelProps> = ({ results
           )}
           {hasErrors && (
             <div>
-              <p className="text-sm font-medium text-red-600 dark:text-red-500">Errors:</p>
-              <ScrollArea className="h-auto max-h-20 text-xs">
-                <ul className="list-disc list-inside text-muted-foreground space-y-0.5 pr-2">
+              <p className="text-xs font-medium text-red-600 dark:text-red-500">Errors:</p>
+              <ScrollArea className="h-auto max-h-20">
+                <ul className="list-disc list-inside text-muted-foreground space-y-0.5 pr-2 text-xs">
                   {results.errors?.map((err, index) => <li key={`err-${index}`}>{err}</li>)}
                 </ul>
               </ScrollArea>

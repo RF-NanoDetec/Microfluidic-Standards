@@ -17,7 +17,6 @@ import { AVAILABLE_TUBING_TYPES, PALETTE_ITEMS } from "@/lib/microfluidic-design
 import { calculateTubePathData } from "@/lib/microfluidic-designer/utils/pathUtils";
 import { 
   calculateRectangularChannelResistance,
-  calculateChipResistance, 
   calculateTubingResistance 
 } from "@/lib/microfluidic-designer/resistanceUtils";
 import {
@@ -581,6 +580,11 @@ export default function MicrofluidicDesignerPage() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Prevent deletion if an input field is focused
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
       if (event.key === 'Delete' || event.key === 'Backspace') {
         if (selectedItemId) {
           handleDeleteItem(selectedItemId);
@@ -604,30 +608,41 @@ export default function MicrofluidicDesignerPage() {
   }, [selectedItemId, selectedConnectionId, inProgressConnection, handleDeleteItem, handleDeleteConnection]);
 
   const handleItemPropertyChange = useCallback((itemId: string, propertyName: keyof CanvasItemData, value: any) => {
-    setDroppedItems(prevItems => 
+    setDroppedItems(prevItems =>
       prevItems.map(item => {
         if (item.id === itemId) {
           const updatedItem = { ...item, [propertyName]: value };
 
-          // If a dimension changed for a relevant chip, recalculate its resistance
-          if ((propertyName === 'currentChannelWidthMicrons' || 
-               propertyName === 'currentChannelDepthMicrons' || 
-               propertyName === 'currentChannelLengthMm') && 
-              (updatedItem.chipType === 'straight' || updatedItem.chipType === 'meander')) {
-            
+          // Recalculate resistance if a relevant dimension changed for certain chip types
+          if (
+            (propertyName === 'currentChannelWidthMicrons' ||
+             propertyName === 'currentChannelDepthMicrons' ||
+             propertyName === 'currentChannelLengthMm') &&
+            (item.chipType === 'straight' || item.chipType === 'meander')
+          ) {
             updatedItem.resistance = calculateRectangularChannelResistance(
-              updatedItem.currentChannelLengthMm * 1e-3,      // mm to m
-              updatedItem.currentChannelWidthMicrons * 1e-6,  // µm to m
-              updatedItem.currentChannelDepthMicrons * 1e-6,  // µm to m
-              FLUID_VISCOSITY_PAS // Default fluid viscosity (water). If different fluids are supported later, this might come from a fluid property on the item or a global canvas setting.
+              updatedItem.currentChannelLengthMm * 1e-3, 
+              updatedItem.currentChannelWidthMicrons * 1e-6, 
+              updatedItem.currentChannelDepthMicrons * 1e-6,
+              FLUID_VISCOSITY_PAS
             );
-            console.log(`[PropsChange] Recalculated resistance for ${itemId}: ${updatedItem.resistance.toExponential(3)}`);
+          } else if (propertyName === 'portPressures' && item.chipType === 'pump') {
+            // No specific recalculation needed here as portPressures is directly used
+            // but this confirms we are handling it.
+            // The simulation engine will use the new portPressures object directly.
           }
+          
+          console.log(`[PropertyChange] Item ${itemId} updated. Property: ${propertyName}, New Value:`, value, "Updated Item:", updatedItem);
           return updatedItem;
         }
         return item;
       })
     );
+    // If properties that affect simulation are changed, consider resetting or indicating simulation is stale
+    // For now, we can clear previous results to prompt a re-run
+    setSimulationResults(initialSimulationResults);
+    setSimulationVisualsKey(prev => prev + 1);
+    setInspectionMode('none'); 
   }, []);
 
   const currentSelectedItem = droppedItems.find(item => item.id === selectedItemId);
@@ -867,9 +882,9 @@ export default function MicrofluidicDesignerPage() {
           transition: 'width 0.3s ease-in-out',
         }}
       >
-        <div className={`relative h-full bg-white/90 flex flex-col overflow-y-auto transition-all duration-300 ${
+        <div className={`relative h-full bg-[#E1E4E8]/80 flex flex-col overflow-y-auto transition-all duration-300 ${
           leftPanelOpen 
-            ? 'shadow-lg rounded-r-xl p-4' 
+            ? 'shadow-[0_0_15px_rgba(0,0,0,0.1)] rounded-r-xl p-4' 
             : 'p-0 shadow-none opacity-0'
         }`}>
           {leftPanelOpen && (
@@ -919,10 +934,10 @@ export default function MicrofluidicDesignerPage() {
         
         <button
           onClick={() => setLeftPanelOpen(!leftPanelOpen)}
-          className="absolute top-1/2 -right-4 transform -translate-y-1/2 z-50 bg-white shadow-md rounded-full h-8 w-8 flex items-center justify-center border border-slate-200 transition-all hover:bg-slate-50"
+          className="absolute top-1/2 -right-4 transform -translate-y-1/2 z-50 bg-[#E1E4E8] rounded-full h-8 w-8 flex items-center justify-center border border-slate-200 transition-all hover:bg-slate-50"
           aria-label={leftPanelOpen ? "Collapse sidebar" : "Expand sidebar"}
         >
-          {leftPanelOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+          {leftPanelOpen ? <ChevronLeft size={16} className="text-[#003C7E]" /> : <ChevronRight size={16} className="text-[#003C7E]" />}
         </button>
       </div>
 
@@ -935,7 +950,7 @@ export default function MicrofluidicDesignerPage() {
           transition: 'width 0.3s ease-in-out'
         }}
       >
-        <div className={`relative h-full bg-white/90 flex flex-col overflow-y-auto transition-all duration-300 ${
+        <div className={`relative h-full bg-[#E1E4E8]/80 flex flex-col overflow-y-auto transition-all duration-300 ${
           rightPanelOpen 
             ? 'shadow-lg rounded-l-xl p-4' 
             : 'p-0 shadow-none opacity-0'
@@ -963,10 +978,10 @@ export default function MicrofluidicDesignerPage() {
         
         <button
           onClick={() => setRightPanelOpen(!rightPanelOpen)}
-          className="absolute top-1/2 -left-4 transform -translate-y-1/2 z-50 bg-white shadow-md rounded-full h-8 w-8 flex items-center justify-center border border-slate-200 transition-all hover:bg-slate-50"
+          className="absolute top-1/2 -left-4 transform -translate-y-1/2 z-50 bg-[#E1E4E8] rounded-full h-8 w-8 flex items-center justify-center border border-slate-200 transition-all hover:bg-slate-50"
           aria-label={rightPanelOpen ? "Collapse sidebar" : "Expand sidebar"}
         >
-          {rightPanelOpen ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {rightPanelOpen ? <ChevronRight size={16} className="text-[#003C7E]" /> : <ChevronLeft size={16} className="text-[#003C7E]" />}
         </button>
       </div>
     </div>
