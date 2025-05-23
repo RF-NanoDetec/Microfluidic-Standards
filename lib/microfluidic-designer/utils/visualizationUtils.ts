@@ -53,11 +53,11 @@ export const getDynamicFlowColor = (
 
   const normalizedValue = range > 0 ? Math.max(0, Math.min((absValue - minValue) / range, 1)) : 0;
 
-  // *** Use the active_blue_yellow_red palette ***
-  const selectedPalette = palettes['active_blue_yellow_red'];
+  // *** Use the current global palette ***
+  const selectedPalette = palettes[CURRENT_PALETTE_NAME];
 
   if (!selectedPalette || selectedPalette.length < 2) {
-    console.warn(`[getDynamicFlowColor] Palette "active_blue_yellow_red" is not defined or has fewer than 2 stops. Falling back to default blue-red gradient.`);
+    console.warn(`[getDynamicFlowColor] Palette "${CURRENT_PALETTE_NAME}" is not defined or has fewer than 2 stops. Falling back to default blue-red gradient.`);
     // Fallback to simple linear interpolation between FLOW_COLOR_LOW (blue) and FLOW_COLOR_HIGH (red)
     const r = Math.round(100 + (211 - 100) * normalizedValue);
     const g = Math.round(181 + (47 - 181) * normalizedValue);
@@ -104,13 +104,24 @@ const palettes: Record<string, Palette> = {
     { color: '#B91C1C', stop: 1.0 }  // Scientific Deep Red
   ],
   /* OPTION 1: Viridis-like (Simplified) */
-viridis_like: [
-   { color: '#440154', stop: 0.0 },    // Purple
-   { color: '#3B528B', stop: 0.25 },   // Blue
-   { color: '#21908C', stop: 0.5 },    // Teal
-   { color: '#5DC863', stop: 0.75 },   // Green
-   { color: '#FDE725', stop: 1.0 }     // Yellow
+  viridis_like: [
+   { color: '#003C7E', stop: 0.0 },    // Deep Blue
+   { color: '#5BC0DE', stop: 0.25 },   // Cyan / Light Blue
+   { color: '#FFFACD', stop: 0.5 },    // Lemon Yellow
+   { color: '#FFA500', stop: 0.75 },   // Orange
+   { color: '#B91C1C', stop: 1.0 }     // Scientific Deep Red
    ],
+  /* NEW FLOW PALETTE */
+  green_company_blue_company_red: [
+    { color: '#37B45C', stop: 0.0 },    // Medium Green
+    { color: '#4A81BE', stop: 0.5 },    // Medium Blue
+    { color: '#DB6161', stop: 1.0 }     // Medium Red
+  ],
+  /* NEW PRESSURE PALETTE */
+  company_blue_company_red_pressure: [
+    { color: '#4A81BE', stop: 0.0 },    // Medium Blue
+    { color: '#DB6161', stop: 1.0 }     // Medium Red
+  ],
   /* OPTION 2: Classic Rainbow (Blue-Green-Red) */
   // rainbow: [
   //   { color: '#0000FF', stop: 0.0 },    // Blue
@@ -127,12 +138,13 @@ viridis_like: [
   /* OPTION 4: Plasma (Purple-Red-Yellow) */
   plasma: [
     { color: '#0D0887', stop: 0.0 },    // Dark Purple
-    { color: '#CC4778', stop: 0.5 },    // Pink/Red
-    { color: '#F0F921', stop: 1.0 }     // Orange
+    { color: '#F0F921', stop: 0.5 },    // Pink/Red
+    { color: '#CC4778', stop: 1.0 }     // Orange
     ],
 };
 
-const CURRENT_PALETTE_NAME = 'viridis_like'; // Change this string to switch palettes
+const CURRENT_PALETTE_NAME = 'green_company_blue_company_red'; // Change this string to switch palettes
+const PRESSURE_PALETTE_NAME = 'company_blue_company_red_pressure'; // Palette for pressure visualization
 
 export const getPressureIndicatorColor = (
   pressurePa: number | undefined,
@@ -140,10 +152,10 @@ export const getPressureIndicatorColor = (
   maxOverallPressurePa?: number
 ): string => {
   const COLOR_ZERO = 'rgb(138, 146, 155)'; // #8A929B Mid Grey for undefined/fallback
-  const selectedPalette = palettes[CURRENT_PALETTE_NAME];
+  const selectedPalette = palettes[PRESSURE_PALETTE_NAME]; // Use the dedicated pressure palette
 
   if (!selectedPalette || selectedPalette.length < 2) {
-    console.error(`[getPressureIndicatorColor] Palette "${CURRENT_PALETTE_NAME}" is not defined or has fewer than 2 stops. Falling back to grey.`);
+    console.error(`[getPressureIndicatorColor] Palette "${PRESSURE_PALETTE_NAME}" is not defined or has fewer than 2 stops. Falling back to grey.`);
     return COLOR_ZERO;
   }
 

@@ -5,21 +5,23 @@ import { Product } from '@/lib/types';
 
 export async function GET(
   request: Request,
-  context: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
   // Optional: Log the received context for debugging
   // console.log(`[productId/route.ts] Context: ${JSON.stringify(context)}`);
 
   try {
-    // Defensive check for params and productId
-    if (!context || !context.params || typeof context.params.productId !== 'string') {
-      console.error('[productId/route.ts] Invalid or missing productId in context.params:', context);
+    // Await params in Next.js 15
+    const { productId } = await params;
+
+    // Defensive check for productId
+    if (typeof productId !== 'string') {
+      console.error('[productId/route.ts] Invalid productId:', productId);
       return NextResponse.json(
         { error: 'productId parameter is missing or invalid' },
         { status: 400 }
       );
     }
-    const productId = context.params.productId;
 
     // Read the products.json file
     const filePath = path.join(process.cwd(), 'data', 'products.json');
@@ -37,7 +39,7 @@ export async function GET(
     }
 
     return NextResponse.json(product);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error reading product:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch product';
     return NextResponse.json(

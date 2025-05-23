@@ -70,6 +70,9 @@ export default function KonvaCanvasItem({
 
     if (item.chipType === 'pump') {
       const image = new window.Image();
+      // Set width and height before src for better rasterization
+      image.width = PUMP_CANVAS_WIDTH;
+      image.height = PUMP_CANVAS_HEIGHT;
       image.src = isSelected ? PUMP_SVG_DATA_URI_SELECTED : PUMP_SVG_DATA_URI;
       image.onload = () => {
         if (isMounted) { // Only update state if still mounted
@@ -78,6 +81,9 @@ export default function KonvaCanvasItem({
       };
     } else if (item.chipType === 'outlet') {
       const image = new window.Image();
+      // Set width and height before src for better rasterization
+      image.width = OUTLET_WIDTH;
+      image.height = OUTLET_HEIGHT;
       image.src = isSelected ? OUTLET_SVG_DATA_URI_SELECTED : OUTLET_SVG_DATA_URI;
       image.onload = () => {
         if (isMounted) { // Only update state if still mounted
@@ -463,6 +469,7 @@ export default function KonvaCanvasItem({
             height={PUMP_CANVAS_HEIGHT} // Use new constant
             x={(CHIP_WIDTH - PUMP_CANVAS_WIDTH) / 2} // Center based on CHIP_WIDTH
             y={(CHIP_HEIGHT - PUMP_CANVAS_HEIGHT) / 2} // Center based on CHIP_HEIGHT
+            imageSmoothingEnabled={true} // Explicitly enable image smoothing
           />
         </Group>
       ) : (
@@ -494,6 +501,7 @@ export default function KonvaCanvasItem({
             height={OUTLET_HEIGHT} // Changed from OUTLET_HEIGHT * 0.9
             x={(CHIP_WIDTH - OUTLET_WIDTH) / 2} // Centered within CHIP_WIDTH
             y={(CHIP_HEIGHT - OUTLET_HEIGHT) / 2 + 2} // Centered within CHIP_HEIGHT, kept +2 offset
+            imageSmoothingEnabled={true} // Explicitly enable image smoothing
           />
         </Group>
       ) : (

@@ -37,7 +37,7 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({
   const isZeroFlow = maxDisplayValue < zeroThreshold;
 
   const legendTitle = displayMode === 'velocity' ? 'Flow Velocity (adaptive units)' : 'Flow Rate (adaptive units)';
-  const numberOfSteps = 10; // Number of segments in the gradient bar
+  const numberOfSteps = 20; // Number of segments in the gradient bar
 
   return (
     <TooltipBox

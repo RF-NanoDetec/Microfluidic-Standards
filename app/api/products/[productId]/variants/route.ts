@@ -5,12 +5,11 @@ import { ProductVariant } from '@/lib/types';
 
 export async function GET(
   request: Request,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
   try {
-    // Await the entire params object first
-    const awaitedParams = await params;
-    const productId = awaitedParams.productId;
+    // Await the params object in Next.js 15
+    const { productId } = await params;
 
     // Defensive check for productId
     if (typeof productId !== 'string') {
@@ -43,7 +42,7 @@ export async function GET(
     }
 
     return NextResponse.json(variants);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[API/products/[productId]/variants] Error processing request:', error);
     
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch product variants due to an internal server error';

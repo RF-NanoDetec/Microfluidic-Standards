@@ -97,36 +97,46 @@ export interface CanvasItemData {
   // Needed by simulation engine to know how internal ports connect
   internalConnections?: string[][]; // Array of [portId1, portId2] pairs for internal paths
 
-  // Original data from palette/product for reference or reset
-  // This is a bit redundant if productId is present, but can be useful for quick access
-  // to base properties without re-fetching product data.
-  // Consider if this is truly needed or if productId is enough.
-  // baseProductData?: MicrofluidicProductData; 
+  // Store the selected variant information
+  selectedVariantId?: string; // ID of the selected product variant
+  sku?: string;                // SKU of the selected variant
+  price?: number;              // Price of the selected variant
+  imageUrl?: string;           // Image URL of the selected variant
+  // stockStatus?: string;     // Optional: stock status of the selected variant
 }
 
 
 export interface TubingTypeDefinition {
-  id: string; // e.g., "default_0.02_inch_ID_silicone"
-  displayName: string; // e.g., "Silicone 0.02 inch ID"
+  id: string; // e.g., "silicone_standard"
+  displayName: string; // e.g., "Silicone Tubing"
+  material: 'silicone' | 'ptfe' | 'peek';
   innerRadiusMeters: number;
-  material?: string;
+  innerDiameterMm: number; // For easier user interface
 }
 
 // Example: A small library of available tubing types
 export const AVAILABLE_TUBING_TYPES: TubingTypeDefinition[] = [
   {
-    id: "default_0.02_inch_ID_silicone",
-    displayName: "Silicone Tubing (0.02\" ID)",
-    innerRadiusMeters: DEFAULT_TUBE_INNER_RADIUS_M, // From constants
-    material: "Silicone",
+    id: "silicone_standard",
+    displayName: "Silicone Tubing",
+    material: "silicone",
+    innerRadiusMeters: 0.0005, // 0.5mm radius = 1mm diameter
+    innerDiameterMm: 1.0,
   },
-  // Add more tubing types here later if needed
-  // {
-  //   id: "ptfe_0.01_inch_ID",
-  //   displayName: "PTFE Tubing (0.01\" ID)",
-  //   innerRadiusMeters: 0.000127, // 0.01 inches
-  //   material: "PTFE",
-  // },
+  {
+    id: "ptfe_standard", 
+    displayName: "PTFE Tubing",
+    material: "ptfe",
+    innerRadiusMeters: 0.0004, // 0.4mm radius = 0.8mm diameter
+    innerDiameterMm: 0.8,
+  },
+  {
+    id: "peek_standard",
+    displayName: "PEEK Tubing", 
+    material: "peek",
+    innerRadiusMeters: 0.0003, // 0.3mm radius = 0.6mm diameter
+    innerDiameterMm: 0.6,
+  },
 ];
 
 
@@ -139,120 +149,20 @@ export interface Connection {
   toPortId: string;      // ID of the Port on the toItem
   pathData: string;      // SVG path data for drawing the tube
   
-  tubingTypeId: string;  // Refers to TubingTypeDefinition.id
-  lengthMeters: number;    // Physical length of the tubing
+  tubingMaterial: 'silicone' | 'ptfe' | 'peek'; // Material type for the tubing
+  lengthMeters: number;    // Physical length of the tubing (user configurable)
+  innerDiameterMm: number; // Inner diameter in mm (depends on material)
   resistance: number;    // Calculated resistance in Pa·s/m³
+  
+  // Legacy field for compatibility - will be derived from tubingMaterial
+  tubingTypeId: string;  // Refers to TubingTypeDefinition.id
 }
 
 
-// PALETTE_ITEMS definition (initial example, to be refined or replaced by dynamic product loading)
-// This is adapted from your existing types.ts, but should ideally be generated from MicrofluidicProductData objects.
-
-export const PALETTE_ITEMS: PaletteItemData[] = [
-  {
-    id: 'straight-chip-product',
-    name: 'Straight Channel',
-    chipType: 'straight',
-    konvaPreviewId: 'palette-straight-chip-konva',
-    title: 'Straight Channel: Simple fluid path.',
-    category: 'Microfluidic Chips',
-    material: 'Glass',
-    channelWidthMicrons: 100,
-    channelDepthMicrons: 50,
-    channelLengthMm: 20,
-    baseResistancePasM3: 1.5e12,
-    temperatureRange: { min: 0, max: 100, unit: '°C' },
-    pressureRating: { maxPressure: 5, unit: 'bar' },
-    chemicalResistance: ['Water', 'Ethanol'],
-    isBiocompatible: true,
-    isAutoclavable: true,
-    defaultPorts: [
-      { id: 'port_left', name: 'Left', x: 0, y: CHIP_HEIGHT / 2, type: 'universal', orientation: 'left', simulationRole: 'inlet' },
-      { id: 'port_right', name: 'Right', x: CHIP_WIDTH, y: CHIP_HEIGHT / 2, type: 'universal', orientation: 'right', simulationRole: 'outlet' },
-    ],
-    defaultWidth: CHIP_WIDTH,
-    defaultHeight: CHIP_HEIGHT,
-  },
-  {
-    id: 'x-chip-product',
-    name: 'X-Type Junction',
-    chipType: 'x-type',
-    konvaPreviewId: 'palette-x-chip-konva',
-    title: 'X-Type Junction: 4-way intersection.',
-    category: 'Microfluidic Chips',
-    defaultPorts: [
-      { id: 'port_left', name: 'Left', x: 0, y: CHIP_HEIGHT / 2, type: 'universal', orientation: 'left', simulationRole: 'inout' },
-      { id: 'port_right', name: 'Right', x: CHIP_WIDTH, y: CHIP_HEIGHT / 2, type: 'universal', orientation: 'right', simulationRole: 'inout' },
-      { id: 'port_top', name: 'Top', x: CHIP_WIDTH / 2, y: 0, type: 'universal', orientation: 'top', simulationRole: 'inout' },
-      { id: 'port_bottom', name: 'Bottom', x: CHIP_WIDTH / 2, y: CHIP_HEIGHT, type: 'universal', orientation: 'bottom', simulationRole: 'inout' },
-    ],
-    defaultWidth: CHIP_WIDTH, 
-    defaultHeight: CHIP_HEIGHT,
-  },
-  {
-    id: 't-chip-product',
-    name: 'T-Type Junction',
-    chipType: 't-type',
-    konvaPreviewId: 'palette-t-chip-konva',
-    title: 'T-Type Junction: Split or merge streams.',
-    category: 'Microfluidic Chips',
-    defaultPorts: [
-      { id: 'port_top', name: 'Top', x: CHIP_WIDTH / 2, y: 0, type: 'universal', orientation: 'top', simulationRole: 'inout' },
-      { id: 'port_right', name: 'Right', x: CHIP_WIDTH, y: CHIP_HEIGHT / 2, type: 'universal', orientation: 'right', simulationRole: 'inout' },
-      { id: 'port_bottom', name: 'Bottom', x: CHIP_WIDTH / 2, y: CHIP_HEIGHT, type: 'universal', orientation: 'bottom', simulationRole: 'inout' },
-    ],
-    defaultWidth: CHIP_WIDTH, 
-    defaultHeight: CHIP_HEIGHT,
-  },
-  {
-    id: 'meander-chip-product',
-    name: 'Meander Structure',
-    chipType: 'meander',
-    konvaPreviewId: 'palette-meander-chip-konva',
-    title: 'Meander Structure: Increases path length.',
-    category: 'Microfluidic Chips',
-    channelWidthMicrons: 100,
-    channelDepthMicrons: 100,
-    channelLengthMm: 1000,
-    material: 'Glass',
-    defaultPorts: [
-      { id: 'port_left', name: 'Left', x: 0, y: CHIP_HEIGHT / 2, type: 'universal', orientation: 'left', simulationRole: 'inlet' }, 
-      { id: 'port_right', name: 'Right', x: CHIP_WIDTH, y: CHIP_HEIGHT / 2, type: 'universal', orientation: 'right', simulationRole: 'outlet' }, 
-    ],
-    defaultWidth: CHIP_WIDTH, 
-    defaultHeight: CHIP_HEIGHT,
-  },
-  {
-    id: 'pump-product',
-    name: 'Pump',
-    chipType: 'pump',
-    konvaPreviewId: 'palette-pump-konva',
-    title: 'Fluid Pump: Provides pressure source.',
-    category: 'Other',
-    defaultPortPressures: { 'out1': 10000, 'out2': 10000, 'out3': 0, 'out4': 0 },
-    defaultPorts: [
-      { id: 'out1', name: 'Port 1', x: PUMP_CANVAS_WIDTH, y: PUMP_CANVAS_HEIGHT * 1/5 , type: 'universal', orientation: 'right', simulationRole: 'outlet' },
-      { id: 'out2', name: 'Port 2', x: PUMP_CANVAS_WIDTH, y: PUMP_CANVAS_HEIGHT * 2/5, type: 'universal', orientation: 'right', simulationRole: 'outlet' },
-      { id: 'out3', name: 'Port 3', x: PUMP_CANVAS_WIDTH, y: PUMP_CANVAS_HEIGHT * 3/5, type: 'universal', orientation: 'right', simulationRole: 'outlet' },
-      { id: 'out4', name: 'Port 4', x: PUMP_CANVAS_WIDTH, y: PUMP_CANVAS_HEIGHT * 4/5, type: 'universal', orientation: 'right', simulationRole: 'outlet' },
-    ],
-    defaultWidth: PUMP_CANVAS_WIDTH, 
-    defaultHeight: PUMP_CANVAS_HEIGHT,
-  },
-  {
-    id: 'outlet-product',
-    name: 'Outlet',
-    chipType: 'outlet',
-    konvaPreviewId: 'palette-outlet-konva',
-    title: 'Flow Outlet: Exit at atmospheric pressure.',
-    category: 'Other',
-    defaultPorts: [
-      { id: 'in1', name: 'Inlet', x: CHIP_WIDTH / 2, y: 18, type: 'universal', orientation: 'top', simulationRole: 'inlet' },
-    ],
-    defaultWidth: CHIP_WIDTH, 
-    defaultHeight: CHIP_HEIGHT,
-  },
-];
+// PALETTE_ITEMS - Now imported from productData.ts
+// Import the palette items from our new product data system
+import { PALETTE_ITEMS_FROM_PRODUCTS } from './productData';
+export const PALETTE_ITEMS: PaletteItemData[] = PALETTE_ITEMS_FROM_PRODUCTS;
 
 // Simulation-specific types, to be used by simulationEngine.ts
 // These types were previously defined locally in simulationEngine.ts

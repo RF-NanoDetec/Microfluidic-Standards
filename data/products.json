@@ -64,6 +64,15 @@
       "tags": ["precision", "flow-control", "professional"]
     },
     {
+      "id": "pressure-pump",
+      "categoryId": "pumps",
+      "name": "Precision Pressure Pump",
+      "slug": "precision-pressure-pump",
+      "baseDescription": "Multi-channel pressure pump system for high-throughput microfluidic applications with precise flow control.",
+      "baseImage": "/images/products/pressure-pump.png",
+      "tags": ["pressure", "multi-channel", "high-throughput", "professional"]
+    },
+    {
       "id": "ptfe-tubing",
       "categoryId": "tubing",
       "name": "PTFE Tubing 1/16\" OD",

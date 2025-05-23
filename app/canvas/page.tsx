@@ -10,7 +10,6 @@ import type {
   CanvasItemData, 
   Port, 
   Connection, 
-  TubingTypeDefinition, 
   SimulationResults // Import from types
 } from "@/lib/microfluidic-designer/types";
 import { AVAILABLE_TUBING_TYPES, PALETTE_ITEMS } from "@/lib/microfluidic-designer/types"; // Import PALETTE_ITEMS
@@ -21,30 +20,25 @@ import {
 } from "@/lib/microfluidic-designer/resistanceUtils";
 import {
   FLUID_VISCOSITY_PAS,
-  DEFAULT_TUBE_INNER_RADIUS_M,
   DEFAULT_CHANNEL_WIDTH_MICRONS,
   DEFAULT_CHANNEL_DEPTH_MICRONS,
-  // Import specific chip resistances if used as fallbacks
-  RESISTANCE_STRAIGHT_CHIP_PAS_M3,
-  RESISTANCE_T_JUNCTION_SEGMENT_PAS_M3,
-  RESISTANCE_X_JUNCTION_SEGMENT_PAS_M3,
-  RESISTANCE_MEANDER_CHIP_PAS_M3,
 } from "@/lib/microfluidic-designer/constants";
 import { 
   runFluidSimulationLogic, 
   resetSimulationStateLogic 
 } from '@/lib/microfluidic-designer/simulationEngine'; // Import simulation engine functions
-import SimulationSummaryPanel from '@/components/microfluidic-designer/SimulationSummaryPanel';
 import FlowDisplayLegend from '@/components/microfluidic-designer/canvas/FlowVelocityLegend';
 import PressureDisplayLegend from '@/components/microfluidic-designer/canvas/PressureDisplayLegend';
 import { getDynamicFlowColor, formatFlowVelocityForDisplay, formatFlowRateForDisplay, getPressureIndicatorColor } from '@/lib/microfluidic-designer/utils/visualizationUtils';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, X, Move } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Trash2, PlayCircle, RotateCcw, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { KonvaEventObject } from 'konva/lib/Node';
 import Konva from 'konva'; // Import Konva namespace
+import { VariantSelector } from '@/components/microfluidic-designer/VariantSelector';
+import { PARENT_PRODUCTS, ParentProduct, ProductVariant, getDefaultVariant, createCanvasItemFromVariant, getTubingTypeByMaterial, calculateTubingResistanceByMaterial, getConnectionLength } from '@/lib/microfluidic-designer/productData';
 
 const CanvasArea = dynamic(() => import('@/components/microfluidic-designer/CanvasArea'), {
   ssr: false,
@@ -61,13 +55,13 @@ const CanvasArea = dynamic(() => import('@/components/microfluidic-designer/Canv
 });
 
 // Define GRID_SIZE at the module level if it's fixed, or pass from CanvasArea if dynamic
-const GRID_SIZE = 20; // Matching the one in CanvasArea.tsx for consistency
+// const GRID_SIZE = 20; // Matching the one in CanvasArea.tsx for consistency - REMOVED: unused
 
 // Constants for Palette filtering (lifted from PaletteSidebar)
 const FILTERS = [
   { label: "All", value: "all" },
   { label: "Chips", value: "chip" },
-  { label: "Outlets", value: "outlet" },
+  { label: "Tools", value: "outlet" },
 ];
 
 const CATEGORY_ORDER = ["Microfluidic Chips", "Other"] as const;
@@ -90,7 +84,7 @@ const initialSimulationResults: SimulationResults = {
 };
 
 // Default canvas size (can be adjusted or made dynamic if needed)
-const HEADER_HEIGHT = 64; // px, matches top-16
+// const HEADER_HEIGHT = 64; // px, matches top-16 - REMOVED: unused
 const MIN_CANVAS_WIDTH = 900; // Minimum width for the canvas content area
 const DEFAULT_SIDE_PADDING = 100; // Default padding on each side when space allows
 const TOP_BOTTOM_PADDING = 20; // Fixed top and bottom padding
@@ -131,9 +125,6 @@ export default function MicrofluidicDesignerPage() {
   // Add state to track if right panel was ever opened
   const [wasRightPanelEverOpened, setWasRightPanelEverOpened] = useState(false);
 
-  // State to track the current actual canvas dimensions from CanvasArea
-  const [currentCanvasDimensions, setCurrentCanvasDimensions] = useState({ width: 0, height: 0 });
-
   // State for min/max flow rates and velocities
   const [minRate, setMinRate] = useState<number | undefined>(undefined);
   const [maxRate, setMaxRate] = useState<number | undefined>(undefined);
@@ -142,6 +133,15 @@ export default function MicrofluidicDesignerPage() {
   // Added state for min/max pressures
   const [minPressure, setMinPressure] = useState<number | undefined>(undefined);
   const [maxPressure, setMaxPressure] = useState<number | undefined>(undefined);
+
+  // State for variant selection
+  const [isVariantSelectorOpen, setIsVariantSelectorOpen] = useState(false);
+  const [pendingDrop, setPendingDrop] = useState<{
+    parentProduct: ParentProduct;
+    x: number;
+    y: number;
+    itemId: string;
+  } | null>(null);
 
   // Grouped and ordered items logic (lifted and adapted from PaletteSidebar)
   const groupedPaletteItems = useMemo(() => PALETTE_ITEMS.reduce((acc, item) => {
@@ -301,6 +301,59 @@ export default function MicrofluidicDesignerPage() {
     handleResetSimulation(); // Also reset simulation state
   }, [handleResetSimulation]);
 
+  // Variant selection handlers
+  const handleVariantSelect = useCallback((variant: ProductVariant) => {
+    if (!pendingDrop) return;
+
+    const { parentProduct, x, y, itemId } = pendingDrop;
+    
+    // Create canvas item from the selected variant
+    const newItem = createCanvasItemFromVariant(parentProduct, variant, itemId, x, y);
+    
+    // Calculate resistance for the specific variant
+    const channelWidth = newItem.currentChannelWidthMicrons;
+    const channelDepth = newItem.currentChannelDepthMicrons;
+    const channelLength = newItem.currentChannelLengthMm;
+    
+    let calculatedResistance: number;
+
+    if (parentProduct.chipType === 'straight' || parentProduct.chipType === 'meander') {
+      calculatedResistance = calculateRectangularChannelResistance(
+        channelLength * 1e-3, // mm to m
+        channelWidth * 1e-6,  // µm to m
+        channelDepth * 1e-6,  // µm to m
+        FLUID_VISCOSITY_PAS
+      );
+    } else if (parentProduct.chipType === 't-type' || parentProduct.chipType === 'x-type') {
+      calculatedResistance = calculateRectangularChannelResistance(
+        (newItem.currentJunctionSegmentLengthMm || 2.5) * 1e-3,
+        channelWidth * 1e-6,
+        channelDepth * 1e-6,
+        FLUID_VISCOSITY_PAS
+      );
+    } else if (parentProduct.chipType === 'pump' || parentProduct.chipType === 'outlet') {
+      calculatedResistance = 0;
+    } else {
+      calculatedResistance = 1e18;
+    }
+
+    // Update the item with calculated resistance and selected variant info
+    const finalItem = {
+      ...newItem,
+      resistance: calculatedResistance,
+      selectedVariantId: variant.id,
+    };
+
+    setDroppedItems(prevItems => [...prevItems, finalItem]);
+    setPendingDrop(null);
+    setIsVariantSelectorOpen(false);
+  }, [pendingDrop]);
+
+  const handleVariantSelectorClose = useCallback(() => {
+    setIsVariantSelectorOpen(false);
+    setPendingDrop(null);
+  }, []);
+
   const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>, containerRef: React.RefObject<HTMLDivElement | null>) => {
     event.preventDefault();
     const itemDataString = event.dataTransfer.getData('application/json');
@@ -310,106 +363,131 @@ export default function MicrofluidicDesignerPage() {
       return;
     }
 
-    let dropX = event.clientX - containerRect.left;
-    let dropY = event.clientY - containerRect.top;
+    const dropX = event.clientX - containerRect.left;
+    const dropY = event.clientY - containerRect.top;
 
     if (itemDataString) {
       try {
         const paletteItem = JSON.parse(itemDataString) as PaletteItemData;
+        const parentProduct = PARENT_PRODUCTS.find(p => p.id === paletteItem.id);
 
-        const itemWidth = paletteItem.defaultWidth || 80;
-        const itemHeight = paletteItem.defaultHeight || 40;
+        if (!parentProduct) {
+          console.error("Parent product not found for palette item:", paletteItem);
+          return;
+        }
 
-        // Calculate initial position considering item dimensions for centering within the drop coordinates
+        const itemWidth = parentProduct.defaultWidth || 80;
+        const itemHeight = parentProduct.defaultHeight || 40;
         const initialX = dropX - itemWidth / 2;
         const initialY = dropY - itemHeight / 2;
-
-        // Clamp to actual container bounds (which is the stage itself)
-        // The coordinates are already relative to the containerRect (stage)
         const clampedX = Math.max(0, Math.min(initialX, containerRect.width - itemWidth));
         const clampedY = Math.max(0, Math.min(initialY, containerRect.height - itemHeight));
+        const newItemId = `${parentProduct.chipType || 'item'}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
-        const newItemId = `${paletteItem.chipType || 'item'}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        // Determine if VariantSelector should be shown
+        const chipTypesRequiringSelector = ['straight', 'x-type', 't-type', 'meander'];
+        const requiresVariantSelector = 
+          chipTypesRequiringSelector.includes(parentProduct.chipType) && 
+          parentProduct.variants && 
+          parentProduct.variants.length > 1; // Only show if multiple variants exist
 
-        // Use dimensions from paletteItem, with fallbacks to global defaults
-        const initialChannelWidth = paletteItem.channelWidthMicrons || DEFAULT_CHANNEL_WIDTH_MICRONS;
-        const initialChannelDepth = paletteItem.channelDepthMicrons || DEFAULT_CHANNEL_DEPTH_MICRONS;
-        // For straight/meander, paletteItem.channelLengthMm is the total length.
-        // For T/X junctions, if paletteItem.channelLengthMm is set, it might be an overall dimension.
-        // We need a *segment* length for the representative resistance calculation.
-        // If not specified, use a small default (e.g., 2.5mm) or derive (e.g., paletteItem.channelLengthMm / 2 if that makes sense for the product definition).
-        const initialChannelLength = paletteItem.channelLengthMm || 
-                                   ( (paletteItem.chipType === 't-type' || paletteItem.chipType === 'x-type') ? 2.5 : 5 ); // Default segment length for T/X, or overall for others
-
-        let calculatedResistance: number;
-
-        if (paletteItem.chipType === 'straight' || paletteItem.chipType === 'meander') {
-          calculatedResistance = calculateRectangularChannelResistance(
-            initialChannelLength * 1e-3, // mm to m
-            initialChannelWidth * 1e-6,  // µm to m
-            initialChannelDepth * 1e-6,  // µm to m
-            FLUID_VISCOSITY_PAS
-          );
-        } else if (paletteItem.chipType === 't-type' || paletteItem.chipType === 'x-type') {
-          // For junctions, the representative resistance is for one of its internal segments.
-          // The dimensions for these segments come from the general channel dimensions of the palette item.
-          const segmentLengthMm = initialChannelLength; // Using the derived/defaulted initialChannelLength as the segment length for T/X initial R calc.
-          const segmentWidthMicrons = initialChannelWidth;
-          const segmentDepthMicrons = initialChannelDepth;
-          
-          calculatedResistance = calculateRectangularChannelResistance(
-            segmentLengthMm * 1e-3,
-            segmentWidthMicrons * 1e-6,
-            segmentDepthMicrons * 1e-6,
-            FLUID_VISCOSITY_PAS
-          );
-        } else if (paletteItem.chipType === 'pump' || paletteItem.chipType === 'outlet') {
-          calculatedResistance = 0;
-        } else {
-          console.warn(`Unknown chipType for dynamic resistance calculation on drop: ${paletteItem.chipType}. Using high default.`);
-          calculatedResistance = 1e18; // Fallback for unknown types
+        if (requiresVariantSelector) {
+          setPendingDrop({
+            parentProduct,
+            x: clampedX,
+            y: clampedY,
+            itemId: newItemId,
+          });
+          setIsVariantSelectorOpen(true);
+          return;
         }
-        console.log(`[Drop] Initial calculated resistance for ${newItemId} (${paletteItem.chipType}): ${calculatedResistance.toExponential(3)}`);
+        
+        // If no selector needed, or only one variant, create item directly
+        let variantToUse: ProductVariant | undefined = undefined;
+        if (parentProduct.variants && parentProduct.variants.length > 0) {
+          variantToUse = getDefaultVariant(parentProduct.id);
+          if (!variantToUse) { 
+             variantToUse = parentProduct.variants[0];
+          }
+        }
 
-        const newItem: CanvasItemData = {
-          id: newItemId,
-          productId: paletteItem.id,
-          name: paletteItem.name,
-          chipType: paletteItem.chipType,
-          x: clampedX, // Use clampedX (stage-local)
-          y: clampedY, // Use clampedY (stage-local)
-          width: itemWidth,
-          height: itemHeight,
-          ports: paletteItem.defaultPorts.map((p: Port) => ({...p, id: `${newItemId}_${p.id}`})),
+        if (variantToUse) {
+          // Create item using the selected/default variant
+          const baseNewItem = createCanvasItemFromVariant(parentProduct, variantToUse, newItemId, clampedX, clampedY);
           
-          currentChannelWidthMicrons: initialChannelWidth,
-          currentChannelDepthMicrons: initialChannelDepth,
-          currentChannelLengthMm: initialChannelLength, // This will be the overall length for S/M, or the segment length for T/X for now
-          
-          // Initialize specific junction dimensions from general channel dimensions if not directly on PaletteItemData
-          // (No specific junction dimension properties on PaletteItemData, so these will typically be undefined unless added to types.ts for palette items)
-          currentJunctionSegmentLengthMm: (paletteItem.chipType === 't-type' || paletteItem.chipType === 'x-type') ? initialChannelLength : undefined,
-          currentJunctionWidthMicrons: (paletteItem.chipType === 't-type' || paletteItem.chipType === 'x-type') ? initialChannelWidth : undefined,
-          currentJunctionDepthMicrons: (paletteItem.chipType === 't-type' || paletteItem.chipType === 'x-type') ? initialChannelDepth : undefined,
-          
-          material: paletteItem.material || 'Glass',
-          resistance: calculatedResistance,
-          portPressures: paletteItem.chipType === 'pump' ? (paletteItem.defaultPortPressures || {}) : undefined,
-          internalConnections: paletteItem.internalConnections,
+          // Calculate resistance for the specific variant (logic adapted from handleVariantSelect)
+          const channelWidth = baseNewItem.currentChannelWidthMicrons;
+          const channelDepth = baseNewItem.currentChannelDepthMicrons;
+          const channelLength = baseNewItem.currentChannelLengthMm;
+          let calculatedResistance: number;
 
-          temperatureRange: paletteItem.temperatureRange,
-          pressureRating: paletteItem.pressureRating,
-          chemicalResistance: paletteItem.chemicalResistance,
-          isBiocompatible: paletteItem.isBiocompatible,
-          isAutoclavable: paletteItem.isAutoclavable,
-        };
+          if (parentProduct.chipType === 'straight' || parentProduct.chipType === 'meander') {
+            calculatedResistance = calculateRectangularChannelResistance(
+              channelLength * 1e-3, // mm to m
+              channelWidth * 1e-6,  // µm to m
+              channelDepth * 1e-6,  // µm to m
+              FLUID_VISCOSITY_PAS
+            );
+          } else if (parentProduct.chipType === 't-type' || parentProduct.chipType === 'x-type') {
+            // For T/X junctions, ensure junction segment length is used if available
+            const effectiveLengthMm = baseNewItem.currentJunctionSegmentLengthMm || channelLength || 2.5; // Default if all else fails
+            calculatedResistance = calculateRectangularChannelResistance(
+              effectiveLengthMm * 1e-3, 
+              channelWidth * 1e-6,
+              channelDepth * 1e-6,
+              FLUID_VISCOSITY_PAS
+            );
+          } else if (parentProduct.chipType === 'pump' || parentProduct.chipType === 'outlet') {
+            calculatedResistance = 0; // Pumps and outlets have no internal resistance for this model
+          } else {
+            // Fallback for other types if any, or placeholder for holders
+            calculatedResistance = parentProduct.chipType === 'holder' ? 0 : 1e18; // High resistance for unhandled, 0 for holder
+          }
 
-        setDroppedItems(prevItems => [...prevItems, newItem]);
+          const finalItem = {
+            ...baseNewItem,
+            resistance: calculatedResistance,
+            // selectedVariantId is already set by createCanvasItemFromVariant
+          };
+          setDroppedItems(prevItems => [...prevItems, finalItem]);
+
+        } else if (!parentProduct.variants || parentProduct.variants.length === 0) {
+          // For items like 'outlet-tool' that have no variants defined in PARENT_PRODUCTS
+          console.log(`Creating item ${parentProduct.name} directly without variants (e.g., canvas tools).`);
+          const newItem: CanvasItemData = {
+            id: newItemId,
+            productId: parentProduct.id,
+            name: parentProduct.name,
+            chipType: parentProduct.chipType,
+            x: clampedX,
+            y: clampedY,
+            width: itemWidth,
+            height: itemHeight,
+            ports: parentProduct.defaultPorts.map((p: Port) => ({...p, id: `${newItemId}_${p.id}`})),
+            resistance: 0, 
+            currentChannelWidthMicrons: DEFAULT_CHANNEL_WIDTH_MICRONS, 
+            currentChannelDepthMicrons: DEFAULT_CHANNEL_DEPTH_MICRONS, 
+            currentChannelLengthMm: 5, 
+            material: 'Glass', 
+            portPressures: parentProduct.defaultPortPressures, 
+            internalConnections: parentProduct.internalConnections,
+            temperatureRange: { min: 0, max: 100, unit: '°C' },
+            pressureRating: { maxPressure: 5, unit: 'bar' },
+            chemicalResistance: ['Water', 'Ethanol'],
+            isBiocompatible: true,
+            isAutoclavable: true,
+            // selectedVariantId remains undefined for these tool-type items
+          };
+          setDroppedItems(prevItems => [...prevItems, newItem]);
+        } else {
+           console.warn("Could not determine variant for product:", parentProduct.name, "and no direct creation path.");
+        }
+
       } catch (error) {
         console.error("Failed to parse or process dropped item data:", error);
       }
     }
-  }, [droppedItems, connections]);
+  }, []);
 
   const handleItemDragEnd = useCallback((itemId: string, newX: number, newY: number) => {
     // Snapping logic removed
@@ -440,7 +518,7 @@ export default function MicrofluidicDesignerPage() {
     }
   }, [droppedItems, connections]);
 
-  const handlePortClick = useCallback((itemId: string, port: Port, konvaEvent: any) => {
+  const handlePortClick = useCallback((itemId: string, port: Port, konvaEvent: KonvaEventObject<MouseEvent>) => {
     konvaEvent.cancelBubble = true;
     const clickedItem = droppedItems.find(i => i.id === itemId);
     if (!clickedItem) return;
@@ -475,19 +553,13 @@ export default function MicrofluidicDesignerPage() {
 
       const pathData = calculateTubePathData(sourceItem, sourcePort, targetItem, targetPort);
       
-      // Determine tubing length and type
+      // Determine tubing length and type based on connection
       const isPumpConnection = sourceItem.chipType === 'pump' || targetItem.chipType === 'pump';
-      const physicalLengthMeters = isPumpConnection ? 0.3 : 0.05; // 30cm or 5cm
-      const defaultTubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === 'default_0.02_inch_ID_silicone') || AVAILABLE_TUBING_TYPES[0];
-      if (!defaultTubingType) {
-        console.error("Default tubing type not found!");
-        setInProgressConnection(null); return;
-      }
-
-      const tubeResistance = calculateTubingResistance(
-        physicalLengthMeters,
-        defaultTubingType.innerRadiusMeters
-      );
+      const physicalLengthMeters = getConnectionLength(isPumpConnection);
+      const defaultMaterial: 'silicone' | 'ptfe' | 'peek' = 'silicone'; // Default to silicone
+      const tubingType = getTubingTypeByMaterial(defaultMaterial);
+      
+      const tubeResistance = calculateTubingResistanceByMaterial(physicalLengthMeters, defaultMaterial);
 
       const newConnectionId = `conn-${sourceItem.id}_${sourcePort.id}-${targetItem.id}_${targetPort.id}-${Date.now()}`;
       const newConnection: Connection = {
@@ -497,9 +569,11 @@ export default function MicrofluidicDesignerPage() {
         toItemId: targetItem.id,
         toPortId: targetPort.id,
         pathData: pathData,
-        tubingTypeId: defaultTubingType.id,
+        tubingMaterial: defaultMaterial,
         lengthMeters: physicalLengthMeters,
+        innerDiameterMm: tubingType.innerDiameterMm,
         resistance: tubeResistance,
+        tubingTypeId: tubingType.id,
       };
       
       setConnections(prev => [...prev, newConnection]);
@@ -539,16 +613,11 @@ export default function MicrofluidicDesignerPage() {
 
         const pathData = calculateTubePathData(sourceItem, sourcePort, targetItem, targetPort);
         const isPumpConnection = sourceItem.chipType === 'pump' || targetItem.chipType === 'pump';
-        const physicalLengthMeters = isPumpConnection ? 0.3 : 0.05;
-        const defaultTubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === 'default_0.02_inch_ID_silicone') || AVAILABLE_TUBING_TYPES[0];
+        const physicalLengthMeters = getConnectionLength(isPumpConnection);
+        const defaultMaterial: 'silicone' | 'ptfe' | 'peek' = 'silicone'; // Default to silicone
+        const tubingType = getTubingTypeByMaterial(defaultMaterial);
 
-        if (!defaultTubingType) {
-          console.error("Default tubing type not found!");
-          setInProgressConnection(null);
-          return;
-        }
-
-        const tubeResistance = calculateTubingResistance(physicalLengthMeters, defaultTubingType.innerRadiusMeters);
+        const tubeResistance = calculateTubingResistanceByMaterial(physicalLengthMeters, defaultMaterial);
         // Ensure port IDs in the connection ID are base IDs if that's the convention
         const baseSourcePortId = sourcePort.id.startsWith(sourceItem.id + '_')
                                ? sourcePort.id.substring(sourceItem.id.length + 1)
@@ -562,9 +631,11 @@ export default function MicrofluidicDesignerPage() {
           toItemId: targetItem.id,
           toPortId: targetPort.id,   // Store the full port ID from CanvasItemData.ports
           pathData: pathData,
-          tubingTypeId: defaultTubingType.id,
+          tubingMaterial: defaultMaterial,
           lengthMeters: physicalLengthMeters,
+          innerDiameterMm: tubingType.innerDiameterMm,
           resistance: tubeResistance,
+          tubingTypeId: tubingType.id,
         };
 
         setConnections(prev => [...prev, newConnection]);
@@ -618,14 +689,14 @@ export default function MicrofluidicDesignerPage() {
   [inProgressConnection, droppedItems, connections, setInProgressConnection, setConnections, setSelectedItemId, setSelectedConnectionId]
 );
 
-  const handleStageContextMenu = useCallback((konvaEvent: any) => {
+  const handleStageContextMenu = useCallback((konvaEvent: KonvaEventObject<MouseEvent>) => {
     konvaEvent.evt.preventDefault();
     if (inProgressConnection) {
       setInProgressConnection(null);
     }
-  }, [inProgressConnection, setSelectedItemId, setSelectedConnectionId, setInProgressConnection]);
+  }, [inProgressConnection]);
 
-  const handleTubeClick = useCallback((connectionId: string, konvaEvent: any) => {
+  const handleTubeClick = useCallback((connectionId: string, konvaEvent: KonvaEventObject<MouseEvent>) => {
     konvaEvent.cancelBubble = true;
     setSelectedConnectionId(prevId => (prevId === connectionId ? null : connectionId));
     setSelectedItemId(null);
@@ -647,6 +718,23 @@ export default function MicrofluidicDesignerPage() {
     }
   }, [selectedConnectionId]);
   
+  const handleConnectionPropertyChange = useCallback((connectionId: string, property: keyof Connection, value: unknown) => {
+    setConnections(prevConnections =>
+      prevConnections.map(conn => {
+        if (conn.id === connectionId) {
+          const updatedConnection = { ...conn, [property]: value };
+          console.log(`[ConnectionPropertyChange] Connection ${connectionId} updated. Property: ${property}, New Value:`, value, "Updated Connection:", updatedConnection);
+          return updatedConnection;
+        }
+        return conn;
+      })
+    );
+    // Clear simulation results when connection properties change
+    setSimulationResults(initialSimulationResults);
+    setSimulationVisualsKey(prev => prev + 1);
+    setInspectionMode('none');
+  }, []);
+
   const handleStageMouseMove = useCallback((stagePointerPos: {x: number, y:number}) => {
     // This handler is now ONLY for the inProgressConnection line preview.
     // Panning movement is handled by handleWindowMouseMoveForPanning.
@@ -684,7 +772,7 @@ export default function MicrofluidicDesignerPage() {
     };
   }, [selectedItemId, selectedConnectionId, inProgressConnection, handleDeleteItem, handleDeleteConnection]);
 
-  const handleItemPropertyChange = useCallback((itemId: string, propertyName: keyof CanvasItemData, value: any) => {
+  const handleItemPropertyChange = useCallback((itemId: string, propertyName: keyof CanvasItemData, value: unknown) => {
     setDroppedItems(prevItems =>
       prevItems.map(item => {
         if (item.id === itemId) {
@@ -741,11 +829,11 @@ export default function MicrofluidicDesignerPage() {
 
   // Add effect to handle automatic right panel opening on first item selection
   useEffect(() => {
-    if (selectedItemId && !wasRightPanelEverOpened) {
+    if ((selectedItemId || selectedConnectionId) && !wasRightPanelEverOpened) {
       setRightPanelOpen(true);
       setWasRightPanelEverOpened(true);
     }
-  }, [selectedItemId, wasRightPanelEverOpened]);
+  }, [selectedItemId, selectedConnectionId, wasRightPanelEverOpened]);
 
   // Effect to calculate min/max flow rates and velocities
   useEffect(() => {
@@ -836,7 +924,6 @@ export default function MicrofluidicDesignerPage() {
   }, [simulationResults, connections, droppedItems]);
 
   const handleStageResize = useCallback((newDimensions: { width: number; height: number }) => {
-    setCurrentCanvasDimensions(newDimensions);
     // Check if any items are out of bounds and adjust them
     setDroppedItems(prevItems => {
       let itemsChanged = false;
@@ -1149,7 +1236,7 @@ export default function MicrofluidicDesignerPage() {
       <div 
         className="fixed top-1/2 right-0 transform -translate-y-1/2 z-40"
         style={{
-          width: rightPanelOpen ? (isMobile ? '280px' : '320px') : '0px',
+          width: rightPanelOpen ? (isMobile ? '300px' : '360px') : '0px',
           maxHeight: 'calc(100vh - 8rem)',
           transition: 'width 0.3s ease-in-out'
         }}
@@ -1161,20 +1248,15 @@ export default function MicrofluidicDesignerPage() {
         }`}>
           {rightPanelOpen && (
             <>
-              {showSimulationSummary && (
-                <div className="mb-6 border-b pb-6">
-                  <SimulationSummaryPanel
-                    results={simulationResults}
-                    inspectionMode={inspectionMode}
-                    flowDisplayMode={flowDisplayMode}
-                    droppedItems={droppedItems}
-                    connections={connections}
-                  />
-                </div>
-              )}
               <DetailsSidebar
                 selectedItem={currentSelectedItem}
+                selectedConnection={selectedConnectionId ? connections.find(conn => conn.id === selectedConnectionId) : undefined}
+                droppedItems={droppedItems}
+                connections={connections}
                 onItemPropertyChange={handleItemPropertyChange}
+                onConnectionPropertyChange={handleConnectionPropertyChange}
+                onDeleteItem={handleDeleteItem}
+                onDeleteConnection={handleDeleteConnection}
               />
             </>
           )}
@@ -1188,6 +1270,16 @@ export default function MicrofluidicDesignerPage() {
           {rightPanelOpen ? <ChevronRight size={16} className="text-[#003C7E]" /> : <ChevronLeft size={16} className="text-[#003C7E]" />}
         </button>
       </div>
+
+      {/* Variant Selector Modal */}
+      {pendingDrop && (
+        <VariantSelector
+          isOpen={isVariantSelectorOpen}
+          onClose={handleVariantSelectorClose}
+          parentProduct={pendingDrop.parentProduct}
+          onVariantSelect={handleVariantSelect}
+        />
+      )}
     </div>
   );
 } 

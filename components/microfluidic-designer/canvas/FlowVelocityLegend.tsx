@@ -38,7 +38,7 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({ // Renamed compon
   formatValueForDisplay,
   className,
 }) => {
-  const numberOfSteps = 10; // Number of segments in the gradient bar
+  const numberOfSteps = 20; // Number of segments in the gradient bar
   const gradientSegments = [];
 
   // Determine thresholds based on display mode. Rates are m3/s, velocities are m/s.

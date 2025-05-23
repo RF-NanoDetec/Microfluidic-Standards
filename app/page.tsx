@@ -1,12 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import {
   ArrowRight,
-  ChevronRight,
   Mail,
   MapPin,
   Phone,
@@ -547,7 +545,7 @@ function MicrofluidicsLandingPage() {
                 <div className="inline-block rounded-3xl bg-background px-3 py-1 text-sm">About Us</div>
                 <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Our Vision</h2>
                 <p className="text-muted-foreground md:text-xl/relaxed">
-                  We're revolutionizing microfluidics by making high-performance glass chips accessible to everyone. Our mission is to accelerate scientific discovery and innovation by removing cost barriers and complexity from microfluidic technology.
+                  We&apos;re revolutionizing microfluidics by making high-performance glass chips accessible to everyone. Our mission is to accelerate scientific discovery and innovation by removing cost barriers and complexity from microfluidic technology.
                 </p>
                 <p className="text-muted-foreground md:text-xl/relaxed">
                   Our academia-first adoption strategy focuses on rapid validation and publications, building grassroots credibility that will later unlock biotech and diagnostics markets.
@@ -638,7 +636,7 @@ function MicrofluidicsLandingPage() {
             >
               <h3 className="text-xl font-bold">Send Us a Message</h3>
               <p className="text-sm text-muted-foreground">
-                Fill out the form below and we'll get back to you shortly.
+                Fill out the form below and we&apos;ll get back to you shortly.
               </p>
               <form className="mt-6 space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">

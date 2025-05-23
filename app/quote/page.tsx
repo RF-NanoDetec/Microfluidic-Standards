@@ -1,11 +1,16 @@
 "use client";
 
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import Image from 'next/image';
 import Link from 'next/link';
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm } from "react-hook-form";
-import { z } from "zod";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
+import { Plus, Minus, Trash2, ShoppingBag } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -15,36 +20,26 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "sonner";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
-import { useQuoteStore, QuoteItem } from "@/store/quoteStore"; // Import the new quote store
+import { useQuoteStore } from '@/store/quoteStore';
+import { toast } from 'sonner';
 
-const formSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  organization: z.string().min(2, { message: "Organization must be at least 2 characters." }),
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  phone: z.string().min(5, { message: "Please enter a valid phone number." }).optional().or(z.literal('')) ,
-  projectType: z.string({
-    required_error: "Please select a project type.",
-  }),
-  projectDescription: z.string().min(10, { message: "Please provide more details about your project." }),
-  contactConsent: z.boolean().refine(val => val === true, {
-    message: "You must agree to be contacted.",
-  }),
-  // We will handle quoteItems separately from the main form schema for react-hook-form
+const quoteFormSchema = z.object({
+  companyName: z.string().min(1, 'Company name is required'),
+  contactName: z.string().min(1, 'Contact name is required'),
+  email: z.string().email('Invalid email address'),
+  phone: z.string().optional(),
+  projectDescription: z.string().min(10, 'Please provide a detailed project description (minimum 10 characters)'),
+  timeline: z.string().min(1, 'Timeline is required'),
+  budget: z.string().optional(),
+  additionalRequirements: z.string().optional(),
 });
+
+type QuoteFormData = z.infer<typeof quoteFormSchema>;
+
+interface CustomRequirement {
+  id: string;
+  description: string;
+}
 
 export default function QuotePage() {
   const {
@@ -56,20 +51,21 @@ export default function QuotePage() {
     getItemCount,
   } = useQuoteStore();
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<z.infer<typeof quoteFormSchema>>({
+    resolver: zodResolver(quoteFormSchema),
     defaultValues: {
-      name: "",
-      organization: "",
+      companyName: "",
+      contactName: "",
       email: "",
       phone: "",
-      projectType: "",
       projectDescription: "",
-      contactConsent: false,
+      timeline: "",
+      budget: "",
+      additionalRequirements: "",
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  function onSubmit(values: z.infer<typeof quoteFormSchema>) {
     const fullQuoteRequest = {
       contactDetails: values,
       requestedItems: quoteItems,
@@ -230,10 +226,10 @@ export default function QuotePage() {
                 <div className="grid gap-6 sm:grid-cols-2">
                   <FormField
                     control={form.control}
-                    name="name"
+                    name="companyName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Full Name</FormLabel>
+                        <FormLabel>Company Name</FormLabel>
                         <FormControl>
                           <Input placeholder="Dr. Jane Smith" {...field} />
                         </FormControl>
@@ -243,10 +239,10 @@ export default function QuotePage() {
                   />
                   <FormField
                     control={form.control}
-                    name="organization"
+                    name="contactName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Organization</FormLabel>
+                        <FormLabel>Contact Name</FormLabel>
                         <FormControl>
                           <Input placeholder="University or Company" {...field} />
                         </FormControl>
@@ -286,39 +282,6 @@ export default function QuotePage() {
                   />
                 </div>
 
-                {/* ... ProjectType field ... */}
-                <FormField
-                  control={form.control}
-                  name="projectType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Project Type</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a project type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="academic_research">Academic Research</SelectItem>
-                          <SelectItem value="industrial_rd">Industrial R&D</SelectItem>
-                          <SelectItem value="diagnostic_device">Diagnostic Device Development</SelectItem>
-                          <SelectItem value="educational">Educational/Teaching</SelectItem>
-                          <SelectItem value="production">Production/Manufacturing</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        This helps us understand your application context.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
                 {/* ... ProjectDescription field ... */}
                 <FormField
                   control={form.control}
@@ -341,27 +304,60 @@ export default function QuotePage() {
                   )}
                 />
 
-                {/* ... ContactConsent field ... */}
+                {/* ... Timeline field ... */}
                 <FormField
                   control={form.control}
-                  name="contactConsent"
+                  name="timeline"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormItem>
+                      <FormLabel>Project Timeline</FormLabel>
                       <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
+                        <Input placeholder="e.g., 3-6 months" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Estimate the duration of your project.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* ... Budget field ... */}
+                <FormField
+                  control={form.control}
+                  name="budget"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Project Budget</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., $10,000 - $50,000" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Estimate the total cost of your project.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* ... AdditionalRequirements field ... */}
+                <FormField
+                  control={form.control}
+                  name="additionalRequirements"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Additional Requirements</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Please describe any additional requirements or special considerations for your project."
+                          rows={3}
+                          {...field} 
                         />
                       </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>
-                          Contact Consent
-                        </FormLabel>
-                        <FormDescription>
-                          I agree to be contacted regarding my quote request and understand that my data will be processed according to the privacy policy.
-                        </FormDescription>
-                        <FormMessage />
-                      </div>
+                      <FormDescription>
+                        Include any specific requirements or considerations for your project.
+                      </FormDescription>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />

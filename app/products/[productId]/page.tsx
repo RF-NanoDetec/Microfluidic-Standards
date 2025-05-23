@@ -1,7 +1,6 @@
 // "use client"; // No longer a client component for the main page structure
 
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
 import { Product, ProductVariant } from '@/lib/types';
 import ProductDetailsClient from '@/components/products/ProductDetailsClient'; // Import the new client component
 // import { Button } from '@/components/ui/button'; // Will be in client component
@@ -47,15 +46,16 @@ async function getProductVariants(productId: string): Promise<ProductVariant[]> 
 }
 
 interface ProductPageProps {
-  params: {
+  params: Promise<{
     productId: string;
-  };
+  }>;
 }
 
 // This is now a Server Component
 export default async function ProductPage({ params }: ProductPageProps) {
-  const product = await getProduct(params.productId);
-  const variants = await getProductVariants(params.productId);
+  const { productId } = await params;
+  const product = await getProduct(productId);
+  const variants = await getProductVariants(productId);
 
   if (!product) {
     notFound(); // Call Next.js notFound helper if product is null

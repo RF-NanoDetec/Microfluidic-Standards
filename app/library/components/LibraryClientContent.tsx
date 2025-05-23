@@ -1,786 +1,324 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import {
-  Search, Filter, ChevronDown, ChevronUp, Plus, Eye, ShoppingCart, Layers, Info, Droplet, Ruler, Thermometer, FlaskConical, ShieldCheck, CheckCircle, ArrowUpDown, ArrowDown, ArrowUp, ArrowLeftRight, Download
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
-  Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious
-} from "@/components/ui/pagination";
-import { cn } from "@/lib/utils";
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import { Search, Filter, Grid, List } from 'lucide-react';
+import type { PaletteItemData } from '@/lib/microfluidic-designer/types';
 
-// Key attribute color and tooltip map
-const KEY_ATTRIBUTE_META: Record<string, { color: string; tooltip: string; icon?: React.ReactNode }> = {
-  "High Pressure": {
-    color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-    tooltip: "Supports operation up to 100 bar pressure",
-    icon: <Thermometer className="inline h-3 w-3 mr-1" />,
-  },
-  "Chemical Resistant": {
-    color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-    tooltip: "Compatible with organic solvents and harsh chemicals",
-    icon: <FlaskConical className="inline h-3 w-3 mr-1" />,
-  },
-  "Optical Clarity": {
-    color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
-    tooltip: "Superior transparency for microscopy and imaging",
-    icon: <Eye className="inline h-3 w-3 mr-1" />,
-  },
-  "Thermal Resistant": {
-    color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-    tooltip: "Withstands temperatures from -20°C to 200°C",
-    icon: <Thermometer className="inline h-3 w-3 mr-1" />,
-  },
-  "Low Autofluorescence": {
-    color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-    tooltip: "Minimal background signal for fluorescence applications",
-    icon: <Droplet className="inline h-3 w-3 mr-1" />,
-  },
-  "Modular": {
-    color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300",
-    tooltip: "Compatible with our standardized connection system",
-    icon: <Layers className="inline h-3 w-3 mr-1" />,
-  },
-  "Reusable": {
-    color: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300",
-    tooltip: "Designed for multiple experiments and long-term use",
-    icon: <CheckCircle className="inline h-3 w-3 mr-1" />,
-  },
-  "Biocompatible": {
-    color: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300",
-    tooltip: "Safe for biological samples and cell culture",
-    icon: <ShieldCheck className="inline h-3 w-3 mr-1" />,
-  },
-};
-
-interface Variant {
-  id: string;
-  name: string;
-  productName: string;
-  productSlug: string;
-  categoryId: string;
-  categoryName: string;
-  price: number;
-  sku: string;
-  imageUrl?: string;
-  stockStatus?: string;
-  material?: string;
-  chipSize?: string;
-  channelWidth?: string;
-  channelDepth?: string;
-  totalChannelLength?: string;
-  maxPressure?: string;
-  keyAttributes: string[];
-  canvasComponentId?: string;
-}
-
-interface Category {
-  id: string;
-  name: string;
+interface SearchFilters {
+  search: string;
+  category: string;
+  chipType: string;
+  material: string;
 }
 
 interface LibraryClientContentProps {
-  initialVariants: Variant[];
-  categories: Category[];
+  items: PaletteItemData[];
+  searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-// Helper to count active filters
-const countActiveFilters = (selectedAttributes: Record<string, string[]>, selectedCategoryId: string, searchTerm: string) => {
-  let count = 0;
-  if (selectedCategoryId) count++;
-  Object.values(selectedAttributes).forEach((arr: string[]) => count += arr.length);
-  if (searchTerm) count++;
-  return count;
-};
-
-// Helper function to convert array of objects to CSV string
-function convertToCSV(data: Variant[], headers: Record<keyof Variant | string, string>): string {
-  const headerRow = Object.values(headers).join(",") + "\n";
-  const dataRows = data.map(row => {
-    return (Object.keys(headers) as Array<keyof Variant | string>).map(key => {
-      let cellValue = "";
-      if (key === 'keyAttributes' && Array.isArray(row[key])) {
-        cellValue = `"${(row[key] as string[]).join("; ")}"`; // Join array with semicolon, quote
-      } else if (key in row) {
-        cellValue = String(row[key as keyof Variant] ?? "");
-        if (cellValue.includes(',')) {
-          cellValue = `"${cellValue}"`; // Quote if contains comma
-        }
-      }
-      return cellValue;
-    }).join(",");
-  }).join("\n");
-  return headerRow + dataRows;
-}
-
-export function LibraryClientContent({
-  initialVariants,
-  categories,
-}: LibraryClientContentProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
-  const [selectedAttributes, setSelectedAttributes] = useState<{
-    material: string[];
-    channelWidth: string[];
-    channelDepth: string[];
-    keyAttributes: string[];
-  }>({
-    material: [],
-    channelWidth: [],
-    channelDepth: [],
-    keyAttributes: [],
+export default function LibraryClientContent({ items, searchParams = {} }: LibraryClientContentProps) {
+  const [filters, setFilters] = useState<SearchFilters>({
+    search: (searchParams.search as string) || '',
+    category: (searchParams.category as string) || 'all',
+    chipType: (searchParams.chipType as string) || 'all',
+    material: (searchParams.material as string) || 'all',
   });
-  const [displayedVariants, setDisplayedVariants] = useState<Variant[]>(initialVariants);
-  const [isFilterOpen, setIsFilterOpen] = useState(true);
-  const [sortConfig, setSortConfig] = useState<{
-    key: keyof Variant | "channelWidth" | "channelDepth" | "totalChannelLength" | "price";
-    direction: "asc" | "desc";
-  }>({ key: "name", direction: "asc" });
-  const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
 
-  // Extract unique values for filters
-  const attributeValues = useMemo(() => {
-    const materials = new Set<string>();
-    const channelWidths = new Set<string>();
-    const channelDepths = new Set<string>();
-    const keyAttributes = new Set<string>();
-    initialVariants.forEach((variant) => {
-      if (variant.material) materials.add(variant.material);
-      if (variant.channelWidth) channelWidths.add(variant.channelWidth);
-      if (variant.channelDepth) channelDepths.add(variant.channelDepth);
-      variant.keyAttributes.forEach((attr) => keyAttributes.add(attr));
-    });
-    return {
-      materials: Array.from(materials).sort(),
-      channelWidths: Array.from(channelWidths).sort(),
-      channelDepths: Array.from(channelDepths).sort(),
-      keyAttributes: Array.from(keyAttributes).sort(),
-    };
-  }, [initialVariants]);
+  const [sortBy, setSortBy] = useState<string>((searchParams.sort as string) || 'name');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [currentPage, setCurrentPage] = useState<number>(
+    parseInt((searchParams.page as string) || '1', 10)
+  );
+  const itemsPerPage = 12;
 
-  // Handle attribute filter changes
-  const handleAttributeChange = (
-    attributeType: keyof typeof selectedAttributes,
-    value: string
-  ) => {
-    setSelectedAttributes((prev) => {
-      const isSelected = prev[attributeType].includes(value);
-      if (isSelected) {
-        return {
-          ...prev,
-          [attributeType]: prev[attributeType].filter((item) => item !== value),
-        };
-      } else {
-        return {
-          ...prev,
-          [attributeType]: [...prev[attributeType], value],
-        };
+  // Extract unique values for filter options
+  const filterOptions = useMemo(() => {
+    const categories = [...new Set(items.map(item => item.category).filter(Boolean))];
+    const chipTypes = [...new Set(items.map(item => item.chipType).filter(Boolean))];
+    const materials = [...new Set(items.map(item => item.material).filter(Boolean))];
+    
+    return { categories, chipTypes, materials };
+  }, [items]);
+
+  // Filter and sort items
+  const filteredAndSortedItems = useMemo(() => {
+    let filtered = items.filter(item => {
+      // Search filter
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        const matchesSearch = 
+          item.name.toLowerCase().includes(searchLower) ||
+          (item.title && item.title.toLowerCase().includes(searchLower)) ||
+          (item.chipType && item.chipType.toLowerCase().includes(searchLower)) ||
+          (item.category && item.category.toLowerCase().includes(searchLower));
+        if (!matchesSearch) return false;
       }
-    });
-  };
 
-  // Handle sorting
-  const handleSort = (key: typeof sortConfig.key) => {
-    let direction: "asc" | "desc" = "asc";
-    if (sortConfig.key === key) {
-      direction = sortConfig.direction === "asc" ? "desc" : "asc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  // Apply filters and search
-  useEffect(() => {
-    let filtered = [...initialVariants];
-    // Search
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter((variant) =>
-        variant.name.toLowerCase().includes(searchLower) ||
-        variant.productName.toLowerCase().includes(searchLower) ||
-        variant.sku.toLowerCase().includes(searchLower) ||
-        (variant.material?.toLowerCase().includes(searchLower) ?? false) ||
-        (variant.chipSize?.toLowerCase().includes(searchLower) ?? false) ||
-        (variant.channelWidth?.toLowerCase().includes(searchLower) ?? false) ||
-        (variant.channelDepth?.toLowerCase().includes(searchLower) ?? false) ||
-        (variant.totalChannelLength?.toLowerCase().includes(searchLower) ?? false) ||
-        variant.keyAttributes.some((attr) => attr.toLowerCase().includes(searchLower))
-      );
-    }
-    // Category
-    if (selectedCategoryId) {
-      filtered = filtered.filter((variant) => variant.categoryId === selectedCategoryId);
-    }
-    // Material
-    if (selectedAttributes.material.length > 0) {
-      filtered = filtered.filter(
-        (variant) => variant.material && selectedAttributes.material.includes(variant.material)
-      );
-    }
-    // Channel Width
-    if (selectedAttributes.channelWidth.length > 0) {
-      filtered = filtered.filter(
-        (variant) => variant.channelWidth && selectedAttributes.channelWidth.includes(variant.channelWidth)
-      );
-    }
-    // Channel Depth
-    if (selectedAttributes.channelDepth.length > 0) {
-      filtered = filtered.filter(
-        (variant) => variant.channelDepth && selectedAttributes.channelDepth.includes(variant.channelDepth)
-      );
-    }
-    // Key Attributes
-    if (selectedAttributes.keyAttributes.length > 0) {
-      filtered = filtered.filter((variant) =>
-        selectedAttributes.keyAttributes.every((attr) => variant.keyAttributes.includes(attr))
-      );
-    }
-    // Sorting
-    filtered.sort((a, b) => {
-      let aValue: any = a[sortConfig.key as keyof Variant];
-      let bValue: any = b[sortConfig.key as keyof Variant];
-      if (sortConfig.key === "price") {
-        aValue = Number(aValue);
-        bValue = Number(bValue);
+      // Category filter
+      if (filters.category !== 'all' && item.category !== filters.category) {
+        return false;
       }
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        return sortConfig.direction === "asc"
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
+
+      // Chip type filter
+      if (filters.chipType !== 'all' && item.chipType !== filters.chipType) {
+        return false;
       }
-      return sortConfig.direction === "asc"
-        ? aValue - bValue
-        : bValue - aValue;
+
+      // Material filter
+      if (filters.material !== 'all' && item.material !== filters.material) {
+        return false;
+      }
+
+      return true;
     });
-    setDisplayedVariants(filtered);
-  }, [initialVariants, searchTerm, selectedCategoryId, selectedAttributes, sortConfig]);
 
-  // Calculate current page items and total pages AFTER filtering and sorting
-  const paginatedVariants = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    return displayedVariants.slice(startIndex, endIndex);
-  }, [displayedVariants, currentPage]);
+    // Sort
+    if (sortBy === 'name') {
+      filtered.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'name-desc') {
+      filtered.sort((a, b) => b.name.localeCompare(a.name));
+    }
 
-  const totalPages = useMemo(() => {
-    return Math.ceil(displayedVariants.length / ITEMS_PER_PAGE);
-  }, [displayedVariants]);
+    return filtered;
+  }, [items, filters, sortBy]);
 
-  // Calculate stats for the current view
-  const stats = useMemo(() => {
-    const totalCount = initialVariants.length;
-    const filteredCount = displayedVariants.length;
-    const priceRange = filteredCount > 0
-      ? {
-          min: Math.min(...displayedVariants.map((v) => v.price)),
-          max: Math.max(...displayedVariants.map((v) => v.price)),
-        }
-      : { min: 0, max: 0 };
-    return { totalCount, filteredCount, priceRange };
-  }, [initialVariants, displayedVariants]);
+  // Pagination
+  const totalPages = Math.ceil(filteredAndSortedItems.length / itemsPerPage);
+  const paginatedItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredAndSortedItems.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredAndSortedItems, currentPage, itemsPerPage]);
 
-  // Table icons for parameters
-  const paramIcon = {
-    material: <FlaskConical className="inline h-4 w-4 text-muted-foreground mr-1" />,
-    chipSize: <Ruler className="inline h-4 w-4 text-muted-foreground mr-1" />,
-    channelWidth: <ArrowLeftRight className="inline h-4 w-4 text-muted-foreground mr-1" />,
-    channelDepth: <ArrowUpDown className="inline h-4 w-4 text-muted-foreground mr-1" />,
-    totalChannelLength: <Ruler className="inline h-4 w-4 text-muted-foreground mr-1" />,
-    maxPressure: <Thermometer className="inline h-4 w-4 text-muted-foreground mr-1" />,
-  };
+  // Update filters
+  const updateFilter = useCallback((key: keyof SearchFilters, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1); // Reset to first page when filters change
+  }, []);
 
-  // Local event handler for Add to Quote
-  const handleAddToQuote = (variantId: string) => {
-    // TODO: Implement quote logic (e.g., show toast, add to state, etc.)
-    // For now, just log
-    console.log('Add to Quote:', variantId);
-  };
+  // Handle search input
+  const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    updateFilter('search', event.target.value);
+  }, [updateFilter]);
 
-  const handleExportCSV = () => {
-    const csvHeaders = {
-      name: "Variant Name",
-      productName: "Product",
-      categoryName: "Category",
-      material: "Material",
-      chipSize: "Chip Size",
-      channelWidth: "Channel Width",
-      channelDepth: "Channel Depth",
-      totalChannelLength: "Total Channel Length",
-      maxPressure: "Max Pressure",
-      keyAttributes: "Key Attributes", // Will be joined array
-      price: "Price (€)",
-      sku: "SKU",
-    };
-    const csvData = convertToCSV(displayedVariants, csvHeaders);
-    const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "microfluidic_components.csv");
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+  // Handle sort change
+  const handleSortChange = useCallback((value: string) => {
+    setSortBy(value);
+  }, []);
 
-  const activeFilterCount = countActiveFilters(selectedAttributes, selectedCategoryId, searchTerm);
+  // Reset filters
+  const resetFilters = useCallback(() => {
+    setFilters({
+      search: '',
+      category: 'all',
+      chipType: 'all',
+      material: 'all',
+    });
+    setCurrentPage(1);
+  }, []);
 
   return (
-    <div className="flex flex-col space-y-6">
-      {/* Header Area */}
-      <div className="flex flex-col gap-4">
-        {/* Search Bar Row - Centered with reduced max-width */}
-        <div className="w-full">
-          <div className="relative w-full max-w-xs mx-auto"> {/* Centered and max-w-xs */}
-            <Input
-              placeholder="Search by name, SKU, or attributes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          </div>
+    <div className="space-y-6">
+      {/* Search and Filters */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        {/* Search */}
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Search components..."
+            value={filters.search}
+            onChange={handleSearchChange}
+            className="pl-10"
+          />
         </div>
 
-        {/* Stats and Actions Row */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Stats Badges (Left Aligned) */}
-          <div className="flex items-center gap-2 md:gap-4">
-            <Badge variant="outline" className="px-3 py-1">
-              {stats.filteredCount} of {stats.totalCount} items
-            </Badge>
-            {stats.filteredCount > 0 && (
-              <Badge variant="secondary" className="px-3 py-1">
-                Price: €{stats.priceRange.min.toFixed(2)} - €{stats.priceRange.max.toFixed(2)}
-              </Badge>
-            )}
-          </div>
-          
-          {/* Action Buttons (Right Aligned) */}
-          <div className="flex items-center gap-2 md:gap-4">
+        {/* Filters */}
+        <div className="flex flex-wrap gap-2">
+          <Select value={filters.category} onValueChange={(value) => updateFilter('category', value)}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {filterOptions.categories.map(category => (
+                <SelectItem key={category} value={category || ''}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filters.chipType} onValueChange={(value) => updateFilter('chipType', value)}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Chip Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {filterOptions.chipTypes.map(chipType => (
+                <SelectItem key={chipType} value={chipType || ''}>
+                  {chipType}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filters.material} onValueChange={(value) => updateFilter('material', value)}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Material" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Materials</SelectItem>
+              {filterOptions.materials.map(material => material ? (
+                <SelectItem key={material} value={material}>
+                  {material}
+                </SelectItem>
+              ) : null)}
+            </SelectContent>
+          </Select>
+
+          <Button variant="outline" onClick={resetFilters}>
+            <Filter className="h-4 w-4 mr-2" />
+            Reset
+          </Button>
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-muted-foreground">
+          Showing {paginatedItems.length} of {filteredAndSortedItems.length} components
+        </div>
+        
+        <div className="flex items-center gap-4">
+          {/* Sort */}
+          <Select value={sortBy} onValueChange={handleSortChange}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name (A-Z)</SelectItem>
+              <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* View Mode */}
+          <div className="flex border rounded-lg">
             <Button
-              variant="outline"
+              variant={viewMode === 'grid' ? 'default' : 'ghost'}
               size="sm"
-              onClick={handleExportCSV}
-              className="hidden md:flex"
+              onClick={() => setViewMode('grid')}
+              className="rounded-r-none"
             >
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
+              <Grid className="h-4 w-4" />
             </Button>
             <Button
-              variant="outline"
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
               size="sm"
-              onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className="hidden md:flex"
+              onClick={() => setViewMode('list')}
+              className="rounded-l-none"
             >
-              <Filter className="mr-2 h-4 w-4" />
-              {isFilterOpen ? "Hide Filters" : "Show Filters"}
+              <List className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Grid for Sidebar and Table - Changed to 5 columns */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-        {isFilterOpen && (
-          <Collapsible
-            open={isFilterOpen}
-            onOpenChange={setIsFilterOpen}
-            className="md:col-span-1" // Filter takes 1/5th of the width
-          >
-            <CollapsibleTrigger asChild className="md:hidden w-full mb-4">
-              <Button variant="outline" className="flex justify-between w-full">
-                <div className="flex items-center">
-                  <Filter className="mr-2 h-4 w-4" />
-                  Filters
+      {/* Results */}
+      {paginatedItems.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">No components found matching your criteria.</p>
+          <Button variant="outline" onClick={resetFilters} className="mt-4">
+            Clear Filters
+          </Button>
+        </div>
+      ) : (
+        <div className={`grid gap-6 ${
+          viewMode === 'grid' 
+            ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
+            : 'grid-cols-1'
+        }`}>
+          {paginatedItems.map(item => (
+            <Card key={item.id} className="p-4 hover:shadow-md transition-shadow">
+              <div className="space-y-3">
+                <div className="flex justify-between items-start">
+                  <h3 className="font-medium text-sm">{item.name}</h3>
                 </div>
-                {isFilterOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="sticky top-4 data-[state=closed]:hidden md:data-[state=closed]:block">
-              <Card className="border rounded-lg shadow-sm bg-slate-100 dark:bg-slate-900">
-                <div className="p-3 border-b flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-5 w-5" />
-                    <h2 className="font-semibold text-base">Filters</h2>
-                  </div>
-                  {activeFilterCount > 0 && (
-                    <Badge variant="secondary" className="text-xs h-5 flex items-center">{activeFilterCount}</Badge>
+                
+                {item.title && (
+                  <p className="text-xs text-muted-foreground">{item.title}</p>
+                )}
+                
+                <div className="flex flex-wrap gap-1">
+                  {item.chipType && (
+                    <Badge variant="outline" className="text-xs">
+                      {item.chipType}
+                    </Badge>
+                  )}
+                  {item.material && (
+                    <Badge variant="outline" className="text-xs">
+                      {item.material}
+                    </Badge>
                   )}
                 </div>
-                <Accordion type="multiple" className="px-1 py-0">
-                  <AccordionItem value="category" className="border-b">
-                    <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
-                      Category
-                    </AccordionTrigger>
-                    <AccordionContent className="px-1 pb-2">
-                      <div className="space-y-1">
-                        <Select
-                          value={selectedCategoryId || "all"}
-                          onValueChange={val => setSelectedCategoryId(val === "all" ? "" : val)}
-                        >
-                          <SelectTrigger id="category">
-                            <SelectValue placeholder="All Categories" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Categories</SelectItem>
-                            {categories.map((category) => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="material" className="border-b">
-                    <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
-                      Material
-                    </AccordionTrigger>
-                    <AccordionContent className="px-1 pb-2">
-                      <div className="space-y-1">
-                        {attributeValues.materials.map((material) => (
-                          <div key={material} className="flex items-center gap-1">
-                            <Checkbox
-                              id={`material-${material}`}
-                              checked={selectedAttributes.material.includes(material)}
-                              onCheckedChange={() => handleAttributeChange("material", material)}
-                            />
-                            <Label
-                              htmlFor={`material-${material}`}
-                              className="text-xs cursor-pointer"
-                            >
-                              {material}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="channelWidth" className="border-b">
-                    <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
-                      Channel Width
-                    </AccordionTrigger>
-                    <AccordionContent className="px-1 pb-2">
-                      <div className="space-y-1">
-                        {attributeValues.channelWidths.map((width) => (
-                          <div key={width} className="flex items-center gap-1">
-                            <Checkbox
-                              id={`width-${width}`}
-                              checked={selectedAttributes.channelWidth.includes(width)}
-                              onCheckedChange={() => handleAttributeChange("channelWidth", width)}
-                            />
-                            <Label
-                              htmlFor={`width-${width}`}
-                              className="text-xs cursor-pointer"
-                            >
-                              {width}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="channelDepth" className="border-b">
-                    <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
-                      Channel Depth
-                    </AccordionTrigger>
-                    <AccordionContent className="px-1 pb-2">
-                      <div className="space-y-1">
-                        {attributeValues.channelDepths.map((depth) => (
-                          <div key={depth} className="flex items-center gap-1">
-                            <Checkbox
-                              id={`depth-${depth}`}
-                              checked={selectedAttributes.channelDepth.includes(depth)}
-                              onCheckedChange={() => handleAttributeChange("channelDepth", depth)}
-                            />
-                            <Label
-                              htmlFor={`depth-${depth}`}
-                              className="text-xs cursor-pointer"
-                            >
-                              {depth}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="keyAttributes" className="border-b-0">
-                    <AccordionTrigger className="py-2 px-1 text-sm hover:no-underline">
-                      Key Attributes
-                    </AccordionTrigger>
-                    <AccordionContent className="px-1 pb-2">
-                      <div className="space-y-1">
-                        {attributeValues.keyAttributes.map((attr) => (
-                          <div key={attr} className="flex items-center gap-1">
-                            <Checkbox
-                              id={`keyattr-${attr}`}
-                              checked={selectedAttributes.keyAttributes.includes(attr)}
-                              onCheckedChange={() => handleAttributeChange("keyAttributes", attr)}
-                            />
-                            <Label
-                              htmlFor={`keyattr-${attr}`}
-                              className="text-xs cursor-pointer"
-                            >
-                              {attr}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-                <div className="p-3 border-t">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      setSearchTerm("");
-                      setSelectedCategoryId("");
-                      setSelectedAttributes({
-                        material: [],
-                        channelWidth: [],
-                        channelDepth: [],
-                        keyAttributes: [],
-                      });
-                      setSortConfig({ key: "name", direction: "asc" });
-                    }}
-                  >
-                    Reset Filters
-                  </Button>
-                </div>
-              </Card>
-            </CollapsibleContent>
-          </Collapsible>
-        )}
-
-        {/* Products table container - dynamic column span adjusted for 5-col grid */}
-        <div className={cn(
-          "transition-all duration-300 ease-in-out",
-          isFilterOpen ? "md:col-span-4" : "md:col-span-5" // Table takes 4/5ths or 5/5ths
-        )}>
-          <div className="rounded-md border bg-background">
-            <div className="p-4 border-b flex flex-col gap-2">
-              <div className="flex items-center gap-2 mb-1">
-                <Info className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-medium">Key Attributes Legend</h3>
+                
+                <Button size="sm" className="w-full">
+                  Add to Design
+                </Button>
               </div>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {Object.entries(KEY_ATTRIBUTE_META).map(([attribute, meta]) => (
-                  <TooltipProvider key={attribute}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge
-                          variant="outline"
-                          className={`${meta.color} cursor-help text-xs`}
-                        >
-                          {meta.icon}{attribute}
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs">{meta.tooltip}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ))}
-              </div>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[220px] cursor-pointer" onClick={() => handleSort("name")}>Name {sortConfig.key === "name" && (sortConfig.direction === "asc" ? <ArrowUp className="inline h-3 w-3 ml-1" /> : <ArrowDown className="inline h-3 w-3 ml-1" />)}</TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("productName")}>Product {sortConfig.key === "productName" && (sortConfig.direction === "asc" ? <ArrowUp className="inline h-3 w-3 ml-1" /> : <ArrowDown className="inline h-3 w-3 ml-1" />)}</TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("categoryName")}>Category {sortConfig.key === "categoryName" && (sortConfig.direction === "asc" ? <ArrowUp className="inline h-3 w-3 ml-1" /> : <ArrowDown className="inline h-3 w-3 ml-1" />)}</TableHead>
-                  <TableHead>Parameters</TableHead>
-                  <TableHead>Key Attributes</TableHead>
-                  <TableHead className="text-right cursor-pointer" onClick={() => handleSort("price")}>Price {sortConfig.key === "price" && (sortConfig.direction === "asc" ? <ArrowUp className="inline h-3 w-3 ml-1" /> : <ArrowDown className="inline h-3 w-3 ml-1" />)}</TableHead>
-                  <TableHead className="font-mono text-xs">SKU</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedVariants.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center">
-                      No results found. Try adjusting your filters.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedVariants.map((variant) => (
-                    <TableRow key={variant.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex flex-col">
-                          {variant.name}
-                          <span className="text-xs text-muted-foreground mt-1">
-                            {variant.material && <span>{paramIcon.material}{variant.material}</span>}
-                            {variant.chipSize && <span className="ml-2">{paramIcon.chipSize}{variant.chipSize}</span>}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{variant.productName}</TableCell>
-                      <TableCell><Badge variant="outline">{variant.categoryName}</Badge></TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1 text-xs">
-                          {variant.channelWidth && <span>{paramIcon.channelWidth}Width: {variant.channelWidth}</span>}
-                          {variant.channelDepth && <span>{paramIcon.channelDepth}Depth: {variant.channelDepth}</span>}
-                          {variant.totalChannelLength && <span>{paramIcon.totalChannelLength}Length: {variant.totalChannelLength}</span>}
-                          {variant.maxPressure && <span>{paramIcon.maxPressure}Pressure: {variant.maxPressure}</span>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {variant.keyAttributes.map((attr) => (
-                            <TooltipProvider key={attr}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge variant="outline" className={`${KEY_ATTRIBUTE_META[attr]?.color ?? ""} text-xs cursor-help`}>
-                                    {KEY_ATTRIBUTE_META[attr]?.icon}{attr}
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p className="text-xs">{KEY_ATTRIBUTE_META[attr]?.tooltip}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        €{variant.price.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{variant.sku}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <ShoppingCart className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Add to Cart</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={() => handleAddToQuote(variant.id)}>
-                                  <Plus className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Add to Quote</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <Layers className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Add to Canvas</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Link href={`/products/${variant.productSlug}`} aria-label="View Details">
-                                  <Button variant="ghost" size="icon">
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                </Link>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>View Details</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-            {totalPages > 1 && (
-              <div className="py-4 border-t">
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        className={currentPage === 1 ? "pointer-events-none opacity-50" : undefined}
-                        aria-disabled={currentPage === 1}
-                      />
-                    </PaginationItem>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    ))}
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        className={currentPage === totalPages ? "pointer-events-none opacity-50" : undefined}
-                        aria-disabled={currentPage === totalPages}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </div>
-            )}
-          </div>
+            </Card>
+          ))}
         </div>
-      </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious 
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                aria-disabled={currentPage === 1}
+              />
+            </PaginationItem>
+            
+            {[...Array(totalPages)].map((_, i) => (
+              <PaginationItem key={i + 1}>
+                <PaginationLink
+                  onClick={() => setCurrentPage(i + 1)}
+                  isActive={currentPage === i + 1}
+                >
+                  {i + 1}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            
+            <PaginationItem>
+              <PaginationNext
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                aria-disabled={currentPage === totalPages}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
     </div>
   );
-}
-
-export default LibraryClientContent;
+} 

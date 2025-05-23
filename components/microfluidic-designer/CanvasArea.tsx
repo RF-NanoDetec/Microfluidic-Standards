@@ -17,6 +17,10 @@ import KonvaCanvasItem from './canvas/KonvaCanvasItem';
 import { 
   CHANNEL_FILL_COLOR, 
   CHANNEL_OUTLINE_COLOR,
+  CHANNEL_OUTLINE_WIDTH,
+  CHANNEL_FILL_WIDTH,
+  CHANNEL_CAP,
+  CHANNEL_JOIN,
   M3S_TO_ULMIN,
   PASCAL_TO_MBAR,
   M3S_TO_NLMIN
@@ -243,6 +247,7 @@ export default function CanvasArea({
   maxPressurePa,
 }: CanvasAreaProps) {
   const [isMounted, setIsMounted] = useState(false);
+  const [currentPixelRatio, setCurrentPixelRatio] = useState(1); // New state for pixelRatio
   const [stageDimensions, setStageDimensions] = useState({ width: 100, height: 100 });
   const containerRef = useRef<HTMLDivElement>(null);
   const stageContainerRef = useRef<HTMLDivElement>(null);
@@ -250,10 +255,11 @@ export default function CanvasArea({
   const [hoveredPressureNode, setHoveredPressureNode] = useState<null | { nodeId: string; x: number; y: number; content: string }>(null);
   const [tooltip, setTooltip] = useState<{ visible: boolean, x: number, y: number, content: string } | null>(null);
   const [snappedPortTarget, setSnappedPortTarget] = useState<null | { item: CanvasItemData; port: Port }>(null);
+  const activeTweensRef = useRef(new Map<string, Konva.Tween>()); // Ref to store active tweens
 
   const minMaxFlowValues = useMemo(() => {
     let minValue = Infinity;
-    let maxValue = 0;
+    let maxValue = 0; // Initialize maxValue to 0 as we are using Math.abs
     const allValues: number[] = [];
 
     if (!simulationResults || !simulationResults.segmentFlows) {
@@ -332,18 +338,35 @@ export default function CanvasArea({
 
     if (allValues.length > 0) {
       allValues.forEach(v => {
-        const nearZeroThreshold = flowDisplayMode === 'velocity' ? 1e-9 : 1e-13;
-        if (v > nearZeroThreshold) { 
-             minValue = Math.min(minValue, v);
+        // const nearZeroThreshold = flowDisplayMode === 'velocity' ? 1e-9 : 1e-13; // Threshold no longer needed here for min value
+        // if (v > nearZeroThreshold) { 
+        //      minValue = Math.min(minValue, v);
+        // }
+        // maxValue = Math.max(maxValue, v);
+        if (isFinite(v)) { // Ensure value is a valid number
+          minValue = Math.min(minValue, v);
+          maxValue = Math.max(maxValue, v);
         }
-        maxValue = Math.max(maxValue, v);
       });
-      if (minValue === Infinity) minValue = 0;
+      if (minValue === Infinity) { // If no valid flow values were found
+        minValue = 0;
+      }
     } else {
       minValue = 0;
+      // maxValue remains 0, which is correct if allValues is empty
     }
     
-    if (minValue > maxValue) minValue = maxValue;
+    // This check might still be useful if, for some reason (e.g. all flows are exactly 0),
+    // minValue becomes 0 and maxValue becomes 0, but due to prior logic minValue could have ended up > maxValue
+    // However, with the current Math.abs and initialization, this should be less likely.
+    // For safety, we can keep it, or refine it if it causes issues with truly zero-flow states.
+    if (minValue > maxValue) {
+        // This case should ideally not happen if all values are positive and maxValue starts at 0.
+        // If it does, it might indicate an issue with how values are pushed or an edge case.
+        // For now, setting minValue = maxValue is a safe fallback.
+        console.warn(`[CanvasArea] minMaxFlowValues: minValue (${minValue}) was greater than maxValue (${maxValue}). Setting minValue = maxValue.`);
+        minValue = maxValue;
+    }
 
     const unit = flowDisplayMode === 'velocity' ? 'm/s' : 'm³/s';
     console.log(`[CanvasArea] Calculated Min/Max Flow Values (${flowDisplayMode}): Min=${minValue.toExponential(3)} ${unit}, Max=${maxValue.toExponential(3)} ${unit}`);
@@ -355,6 +378,7 @@ export default function CanvasArea({
 
   useEffect(() => {
     setIsMounted(true);
+    setCurrentPixelRatio(window.devicePixelRatio || 1); // Set pixelRatio here
     
     const resizeObserver = new ResizeObserver(entries => {
       const entry = entries[0];
@@ -577,57 +601,80 @@ export default function CanvasArea({
     if (inspectionMode !== 'flow') return [];
     const flowElements: React.ReactNode[] = [];
     if (!simulationResults || !simulationResults.segmentFlows) return flowElements;
-    
-    let minVal = Infinity;
-    let maxVal = 0;
 
+    const overlapAmount = 1.0; // Small overlap in pixels for the fill to cover seams
+    
     droppedItems.forEach(item => {
       if ((item.chipType === 'straight' || item.chipType === 'meander') && item.ports.length === 2) {
         const port1 = item.ports[0];
         const port2 = item.ports[1];
-        const port1Pos = { x: item.x + port1.x, y: item.y + port1.y };
-        const port2Pos = { x: item.x + port2.x, y: item.y + port2.y };
+        let p1_original = { x: item.x + port1.x, y: item.y + port1.y }; // Original port position
+        let p2_original = { x: item.x + port2.x, y: item.y + port2.y }; // Original port position
         
         const segmentIdKey = [port1.id, port2.id].sort().join('--');
-        
         const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
+
         if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
+          const vecX = p2_original.x - p1_original.x;
+          const vecY = p2_original.y - p1_original.y;
+          const len = Math.sqrt(vecX * vecX + vecY * vecY);
+          let p1_for_fill = { ...p1_original };
+          let p2_for_fill = { ...p2_original };
+
+          if (len > 0) {
+            const normVecX = vecX / len;
+            const normVecY = vecY / len;
+            // Extended coordinates for FILL line only
+            p1_for_fill = { x: p1_original.x - normVecX * overlapAmount, y: p1_original.y - normVecY * overlapAmount };
+            p2_for_fill = { x: p2_original.x + normVecX * overlapAmount, y: p2_original.y + normVecY * overlapAmount };
+          }
+
           let displayValue: number | undefined = undefined;
-          
-          if (inspectionMode === 'flow' && flowDisplayMode === 'velocity') {
+          if (flowDisplayMode === 'velocity') {
             if (item.currentChannelWidthMicrons > 0 && item.currentChannelDepthMicrons > 0) {
               const widthM = item.currentChannelWidthMicrons * 1e-6;
               const heightM = item.currentChannelDepthMicrons * 1e-6;
               const areaM2 = widthM * heightM;
               displayValue = flowRateM3s / areaM2;
             }
-          } else if (inspectionMode === 'flow' && flowDisplayMode === 'rate') {
+          } else if (flowDisplayMode === 'rate') {
             displayValue = flowRateM3s;
           }
           
-          const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, inspectionMode === 'flow' ? 'velocity' : 'rate');
-
+          const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
           const tooltipText = displayValue !== undefined 
             ? (flowDisplayMode === 'velocity' 
-                ? `Velocity: ${formatFlowVelocityForDisplay(displayValue)}` 
-                : `Flow Rate: ${formatFlowRateForDisplay(flowRateM3s)}`)
+                ? formatFlowVelocityForDisplay(displayValue)
+                : formatFlowRateForDisplay(flowRateM3s))
             : 'No flow data';
 
+          // Outline uses ORIGINAL points
           flowElements.push(
             <Line
-              key={`${item.id}-internal-flow`}
-              points={[port1Pos.x, port1Pos.y, port2Pos.x, port2Pos.y]}
-              stroke={color}
-              strokeWidth={CONNECTION_FILL_WIDTH}
-              lineCap="round"
-              lineJoin="round"
+              key={`${item.id}-internal-flow-outline`}
+              points={[p1_original.x, p1_original.y, p2_original.x, p2_original.y]}
+              stroke={CHANNEL_OUTLINE_COLOR}
+              strokeWidth={CHANNEL_OUTLINE_WIDTH}
+              lineCap={CHANNEL_CAP as any}
+              lineJoin={CHANNEL_JOIN as any}
               listening={false}
             />,
+            // Fill uses EXTENDED points for overlap
+            <Line
+              key={`${item.id}-internal-flow-fill`}
+              points={[p1_for_fill.x, p1_for_fill.y, p2_for_fill.x, p2_for_fill.y]}
+              stroke={color}
+              strokeWidth={CHANNEL_FILL_WIDTH}
+              lineCap={CHANNEL_CAP as any}
+              lineJoin={CHANNEL_JOIN as any}
+              listening={false}
+            />,
+            // Hover line uses ORIGINAL points for accurate tooltip trigger
             <Line
               key={`${item.id}-internal-hover`}
-              points={[port1Pos.x, port1Pos.y, port2Pos.x, port2Pos.y]}
-              stroke="transparent"
-              strokeWidth={10}
+              points={[p1_original.x, p1_original.y, p2_original.x, p2_original.y]}
+              stroke={"transparent"}
+              strokeWidth={Math.max(10, CHANNEL_OUTLINE_WIDTH)}
               listening={true}
               onMouseEnter={e => {
                 const pos = getRelativeMousePos(e);
@@ -643,65 +690,86 @@ export default function CanvasArea({
         }
       } else if (item.chipType === 't-type' || item.chipType === 'x-type') {
         const centralJunctionNodeId = `${item.id}_internal_junction`;
+        const approxJunctionCenterX = item.x + item.width / 2;
+        const approxJunctionCenterY = item.y + item.height / 2;
 
         item.ports.forEach(port => {
-          const portNodeId = port.id;
-          const segmentIdKey = [portNodeId, centralJunctionNodeId].sort().join('--');
+          let pAbs_original = { x: item.x + port.x, y: item.y + port.y }; // Original port position
+          const segmentIdKey = [port.id, centralJunctionNodeId].sort().join('--');
           const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
           
-          let displayValue: number | undefined = undefined;
           if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
-            if (inspectionMode === 'flow' && flowDisplayMode === 'velocity') {
-              const widthM = (item.currentJunctionWidthMicrons || item.currentChannelWidthMicrons) * 1e-6;
-              const heightM = (item.currentJunctionDepthMicrons || item.currentChannelDepthMicrons) * 1e-6;
+            const vecX = approxJunctionCenterX - pAbs_original.x;
+            const vecY = approxJunctionCenterY - pAbs_original.y;
+            const len = Math.sqrt(vecX * vecX + vecY * vecY);
+            let pAbs_for_fill = { ...pAbs_original };
+
+            if (len > 0) {
+              const normVecX = vecX / len;
+              const normVecY = vecY / len;
+              // Extended coordinate for FILL line's port end only
+              pAbs_for_fill = { x: pAbs_original.x - normVecX * overlapAmount, y: pAbs_original.y - normVecY * overlapAmount };
+            }
+            
+            let displayValue: number | undefined = undefined;
+            if (flowDisplayMode === 'velocity') {
+              const widthM = (item.currentJunctionWidthMicrons || item.currentChannelWidthMicrons || item.width) * 1e-6;
+              const heightM = (item.currentJunctionDepthMicrons || item.currentChannelDepthMicrons || item.height) * 1e-6;
               if (widthM > 0 && heightM > 0) {
                  const areaM2 = widthM * heightM;
                  displayValue = flowRateM3s / areaM2;
               }
-            } else if (inspectionMode === 'flow' && flowDisplayMode === 'rate') {
+            } else if (flowDisplayMode === 'rate') {
               displayValue = flowRateM3s;
             }
+
+            const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
+            const tooltipText = displayValue !== undefined 
+              ? (flowDisplayMode === 'velocity' 
+                  ? formatFlowVelocityForDisplay(displayValue)
+                  : formatFlowRateForDisplay(flowRateM3s))
+              : 'No flow data';
+
+            // Outline uses ORIGINAL port position
+            flowElements.push(
+              <Line
+                key={`${item.id}-${port.id}-internal-flow-outline`}
+                points={[pAbs_original.x, pAbs_original.y, approxJunctionCenterX, approxJunctionCenterY]}
+                stroke={CHANNEL_OUTLINE_COLOR}
+                strokeWidth={CHANNEL_OUTLINE_WIDTH}
+                lineCap={CHANNEL_CAP as any}
+                lineJoin={CHANNEL_JOIN as any}
+                listening={false}
+              />,
+              // Fill uses EXTENDED port position for overlap
+              <Line
+                key={`${item.id}-${port.id}-internal-flow-fill`}
+                points={[pAbs_for_fill.x, pAbs_for_fill.y, approxJunctionCenterX, approxJunctionCenterY]}
+                stroke={color}
+                strokeWidth={CHANNEL_FILL_WIDTH}
+                lineCap={CHANNEL_CAP as any}
+                lineJoin={CHANNEL_JOIN as any}
+                listening={false}
+              />,
+              // Hover line uses ORIGINAL port position
+              <Line
+                key={`${item.id}-${port.id}-internal-hover`}
+                points={[pAbs_original.x, pAbs_original.y, approxJunctionCenterX, approxJunctionCenterY]}
+                stroke={"transparent"}
+                strokeWidth={Math.max(10, CHANNEL_OUTLINE_WIDTH)}
+                listening={true}
+                onMouseEnter={e => {
+                  const pos = getRelativeMousePos(e);
+                  setTooltip({ visible: true, x: pos.x, y: pos.y, content: tooltipText });
+                }}
+                onMouseMove={e => {
+                  const pos = getRelativeMousePos(e);
+                  setTooltip(t => t ? { ...t, x: pos.x, y: pos.y } : null);
+                }}
+                onMouseLeave={() => setTooltip(null)}
+              />
+            );
           }
-
-          const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, inspectionMode === 'flow' ? 'velocity' : 'rate');
-          
-          const tooltipText = displayValue !== undefined 
-            ? (flowDisplayMode === 'velocity' 
-                ? `Velocity: ${formatFlowVelocityForDisplay(displayValue)}` 
-                : `Flow Rate: ${formatFlowRateForDisplay(flowRateM3s)}`)
-            : 'No flow data';
-
-          const portAbsPos = { x: item.x + port.x, y: item.y + port.y };
-          const approxJunctionCenterX = item.x + item.width / 2;
-          const approxJunctionCenterY = item.y + item.height / 2;
-
-          flowElements.push(
-            <Line
-              key={`${item.id}-${port.id}-internal-flow`}
-              points={[portAbsPos.x, portAbsPos.y, approxJunctionCenterX, approxJunctionCenterY]}
-              stroke={color}
-              strokeWidth={CONNECTION_FILL_WIDTH}
-              lineCap="round"
-              lineJoin="round"
-              listening={false}
-            />,
-            <Line
-              key={`${item.id}-${port.id}-internal-hover`}
-              points={[portAbsPos.x, portAbsPos.y, approxJunctionCenterX, approxJunctionCenterY]}
-              stroke="transparent"
-              strokeWidth={10}
-              listening={true}
-              onMouseEnter={e => {
-                const pos = getRelativeMousePos(e);
-                setTooltip({ visible: true, x: pos.x, y: pos.y, content: tooltipText });
-              }}
-              onMouseMove={e => {
-                const pos = getRelativeMousePos(e);
-                setTooltip(t => t ? { ...t, x: pos.x, y: pos.y } : null);
-              }}
-              onMouseLeave={() => setTooltip(null)}
-            />
-          );
         });
       }
     });
@@ -715,59 +783,6 @@ export default function CanvasArea({
     if (mode === 'flow') {
       const internalSegmentVisuals = renderInternalSegmentFlows();
       flowVisuals.push(...internalSegmentVisuals);
-
-      if (simulationResults && simulationResults.segmentFlows) {
-        connections.forEach(conn => {
-          const getBasePortId = (fullPortId: string, itemId: string): string => {
-            const prefix = itemId + '_';
-            if (fullPortId.startsWith(prefix)) {
-              return fullPortId.substring(prefix.length);
-            }
-            console.warn(`[getBasePortId] Port ID ${fullPortId} for item ${itemId} did not have expected prefix.`);
-            return fullPortId;
-          };
-          const port1BaseId = getBasePortId(conn.fromPortId, conn.fromItemId);
-          const port2BaseId = getBasePortId(conn.toPortId, conn.toItemId);
-
-          const node1Id = `${conn.fromItemId}_${port1BaseId}`;
-          const node2Id = `${conn.toItemId}_${port2BaseId}`;
-          const segmentIdKey = [node1Id, node2Id].sort().join('--');
-          const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
-          let displayValueForTube: number | undefined = undefined;
-          let tooltipText = 'No flow data';
-          if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
-            if (flowDisplayMode === 'velocity') {
-              const tubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === conn.tubingTypeId);
-              if (tubingType && tubingType.innerRadiusMeters > 0) {
-                const areaM2 = Math.PI * Math.pow(tubingType.innerRadiusMeters, 2);
-                displayValueForTube = flowRateM3s / areaM2;
-                tooltipText = `Velocity: ${formatFlowVelocityForDisplay(displayValueForTube)}`;
-              }
-            } else {
-              displayValueForTube = flowRateM3s;
-              tooltipText = `Flow Rate: ${formatFlowRateForDisplay(flowRateM3s)}`;
-            }
-          }
-          flowVisuals.push(
-            <Path
-              key={`${conn.id}-flow-overlay`}
-              data={conn.pathData}
-              stroke={'transparent'}
-              strokeWidth={10}
-              listening={true}
-              onMouseEnter={e => {
-                const pos = getRelativeMousePos(e);
-                setTooltip({ visible: true, x: pos.x, y: pos.y, content: tooltipText });
-              }}
-              onMouseMove={e => {
-                const pos = getRelativeMousePos(e);
-                setTooltip(t => t ? { ...t, x: pos.x, y: pos.y } : null);
-              }}
-              onMouseLeave={() => setTooltip(null)}
-            />
-          );
-        });
-      }
     }
 
     if (mode === 'pressure' && simulationResults && simulationResults.nodePressures) {
@@ -776,6 +791,70 @@ export default function CanvasArea({
       for (const nodeId in simulationResults.nodePressures) {
         const pressurePa = simulationResults.nodePressures[nodeId];
         if (pressurePa === undefined || !isFinite(pressurePa)) continue;
+
+        // Common event handler logic for pressure nodes
+        const handlePressureNodeMouseEnter = (e: Konva.KonvaEventObject<MouseEvent>, currentPressurePa: number, id: string) => {
+          const group = e.currentTarget as Konva.Group; // Cast to Group
+          const konvaNode = group.findOne('.pressureCircle'); // Use selector
+          if (!konvaNode) return;
+
+          // Stop and remove any existing tween for this node
+          if (activeTweensRef.current.has(id)) {
+            activeTweensRef.current.get(id)?.destroy();
+          }
+
+          const tween = new Konva.Tween({
+            node: konvaNode,
+            duration: 0.15, // Fast animation
+            scaleX: 1.15,
+            scaleY: 1.15,
+            shadowBlur: 12,
+            shadowOpacity: 0.6,
+            easing: Konva.Easings.EaseInOut,
+          });
+          activeTweensRef.current.set(id, tween);
+          tween.play();
+
+          const pos = getRelativeMousePos(e);
+          const pressureMbar = currentPressurePa * PASCAL_TO_MBAR;
+          let displayPressure;
+          if (Math.abs(pressureMbar) >= 1000) {
+            displayPressure = (pressureMbar * MBAR_TO_BAR).toFixed(2) + ' bar';
+          } else {
+            displayPressure = pressureMbar.toFixed(2) + ' mbar';
+          }
+          setHoveredPressureNode({
+            nodeId: id,
+            x: pos.x,
+            y: pos.y,
+            content: `${displayPressure}`
+          });
+        };
+
+        const handlePressureNodeMouseLeave = (e: Konva.KonvaEventObject<MouseEvent>, id: string) => {
+          const group = e.currentTarget as Konva.Group; // Cast to Group
+          const konvaNode = group.findOne('.pressureCircle'); // Use selector
+          if (!konvaNode) return;
+
+          // Stop and remove any existing tween for this node
+          if (activeTweensRef.current.has(id)) {
+            activeTweensRef.current.get(id)?.destroy();
+          }
+
+          const tween = new Konva.Tween({
+            node: konvaNode,
+            duration: 0.15,
+            scaleX: 1,
+            scaleY: 1,
+            shadowBlur: 8,
+            shadowOpacity: 0.4,
+            easing: Konva.Easings.EaseInOut,
+          });
+          activeTweensRef.current.set(id, tween);
+          tween.play();
+          
+          setHoveredPressureNode(null);
+        };
 
         console.log(`[CanvasArea] Processing node ${nodeId} with pressure ${pressurePa} Pa`);
 
@@ -796,39 +875,20 @@ export default function CanvasArea({
                 role="button"
                 aria-label={`Pressure node: ${(pressurePa * PASCAL_TO_MBAR).toFixed(1)} mbar`}
                 className="cursor-pointer focus:outline-none"
-                onMouseEnter={e => {
-                  const stage = e.target.getStage();
-                  if (stage) {
-                    const pointerPos = stage.getPointerPosition();
-                    if (pointerPos) {
-                      const pressureMbar = pressurePa * PASCAL_TO_MBAR;
-                      let displayPressure;
-                      if (Math.abs(pressureMbar) >= 1000) {
-                        displayPressure = (pressureMbar * MBAR_TO_BAR).toFixed(2) + ' bar';
-                      } else {
-                        displayPressure = pressureMbar.toFixed(2) + ' mbar';
-                      }
-                      setHoveredPressureNode({
-                        nodeId,
-                        x: pointerPos.x,
-                        y: pointerPos.y,
-                        content: `${displayPressure}`
-                      });
-                    }
-                  }
-                }}
-                onMouseLeave={() => setHoveredPressureNode(null)}
+                onMouseEnter={e => handlePressureNodeMouseEnter(e, pressurePa, nodeId)}
+                onMouseLeave={e => handlePressureNodeMouseLeave(e, nodeId)}
               >
                 <Circle
+                  name="pressureCircle" // Added name for tweening
                   radius={PRESSURE_NODE_RADIUS}
                   fill={getPressureIndicatorColor(pressurePa, minPressurePa, maxPressurePa)}
                   stroke={CHANNEL_OUTLINE_COLOR}
                   strokeWidth={1}
                   shadowColor={getPressureIndicatorColor(pressurePa, minPressurePa, maxPressurePa)}
-                  shadowBlur={hoveredPressureNode?.nodeId === nodeId ? 12 : 8}
-                  shadowOpacity={hoveredPressureNode?.nodeId === nodeId ? 0.6 : 0.4}
-                  scaleX={hoveredPressureNode?.nodeId === nodeId ? 1.15 : 1}
-                  scaleY={hoveredPressureNode?.nodeId === nodeId ? 1.15 : 1}
+                  shadowBlur={8} // Initial value
+                  shadowOpacity={0.4} // Initial value
+                  scaleX={1} // Initial value
+                  scaleY={1} // Initial value
                 />
               </Group>
             );
@@ -871,14 +931,8 @@ export default function CanvasArea({
           continue;
         }
         
-        // Now we have foundItem and foundPort directly from nodeId
         const item = foundItem;
         const port = foundPort;
-        // canvasItemId is item.id
-        // portId (base) can be extracted from port.id if needed for display, but port.x, port.y are what we need.
-        // --- END MODIFIED PORT/ITEM LOOKUP ---
-
-        console.log(`[CanvasArea] Found item: ${item.id}, port: ${port.id} for nodeId: ${nodeId}`);
         
         const portX = item.x + port.x;
         const portY = item.y + port.y;
@@ -892,39 +946,20 @@ export default function CanvasArea({
             role="button"
             aria-label={`Pressure node: ${(pressurePa * PASCAL_TO_MBAR).toFixed(1)} mbar`}
             className="cursor-pointer focus:outline-none"
-            onMouseEnter={e => {
-              const stage = e.target.getStage();
-              if (stage) {
-                const pointerPos = stage.getPointerPosition();
-                if (pointerPos) {
-                  const pressureMbar = pressurePa * PASCAL_TO_MBAR;
-                  let displayPressure;
-                  if (Math.abs(pressureMbar) >= 1000) {
-                    displayPressure = (pressureMbar * MBAR_TO_BAR).toFixed(2) + ' bar';
-                  } else {
-                    displayPressure = pressureMbar.toFixed(2) + ' mbar';
-                  }
-                  setHoveredPressureNode({
-                    nodeId,
-                    x: pointerPos.x,
-                    y: pointerPos.y,
-                    content: `${displayPressure}`
-                  });
-                }
-              }
-            }}
-            onMouseLeave={() => setHoveredPressureNode(null)}
+            onMouseEnter={e => handlePressureNodeMouseEnter(e, pressurePa, nodeId)}
+            onMouseLeave={e => handlePressureNodeMouseLeave(e, nodeId)}
           >
             <Circle
+              name="pressureCircle" // Added name for tweening
               radius={PRESSURE_NODE_RADIUS}
               fill={getPressureIndicatorColor(pressurePa, minPressurePa, maxPressurePa)}
               stroke={CHANNEL_OUTLINE_COLOR}
               strokeWidth={1}
               shadowColor={getPressureIndicatorColor(pressurePa, minPressurePa, maxPressurePa)}
-              shadowBlur={hoveredPressureNode?.nodeId === nodeId ? 12 : 8}
-              shadowOpacity={hoveredPressureNode?.nodeId === nodeId ? 0.6 : 0.4}
-              scaleX={hoveredPressureNode?.nodeId === nodeId ? 1.15 : 1}
-              scaleY={hoveredPressureNode?.nodeId === nodeId ? 1.15 : 1}
+              shadowBlur={8}      // Initial value
+              shadowOpacity={0.4} // Initial value
+              scaleX={1}          // Initial value
+              scaleY={1}          // Initial value
             />
           </Group>
         );
@@ -955,6 +990,7 @@ export default function CanvasArea({
             y={0}
             scaleX={1}
             scaleY={1}
+            pixelRatio={currentPixelRatio}
             onClick={(e: KonvaEventObject<MouseEvent>) => {
               if (onStageClick) {
                 onStageClick(e, snappedPortTarget);
@@ -987,6 +1023,8 @@ export default function CanvasArea({
                 let tubeFillColor = isSelected ? CONNECTION_SELECTED_FILL_COLOR : CONNECTION_FILL_COLOR;
                 let tubeOutlineColor = isSelected ? CONNECTION_SELECTED_OUTLINE_COLOR : CONNECTION_OUTLINE_COLOR;
 
+                // Get flow data for tooltip
+                let flowTooltipText = 'No flow data';
                 if (simulationResults && simulationResults.segmentFlows) {
                   const getBasePortId = (fullPortId: string, itemId: string): string => {
                     const prefix = itemId + '_';
@@ -1015,14 +1053,16 @@ export default function CanvasArea({
                           if (tubingType && tubingType.innerRadiusMeters > 0) {
                               const areaM2 = Math.PI * Math.pow(tubingType.innerRadiusMeters, 2);
                               displayValueForTube = flowRateM3s / areaM2;
+                              flowTooltipText = formatFlowVelocityForDisplay(displayValueForTube);
                           }
                       } else if (inspectionMode === 'flow' && flowDisplayMode === 'rate') {
                           displayValueForTube = flowRateM3s;
+                          flowTooltipText = formatFlowRateForDisplay(flowRateM3s);
                       }
                   }
 
-                  if (displayValueForTube !== undefined) {
-                    tubeFillColor = getDynamicFlowColor(displayValueForTube, minMaxFlowValues.min, minMaxFlowValues.max, inspectionMode === 'flow' ? 'velocity' : 'rate');
+                  if (displayValueForTube !== undefined && inspectionMode === 'flow') {
+                    tubeFillColor = getDynamicFlowColor(displayValueForTube, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
                   }
                 }
                 
@@ -1042,6 +1082,23 @@ export default function CanvasArea({
                       onClick={(e) => {
                         e.cancelBubble = true; 
                         onTubeClick(conn.id, e);
+                      }}
+                      onMouseEnter={(e) => {
+                        if (inspectionMode === 'flow' && simulationResults) {
+                          const pos = getRelativeMousePos(e);
+                          setTooltip({ visible: true, x: pos.x, y: pos.y, content: flowTooltipText });
+                        }
+                      }}
+                      onMouseMove={(e) => {
+                        if (inspectionMode === 'flow' && simulationResults && tooltip) {
+                          const pos = getRelativeMousePos(e);
+                          setTooltip(t => t ? { ...t, x: pos.x, y: pos.y } : null);
+                        }
+                      }}
+                      onMouseLeave={() => {
+                        if (inspectionMode === 'flow') {
+                          setTooltip(null);
+                        }
                       }}
                       id={`${conn.id}_outline`}
                       name="tubeOutline"
