@@ -73,14 +73,14 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({ // Renamed compon
     }
   }
 
-  const title = displayMode === 'velocity' ? 'Flow Velocity (m/s)' : 'Flow Rate (µL/min)';
+  const title = displayMode === 'velocity' ? 'Flow Velocity' : 'Flow Rate';
   // Note: formatValueForDisplay should handle the conversion to µL/min for 'rate' mode if necessary
   const minLabel = formatValueForDisplay(minDisplayValue, displayMode);
   const maxLabel = maxDisplayValue > nearZeroThreshold ? formatValueForDisplay(maxDisplayValue, displayMode) : "";
 
   return (
     <div
-      className={`p-2 bg-white/90 rounded shadow border border-zinc-200 w-56 text-[10px] font-sans text-zinc-800 z-30 ${className || ''}`}
+      className={className}
     >
       <div className="mb-1 font-semibold text-center text-xs">{title}</div>
       <div className="flex flex-row mb-1 border border-zinc-100">

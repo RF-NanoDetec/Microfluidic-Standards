@@ -84,6 +84,8 @@ const ZOOM_SENSITIVITY = 0.001; // Adjusted sensitivity
 const EXTENDED_CANVAS_WIDTH = 3000;
 const EXTENDED_CANVAS_HEIGHT = 1500;
 
+const MBAR_TO_BAR = 0.001; // Added constant
+
 interface CanvasAreaProps {
   droppedItems: CanvasItemData[];
   onDrop: (event: React.DragEvent<HTMLDivElement>, containerRef: React.RefObject<HTMLDivElement | null>) => void;
@@ -116,6 +118,10 @@ interface CanvasAreaProps {
 
   // New prop to notify parent of stage resize
   onStageResize?: (newDimensions: { width: number; height: number }) => void;
+
+  // New props for dynamic pressure coloring
+  minPressurePa?: number;
+  maxPressurePa?: number;
 }
 
 // Helper to convert flow rate in m³/s to µL/min for display
@@ -233,6 +239,8 @@ export default function CanvasArea({
   flowDisplayMode,
   setFlowDisplayMode,
   onStageResize,
+  minPressurePa,
+  maxPressurePa,
 }: CanvasAreaProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [stageDimensions, setStageDimensions] = useState({ width: 100, height: 100 });
@@ -297,6 +305,28 @@ export default function CanvasArea({
             allValues.push(Math.abs(flowRateM3s));
           }
         }
+      } else if (item.chipType === 't-type' || item.chipType === 'x-type') {
+        const centralJunctionNodeId = `${item.id}_internal_junction`;
+        item.ports.forEach(port => {
+          const portNodeId = port.id;
+          const segmentIdKey = [portNodeId, centralJunctionNodeId].sort().join('--');
+          const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
+          if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
+            if (inspectionMode === 'flow' && flowDisplayMode === 'velocity') {
+              const widthMicrons = item.currentJunctionWidthMicrons ?? item.currentChannelWidthMicrons;
+              const depthMicrons = item.currentJunctionDepthMicrons ?? item.currentChannelDepthMicrons;
+              if (widthMicrons > 0 && depthMicrons > 0) {
+                const widthM = widthMicrons * 1e-6;
+                const heightM = depthMicrons * 1e-6;
+                const areaM2 = widthM * heightM;
+                const velocity = flowRateM3s / areaM2;
+                allValues.push(Math.abs(velocity));
+              }
+            } else if (inspectionMode === 'flow' && flowDisplayMode === 'rate') {
+              allValues.push(Math.abs(flowRateM3s));
+            }
+          }
+        });
       }
     });
 
@@ -764,18 +794,25 @@ export default function CanvasArea({
                 y={centerY}
                 tabIndex={0}
                 role="button"
-                aria-label={`Pressure node: ${pressurePa.toFixed(1)} mbar`}
+                aria-label={`Pressure node: ${(pressurePa * PASCAL_TO_MBAR).toFixed(1)} mbar`}
                 className="cursor-pointer focus:outline-none"
                 onMouseEnter={e => {
                   const stage = e.target.getStage();
                   if (stage) {
                     const pointerPos = stage.getPointerPosition();
                     if (pointerPos) {
+                      const pressureMbar = pressurePa * PASCAL_TO_MBAR;
+                      let displayPressure;
+                      if (Math.abs(pressureMbar) >= 1000) {
+                        displayPressure = (pressureMbar * MBAR_TO_BAR).toFixed(2) + ' bar';
+                      } else {
+                        displayPressure = pressureMbar.toFixed(2) + ' mbar';
+                      }
                       setHoveredPressureNode({
                         nodeId,
                         x: pointerPos.x,
                         y: pointerPos.y,
-                        content: `Pressure: ${pressurePa.toFixed(2)} mbar${item ? `\nType: ${item.chipType}` : ''}`
+                        content: `${displayPressure}`
                       });
                     }
                   }
@@ -784,10 +821,10 @@ export default function CanvasArea({
               >
                 <Circle
                   radius={PRESSURE_NODE_RADIUS}
-                  fill={getPressureIndicatorColor(pressurePa)}
+                  fill={getPressureIndicatorColor(pressurePa, minPressurePa, maxPressurePa)}
                   stroke="#000"
                   strokeWidth={1}
-                  shadowColor={getPressureIndicatorColor(pressurePa)}
+                  shadowColor={getPressureIndicatorColor(pressurePa, minPressurePa, maxPressurePa)}
                   shadowBlur={hoveredPressureNode?.nodeId === nodeId ? 12 : 8}
                   shadowOpacity={hoveredPressureNode?.nodeId === nodeId ? 0.6 : 0.4}
                   scaleX={hoveredPressureNode?.nodeId === nodeId ? 1.15 : 1}
@@ -807,66 +844,42 @@ export default function CanvasArea({
           continue; 
         }
 
-        let canvasItemId, portId;
-        
-        const actualCanvasItem = droppedItems.find(item => nodeId.includes(item.id));
-        
-        if (actualCanvasItem) {
-          canvasItemId = actualCanvasItem.id;
-          
-          const remaining = nodeId.replace(canvasItemId + '_', '');
-          
-          if (remaining.startsWith(canvasItemId + '_')) {
-            portId = remaining.substring(canvasItemId.length + 1);
-          } else {
-            portId = remaining;
-          }
-          
-          if (portId.includes('_')) {
-            portId = portId.split('_').pop() || portId;
-          }
-        } else {
-          if (nodeId.includes('_')) {
-            const parts = nodeId.split('_');
-            
-            const candidateParts = parts.filter(part => part.includes('-'));
-            
-            if (candidateParts.length > 0) {
-              canvasItemId = candidateParts[0];
-              portId = parts[parts.length - 1];
-            } else {
-              portId = parts[parts.length - 1];
-              canvasItemId = parts.slice(0, -1).join('_');
-            }
-          } else {
-            console.warn(`[CanvasArea] Unexpected node ID format: ${nodeId}`);
-            continue;
+        let foundItem: CanvasItemData | undefined = undefined;
+        let foundPort: Port | undefined = undefined;
+
+        for (const item of droppedItems) {
+          const port = item.ports.find(p => p.id === nodeId);
+          if (port) {
+            foundItem = item;
+            foundPort = port;
+            break;
           }
         }
 
-        console.log(`[CanvasArea] Extracted canvasItemId: ${canvasItemId}, portId: ${portId} from nodeId: ${nodeId}`);
-        
-        const item = droppedItems.find(item => item.id === canvasItemId);
-        if (!item) {
-          console.warn(`[CanvasArea] Could not find canvas item with ID ${canvasItemId}`);
+        if (!foundItem || !foundPort) {
+          console.warn(`[CanvasArea] Could not find item/port for nodeId: ${nodeId}. This node might be an internal junction or there's a mismatch.`);
+          // Check if it's an internal node that was missed by the earlier check (shouldn't happen if logic is correct)
+          if (nodeId.includes('_internal_junction')) {
+            console.log(`[CanvasArea] Node ${nodeId} confirmed as internal, should have been handled earlier.`);
+          } else {
+            console.log(`[CanvasArea] Node ${nodeId} is not an internal junction and was not found as a direct port. Available nodeIds from results:`, Object.keys(simulationResults.nodePressures));
+            console.log(`[CanvasArea] Dropped items and their port IDs:`);
+            droppedItems.forEach(di => {
+              console.log(`  Item ${di.id}: Ports: ${di.ports.map(p => p.id).join(', ')}`);
+            });
+          }
           continue;
         }
-
-        let port = item.ports.find(p => p.id === portId);
         
-        if (!port) {
-          port = item.ports.find(p => p.id === `${canvasItemId}_${portId}`);
-        }
+        // Now we have foundItem and foundPort directly from nodeId
+        const item = foundItem;
+        const port = foundPort;
+        // canvasItemId is item.id
+        // portId (base) can be extracted from port.id if needed for display, but port.x, port.y are what we need.
+        // --- END MODIFIED PORT/ITEM LOOKUP ---
+
+        console.log(`[CanvasArea] Found item: ${item.id}, port: ${port.id} for nodeId: ${nodeId}`);
         
-        if (!port && !portId.startsWith('port_')) {
-          port = item.ports.find(p => p.id === `port_${portId}`);
-        }
-
-        if (!port) {
-          console.warn(`[CanvasArea] Could not find port ${portId} in item ${canvasItemId}. Available ports:`, item.ports.map(p => p.id));
-          continue;
-        }
-
         const portX = item.x + port.x;
         const portY = item.y + port.y;
 
@@ -877,18 +890,25 @@ export default function CanvasArea({
             y={portY}
             tabIndex={0}
             role="button"
-            aria-label={`Pressure node: ${pressurePa.toFixed(1)} mbar`}
+            aria-label={`Pressure node: ${(pressurePa * PASCAL_TO_MBAR).toFixed(1)} mbar`}
             className="cursor-pointer focus:outline-none"
             onMouseEnter={e => {
               const stage = e.target.getStage();
               if (stage) {
                 const pointerPos = stage.getPointerPosition();
                 if (pointerPos) {
+                  const pressureMbar = pressurePa * PASCAL_TO_MBAR;
+                  let displayPressure;
+                  if (Math.abs(pressureMbar) >= 1000) {
+                    displayPressure = (pressureMbar * MBAR_TO_BAR).toFixed(2) + ' bar';
+                  } else {
+                    displayPressure = pressureMbar.toFixed(2) + ' mbar';
+                  }
                   setHoveredPressureNode({
                     nodeId,
                     x: pointerPos.x,
                     y: pointerPos.y,
-                    content: `Pressure: ${pressurePa.toFixed(2)} mbar${item ? `\nType: ${item.chipType}` : ''}`
+                    content: `${displayPressure}`
                   });
                 }
               }
@@ -897,10 +917,10 @@ export default function CanvasArea({
           >
             <Circle
               radius={PRESSURE_NODE_RADIUS}
-              fill={getPressureIndicatorColor(pressurePa)}
+              fill={getPressureIndicatorColor(pressurePa, minPressurePa, maxPressurePa)}
               stroke="#000"
               strokeWidth={1}
-              shadowColor={getPressureIndicatorColor(pressurePa)}
+              shadowColor={getPressureIndicatorColor(pressurePa, minPressurePa, maxPressurePa)}
               shadowBlur={hoveredPressureNode?.nodeId === nodeId ? 12 : 8}
               shadowOpacity={hoveredPressureNode?.nodeId === nodeId ? 0.6 : 0.4}
               scaleX={hoveredPressureNode?.nodeId === nodeId ? 1.15 : 1}

@@ -75,40 +75,53 @@ export const getDynamicFlowColor = (
   return `rgb(${r},${g},${b})`;
 };
 
-export const getPressureIndicatorColor = (pressurePa: number | undefined): string => {
-  if (pressurePa === undefined || !isFinite(pressurePa)) return '#8A929B'; // Mid Grey for invalid
-  const pressureMbar = pressurePa * PASCAL_TO_MBAR;
-  const absPressure = Math.abs(pressureMbar);
+export const getPressureIndicatorColor = (
+  pressurePa: number | undefined,
+  minOverallPressurePa?: number, // New optional parameter
+  maxOverallPressurePa?: number  // New optional parameter
+): string => {
+  const COLOR_ZERO = 'rgb(138, 146, 155)'; // #8A929B Mid Grey
+  const COLOR_LOW_PRESSURE = 'rgb(0, 60, 126)';  // #003C7E Brand Blue
+  const COLOR_HIGH_PRESSURE = 'rgb(185, 28, 28)'; // #B91C1C Scientific Deep Red
 
-  // Thresholds (tune as needed for your domain)
-  const ZERO_THRESHOLD = 1; // mbar
-  const LOW_THRESHOLD = 50; // mbar
-  const MID_THRESHOLD = 500; // mbar
-  const HIGH_THRESHOLD = 2000; // mbar
+  if (pressurePa === undefined || !isFinite(pressurePa)) {
+    return COLOR_ZERO; // For undefined or non-finite pressure
+  }
 
-  // Brand colors
-  const COLOR_ZERO = '#8A929B'; // Mid Grey
-  const COLOR_LOW = '#003C7E'; // Brand Blue
-  const COLOR_MID = '#E1E4E8'; // Light Grey 2
-  const COLOR_HIGH = '#B91C1C'; // Scientific Deep Red
+  // If min and max overall pressures are provided and valid, use dynamic scaling
+  if (
+    minOverallPressurePa !== undefined &&
+    maxOverallPressurePa !== undefined &&
+    isFinite(minOverallPressurePa) &&
+    isFinite(maxOverallPressurePa) &&
+    maxOverallPressurePa > minOverallPressurePa
+  ) {
+    const range = maxOverallPressurePa - minOverallPressurePa;
+    // Normalize pressurePa: 0 for minOverallPressurePa, 1 for maxOverallPressurePa
+    // Clamp normalized value between 0 and 1
+    const normalizedPressure = Math.max(0, Math.min((pressurePa - minOverallPressurePa) / range, 1));
 
-  if (absPressure < ZERO_THRESHOLD) return COLOR_ZERO;
-  if (absPressure < LOW_THRESHOLD) {
-    // Interpolate between zero and low
-    const t = absPressure / LOW_THRESHOLD;
-    return interpolateColor(COLOR_ZERO, COLOR_LOW, t);
+    // Linear interpolation between COLOR_LOW_PRESSURE and COLOR_HIGH_PRESSURE
+    const r = Math.round(0 + (185 - 0) * normalizedPressure);       // 0 (blue) to 185 (red)
+    const g = Math.round(60 + (28 - 60) * normalizedPressure);     // 60 (blue) to 28 (red)
+    const b = Math.round(126 + (28 - 126) * normalizedPressure);  // 126 (blue) to 28 (red)
+    
+    return `rgb(${r},${g},${b})`;
+  } else {
+    // Fallback to a simplified or fixed scheme if dynamic range is not available/valid
+    // This part can be adjusted. For now, a simple high pressure = red, else blue.
+    // This fallback is less ideal and should ideally be avoided by passing valid ranges.
+    console.warn("[getPressureIndicatorColor] Dynamic range not provided or invalid. Using fallback.");
+    const pressureMbar = pressurePa * PASCAL_TO_MBAR;
+    if (pressureMbar > 500) { // Arbitrary threshold for fallback
+      return COLOR_HIGH_PRESSURE;
+    }
+    if (pressureMbar < 10) { // Arbitrary threshold for fallback
+        return COLOR_LOW_PRESSURE;
+    }
+    // For intermediate values in fallback, we can return a mid-point or one of the colors
+    return 'rgb(128, 128, 128)'; // Fallback to a neutral grey for intermediate
   }
-  if (absPressure < MID_THRESHOLD) {
-    // Interpolate between low and mid
-    const t = (absPressure - LOW_THRESHOLD) / (MID_THRESHOLD - LOW_THRESHOLD);
-    return interpolateColor(COLOR_LOW, COLOR_MID, t);
-  }
-  if (absPressure < HIGH_THRESHOLD) {
-    // Interpolate between mid and high
-    const t = (absPressure - MID_THRESHOLD) / (HIGH_THRESHOLD - MID_THRESHOLD);
-    return interpolateColor(COLOR_MID, COLOR_HIGH, t);
-  }
-  return COLOR_HIGH;
 };
 
 /**

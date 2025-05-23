@@ -35,6 +35,9 @@ import {
   resetSimulationStateLogic 
 } from '@/lib/microfluidic-designer/simulationEngine'; // Import simulation engine functions
 import SimulationSummaryPanel from '@/components/microfluidic-designer/SimulationSummaryPanel';
+import FlowDisplayLegend from '@/components/microfluidic-designer/canvas/FlowVelocityLegend';
+import PressureDisplayLegend from '@/components/microfluidic-designer/canvas/PressureDisplayLegend';
+import { getDynamicFlowColor, formatFlowVelocityForDisplay, formatFlowRateForDisplay, getPressureIndicatorColor } from '@/lib/microfluidic-designer/utils/visualizationUtils';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, X, Move } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -130,6 +133,15 @@ export default function MicrofluidicDesignerPage() {
 
   // State to track the current actual canvas dimensions from CanvasArea
   const [currentCanvasDimensions, setCurrentCanvasDimensions] = useState({ width: 0, height: 0 });
+
+  // State for min/max flow rates and velocities
+  const [minRate, setMinRate] = useState<number | undefined>(undefined);
+  const [maxRate, setMaxRate] = useState<number | undefined>(undefined);
+  const [minVelocity, setMinVelocity] = useState<number | undefined>(undefined);
+  const [maxVelocity, setMaxVelocity] = useState<number | undefined>(undefined);
+  // Added state for min/max pressures
+  const [minPressure, setMinPressure] = useState<number | undefined>(undefined);
+  const [maxPressure, setMaxPressure] = useState<number | undefined>(undefined);
 
   // Grouped and ordered items logic (lifted and adapted from PaletteSidebar)
   const groupedPaletteItems = useMemo(() => PALETTE_ITEMS.reduce((acc, item) => {
@@ -735,6 +747,94 @@ export default function MicrofluidicDesignerPage() {
     }
   }, [selectedItemId, wasRightPanelEverOpened]);
 
+  // Effect to calculate min/max flow rates and velocities
+  useEffect(() => {
+    if (simulationResults && simulationResults.segmentFlows && connections && droppedItems) {
+      const allVelocities: number[] = [];
+      const allRates: number[] = [];
+      const allPressures: number[] = []; // Added for pressures
+
+      connections.forEach(conn => {
+        const port1BaseId = conn.fromPortId.startsWith(conn.fromItemId + '_') ? conn.fromPortId.substring(conn.fromItemId.length + 1) : conn.fromPortId;
+        const port2BaseId = conn.toPortId.startsWith(conn.toItemId + '_') ? conn.toPortId.substring(conn.toItemId.length + 1) : conn.toPortId;
+        const node1Id = `${conn.fromItemId}_${port1BaseId}`;
+        const node2Id = `${conn.toItemId}_${port2BaseId}`;
+        const segmentIdKey = [node1Id, node2Id].sort().join('--');
+        const flowRateM3s = simulationResults.segmentFlows![segmentIdKey];
+        if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
+          allRates.push(Math.abs(flowRateM3s));
+          const tubingType = AVAILABLE_TUBING_TYPES.find(t => t.id === conn.tubingTypeId);
+          if (tubingType && tubingType.innerRadiusMeters > 0) {
+            const areaM2 = Math.PI * Math.pow(tubingType.innerRadiusMeters, 2);
+            const velocity = flowRateM3s / areaM2;
+            allVelocities.push(Math.abs(velocity));
+          }
+        }
+      });
+      droppedItems.forEach(item => {
+        if ((item.chipType === 'straight' || item.chipType === 'meander') && item.ports.length === 2) {
+          const node1Id = item.ports[0]!.id;
+          const node2Id = item.ports[1]!.id;
+          const segmentIdKey = [node1Id, node2Id].sort().join('--');
+          const flowRateM3s = simulationResults.segmentFlows![segmentIdKey];
+          if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
+            allRates.push(Math.abs(flowRateM3s));
+            if (item.currentChannelWidthMicrons > 0 && item.currentChannelDepthMicrons > 0) {
+              const widthM = item.currentChannelWidthMicrons * 1e-6;
+              const heightM = item.currentChannelDepthMicrons * 1e-6;
+              const areaM2 = widthM * heightM;
+              const velocity = flowRateM3s / areaM2;
+              allVelocities.push(Math.abs(velocity));
+            }
+          }
+        } else if (item.chipType === 't-type' || item.chipType === 'x-type') {
+          const centralJunctionNodeId = `${item.id}_internal_junction`;
+          item.ports.forEach(port => {
+            const portNodeId = port.id;
+            const segmentIdKey = [portNodeId, centralJunctionNodeId].sort().join('--');
+            const flowRateM3s = simulationResults.segmentFlows![segmentIdKey];
+            if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
+              allRates.push(Math.abs(flowRateM3s));
+              // Use junction dimensions if available, otherwise channel dimensions
+              const widthMicrons = item.currentJunctionWidthMicrons ?? item.currentChannelWidthMicrons;
+              const depthMicrons = item.currentJunctionDepthMicrons ?? item.currentChannelDepthMicrons;
+
+              if (widthMicrons > 0 && depthMicrons > 0) {
+                const widthM = widthMicrons * 1e-6;
+                const heightM = depthMicrons * 1e-6;
+                const areaM2 = widthM * heightM;
+                const velocity = flowRateM3s / areaM2;
+                allVelocities.push(Math.abs(velocity));
+              }
+            }
+          });
+        }
+      });
+
+      if (simulationResults.nodePressures) {
+        Object.values(simulationResults.nodePressures).forEach(pressure => {
+          if (pressure !== undefined && isFinite(pressure)) {
+            allPressures.push(pressure);
+          }
+        });
+      }
+
+      setMinVelocity(allVelocities.length > 0 ? Math.min(...allVelocities) : undefined);
+      setMaxVelocity(allVelocities.length > 0 ? Math.max(...allVelocities) : undefined);
+      setMinRate(allRates.length > 0 ? Math.min(...allRates) : undefined);
+      setMaxRate(allRates.length > 0 ? Math.max(...allRates) : undefined);
+      setMinPressure(allPressures.length > 0 ? Math.min(...allPressures) : undefined); // Set min pressure
+      setMaxPressure(allPressures.length > 0 ? Math.max(...allPressures) : undefined); // Set max pressure
+    } else {
+      setMinRate(undefined);
+      setMaxRate(undefined);
+      setMinVelocity(undefined);
+      setMaxVelocity(undefined);
+      setMinPressure(undefined); // Reset min pressure
+      setMaxPressure(undefined); // Reset max pressure
+    }
+  }, [simulationResults, connections, droppedItems]);
+
   const handleStageResize = useCallback((newDimensions: { width: number; height: number }) => {
     setCurrentCanvasDimensions(newDimensions);
     // Check if any items are out of bounds and adjust them
@@ -872,6 +972,8 @@ export default function MicrofluidicDesignerPage() {
           flowDisplayMode={flowDisplayMode}
           setFlowDisplayMode={setFlowDisplayMode}
           onStageResize={handleStageResize} // Pass the new handler
+          minPressurePa={minPressure} // Pass minPressure
+          maxPressurePa={maxPressure} // Pass maxPressure
         />
 
         {/* === MOVED CONTROLS START === */}
@@ -884,6 +986,7 @@ export default function MicrofluidicDesignerPage() {
               transition: 'left 0.3s ease-in-out' 
             }}
           >
+            {/* Pressure/Flow Toggle Group directly as a child */}
             <ToggleGroup type="single" value={inspectionMode} onValueChange={v => {
               const newMode = v as 'none' | 'pressure' | 'flow' || 'pressure';
               setInspectionMode(newMode);
@@ -892,11 +995,44 @@ export default function MicrofluidicDesignerPage() {
               <ToggleGroupItem value="pressure" aria-label="Show Pressures" className="text-xs px-2 min-w-[64px] h-7 font-inter data-[state=on]:bg-[#003C7E] data-[state=on]:text-white">Pressure</ToggleGroupItem>
               <ToggleGroupItem value="flow" aria-label="Show Flow" className="text-xs px-2 min-w-[64px] h-7 font-inter data-[state=on]:bg-[#003C7E] data-[state=on]:text-white">Flow</ToggleGroupItem>
             </ToggleGroup>
+
+            {/* Rate/Velocity Toggle Group directly as a child, conditional */}
             {inspectionMode === 'flow' && (
-              <ToggleGroup type="single" value={flowDisplayMode} onValueChange={v => setFlowDisplayMode(v as 'rate' | 'velocity' || 'rate')} className="bg-white/80 shadow-md rounded-md border border-[#E1E4E8] ml-2">
+              <ToggleGroup type="single" value={flowDisplayMode} onValueChange={v => setFlowDisplayMode(v as 'rate' | 'velocity' || 'rate')} className="bg-white/80 shadow-md rounded-md border border-[#E1E4E8]">
                 <ToggleGroupItem value="rate" aria-label="Show Rate" className="text-xs px-2 min-w-[64px] h-7 font-inter data-[state=on]:bg-[#003C7E] data-[state=on]:text-white">Rate</ToggleGroupItem>
                 <ToggleGroupItem value="velocity" aria-label="Show Velocity" className="text-xs px-2 min-w-[64px] h-7 font-inter data-[state=on]:bg-[#003C7E] data-[state=on]:text-white">Velocity</ToggleGroupItem>
               </ToggleGroup>
+            )}
+
+            {/* Flow Display Legend - Styling applied directly */}
+            {inspectionMode === 'flow' && flowDisplayMode === 'velocity' && (minVelocity !== undefined || maxVelocity !== undefined) && (
+              <FlowDisplayLegend
+                minDisplayValue={minVelocity ?? 0}
+                maxDisplayValue={maxVelocity ?? 0.001}
+                displayMode="velocity"
+                getDynamicFlowColor={getDynamicFlowColor}
+                formatValueForDisplay={formatFlowVelocityForDisplay}
+                className="ml-2 bg-white/80 shadow-md rounded-md border border-[#E1E4E8] p-2 text-xs font-sans text-zinc-800 z-30 w-[220px]"
+              />
+            )}
+            {inspectionMode === 'flow' && flowDisplayMode === 'rate' && (minRate !== undefined || maxRate !== undefined) && (
+              <FlowDisplayLegend
+                minDisplayValue={minRate ?? 0}
+                maxDisplayValue={maxRate ?? 0.000001}
+                displayMode="rate"
+                getDynamicFlowColor={getDynamicFlowColor}
+                formatValueForDisplay={formatFlowRateForDisplay}
+                className="ml-2 bg-white/80 shadow-md rounded-md border border-[#E1E4E8] p-2 text-xs font-sans text-zinc-800 z-30 w-[220px]"
+              />
+            )}
+            {/* Added Pressure Display Legend */}
+            {inspectionMode === 'pressure' && (minPressure !== undefined && maxPressure !== undefined) && (
+              <PressureDisplayLegend
+                minPressurePa={minPressure}
+                maxPressurePa={maxPressure}
+                getPressureIndicatorColor={getPressureIndicatorColor}
+                className="ml-2 bg-white/80 shadow-md rounded-md border border-[#E1E4E8] p-2 text-xs font-sans text-zinc-800 z-30 w-auto min-w-[220px]"
+              />
             )}
           </div>
         )}
