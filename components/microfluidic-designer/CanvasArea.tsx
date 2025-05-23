@@ -822,7 +822,7 @@ export default function CanvasArea({
                 <Circle
                   radius={PRESSURE_NODE_RADIUS}
                   fill={getPressureIndicatorColor(pressurePa, minPressurePa, maxPressurePa)}
-                  stroke="#000"
+                  stroke={CHANNEL_OUTLINE_COLOR}
                   strokeWidth={1}
                   shadowColor={getPressureIndicatorColor(pressurePa, minPressurePa, maxPressurePa)}
                   shadowBlur={hoveredPressureNode?.nodeId === nodeId ? 12 : 8}
@@ -918,7 +918,7 @@ export default function CanvasArea({
             <Circle
               radius={PRESSURE_NODE_RADIUS}
               fill={getPressureIndicatorColor(pressurePa, minPressurePa, maxPressurePa)}
-              stroke="#000"
+              stroke={CHANNEL_OUTLINE_COLOR}
               strokeWidth={1}
               shadowColor={getPressureIndicatorColor(pressurePa, minPressurePa, maxPressurePa)}
               shadowBlur={hoveredPressureNode?.nodeId === nodeId ? 12 : 8}

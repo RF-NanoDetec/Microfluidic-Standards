@@ -17,62 +17,77 @@ export const getDynamicFlowColor = (
   maxValue: number,
   mode: FlowDisplayMode = 'velocity'
 ): string => {
-  if (flowValue === undefined || !isFinite(flowValue)) return FLOW_COLOR_NO_DATA;
-  
-  const absValue = Math.abs(flowValue);
-  
-  // Use appropriate zero threshold based on display mode
-  const zeroThreshold = mode === 'velocity' ? 1e-9 : 1e-13; // Thresholds for near-zero
-  
-  if (absValue < zeroThreshold) return FLOW_COLOR_ZERO; // Effectively zero value
+  if (flowValue === undefined || !isFinite(flowValue)) {
+    return FLOW_COLOR_NO_DATA;
+  }
 
-  // Handle invalid range cases first
+  // Handle invalid range: minValue > maxValue.
   if (minValue > maxValue) {
-      console.warn(`[getDynamicFlowColor] Invalid range: minValue (${minValue}) > maxValue (${maxValue}). Returning grey.`);
-      return FLOW_COLOR_NO_DATA; // Indicate an error state
-  }
-  if (maxValue < zeroThreshold) {
-      // If the maximum value itself is near zero, all values are near zero
-      return FLOW_COLOR_ZERO; 
+    console.warn(`[getDynamicFlowColor] Invalid range: minValue (${minValue}) > maxValue (${maxValue}). Returning FLOW_COLOR_NO_DATA.`);
+    return FLOW_COLOR_NO_DATA;
   }
 
-  // *** NEW CHECK: Handle effectively zero range ***
-  // Avoid division by zero or near-zero which exaggerates tiny differences
   const range = maxValue - minValue;
 
-  // Check if range is negligible compared to the max value 
-  // (ensure maxValue is positive to avoid division by zero)
-  if (maxValue > 0 && range / maxValue < RELATIVE_EPSILON) {
-    // Range is negligible, treat all values as the same "mid-point" color
-    // This handles cases where min === max due to floating point, or very close values
-    // console.log(`[getDynamicFlowColor] Negligible range detected (min=${minValue}, max=${maxValue}). Using mid-gradient color.`);
-    // const midNormalizedValue = 0.5; 
-    // const r = Math.round(100 + (211 - 100) * midNormalizedValue);
-    // const g = Math.round(181 + (47 - 181) * midNormalizedValue);
-    // const b = Math.round(246 + (47 - 246) * midNormalizedValue);
-    // return `rgb(${r},${g},${b})`; // Return mid-gradient color (purple-ish)
-    
-    // *** NEW LOGIC: Return the LOW color for negligible range ***
-    console.log(`[getDynamicFlowColor] Negligible range detected (min=${minValue}, max=${maxValue}). Using FLOW_COLOR_LOW.`);
-    return FLOW_COLOR_LOW; // Return blue for uniform flow
+  // Check for uniform flow: If min and max are effectively the same.
+  // If the range is negligibly small (compared to maxValue or just absolutely small), consider it uniform flow.
+  // Use RELATIVE_EPSILON for comparison if maxValue is significantly larger than zero,
+  // otherwise use an absolute epsilon for cases where maxValue itself is very small or zero.
+  const absoluteEpsilon = 1e-12; // A small absolute threshold for range when maxValue is tiny
+  const isUniformFlow = range < absoluteEpsilon || (maxValue !== 0 && Math.abs(range / maxValue) < RELATIVE_EPSILON);
+
+  if (isUniformFlow) {
+    // For uniform flow, always return FLOW_COLOR_LOW (blue), regardless of the actual flow value.
+    // This ensures that even if the uniform flow is zero or very small, it's shown as blue.
+    console.log(`[getDynamicFlowColor] Uniform flow detected (range ~ ${range.toExponential()}, min=${minValue}, max=${maxValue}). Using FLOW_COLOR_LOW.`);
+    return FLOW_COLOR_LOW;
   }
-  // *** END NEW CHECK ***
 
-  // If we reach here, the range is valid and significant enough.
+  // If not uniform flow, proceed with palette-based coloring.
+  const absValue = Math.abs(flowValue);
 
-  // Normalize the value: 0 for minValue, 1 for maxValue
-  // Clamp normalized value between 0 and 1
-  // Ensure denominator 'range' is not zero before dividing (though the check above should handle near-zero)
-  const normalizedValue = range > 0 ? Math.max(0, Math.min((absValue - minValue) / range, 1)) : 0; // Default to 0 if range is exactly zero
+  // The old conditions for `absValue < zeroThreshold` returning FLOW_COLOR_ZERO and
+  // `maxValue < zeroThreshold` returning FLOW_COLOR_ZERO are intentionally removed.
+  // Low non-uniform flow values will now be colored by the start of the palette.
+  // If minValue and maxValue are both zero (or very close), it's handled by the uniform flow check above.
 
-  // Simple linear interpolation between FLOW_COLOR_LOW (blue) and FLOW_COLOR_HIGH (red)
-  // FLOW_COLOR_LOW: rgb(100, 181, 246) -> #64b5f6
-  // FLOW_COLOR_HIGH: rgb(211, 47, 47) -> #d32f2f
-  const r = Math.round(100 + (211 - 100) * normalizedValue);
-  const g = Math.round(181 + (47 - 181) * normalizedValue);
-  const b = Math.round(246 + (47 - 246) * normalizedValue);
+  const normalizedValue = range > 0 ? Math.max(0, Math.min((absValue - minValue) / range, 1)) : 0;
+
+  // *** Use the active_blue_yellow_red palette ***
+  const selectedPalette = palettes['active_blue_yellow_red'];
+
+  if (!selectedPalette || selectedPalette.length < 2) {
+    console.warn(`[getDynamicFlowColor] Palette "active_blue_yellow_red" is not defined or has fewer than 2 stops. Falling back to default blue-red gradient.`);
+    // Fallback to simple linear interpolation between FLOW_COLOR_LOW (blue) and FLOW_COLOR_HIGH (red)
+    const r = Math.round(100 + (211 - 100) * normalizedValue);
+    const g = Math.round(181 + (47 - 181) * normalizedValue);
+    const b = Math.round(246 + (47 - 246) * normalizedValue);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  // Find the two stops the normalizedValue falls between
+  let lowerStop = selectedPalette[0];
+  let upperStop = selectedPalette[selectedPalette.length - 1];
+
+  for (let i = 0; i < selectedPalette.length - 1; i++) {
+    if (normalizedValue >= selectedPalette[i].stop && normalizedValue <= selectedPalette[i+1].stop) {
+      lowerStop = selectedPalette[i];
+      upperStop = selectedPalette[i+1];
+      break;
+    }
+  }
   
-  return `rgb(${r},${g},${b})`;
+  // Adjust normalizedValue to be relative to the current segment (lowerStop to upperStop)
+  const segmentRange = upperStop.stop - lowerStop.stop;
+  let t = 0;
+  if (segmentRange > 1e-9) { // Avoid division by zero for segment
+      t = (normalizedValue - lowerStop.stop) / segmentRange;
+  } else { // If segment range is zero (e.g. duplicate stops or at the very end), use 0 or 1
+      t = normalizedValue >= upperStop.stop ? 1 : 0;
+  }
+  
+  return interpolateColor(lowerStop.color, upperStop.color, t);
+  // *** END NEW PALETTE LOGIC ***
 };
 
 interface ColorStop {
@@ -110,11 +125,11 @@ viridis_like: [
   //   { color: '#FFFFFF', stop: 1.0 }     // White
   // ],
   /* OPTION 4: Plasma (Purple-Red-Yellow) */
-  // plasma: [
-  //   { color: '#0D0887', stop: 0.0 },    // Dark Purple
-  //   { color: '#CC4778', stop: 0.5 },    // Pink/Red
-  //   { color: '#F0F921', stop: 1.0 }     // Orange
-  // ],
+  plasma: [
+    { color: '#0D0887', stop: 0.0 },    // Dark Purple
+    { color: '#CC4778', stop: 0.5 },    // Pink/Red
+    { color: '#F0F921', stop: 1.0 }     // Orange
+    ],
 };
 
 const CURRENT_PALETTE_NAME = 'viridis_like'; // Change this string to switch palettes
@@ -189,7 +204,7 @@ export const getPressureIndicatorColor = (
 /**
  * Linearly interpolate between two hex colors.
  */
-function interpolateColor(hex1: string, hex2: string, t: number): string {
+export function interpolateColor(hex1: string, hex2: string, t: number): string {
   // Clamp t
   t = Math.max(0, Math.min(1, t));
   // Convert hex to RGB
@@ -202,7 +217,7 @@ function interpolateColor(hex1: string, hex2: string, t: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+export function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   // Remove # if present
   hex = hex.replace('#', '');
   if (hex.length === 3) {

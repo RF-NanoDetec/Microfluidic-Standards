@@ -986,7 +986,7 @@ export default function MicrofluidicDesignerPage() {
               transition: 'left 0.3s ease-in-out' 
             }}
           >
-            {/* Pressure/Flow Toggle Group directly as a child */}
+            {/* Pressure/Flow Toggle Group */}
             <ToggleGroup type="single" value={inspectionMode} onValueChange={v => {
               const newMode = v as 'none' | 'pressure' | 'flow' || 'pressure';
               setInspectionMode(newMode);
@@ -996,44 +996,47 @@ export default function MicrofluidicDesignerPage() {
               <ToggleGroupItem value="flow" aria-label="Show Flow" className="text-xs px-2 min-w-[64px] h-7 font-inter data-[state=on]:bg-[#003C7E] data-[state=on]:text-white">Flow</ToggleGroupItem>
             </ToggleGroup>
 
-            {/* Rate/Velocity Toggle Group directly as a child, conditional */}
-            {inspectionMode === 'flow' && (
+            {/* Rate/Velocity Toggle Group (or placeholder for consistent layout) */}
+            {inspectionMode === 'flow' ? (
               <ToggleGroup type="single" value={flowDisplayMode} onValueChange={v => setFlowDisplayMode(v as 'rate' | 'velocity' || 'rate')} className="bg-white/80 shadow-md rounded-md border border-[#E1E4E8]">
                 <ToggleGroupItem value="rate" aria-label="Show Rate" className="text-xs px-2 min-w-[64px] h-7 font-inter data-[state=on]:bg-[#003C7E] data-[state=on]:text-white">Rate</ToggleGroupItem>
                 <ToggleGroupItem value="velocity" aria-label="Show Velocity" className="text-xs px-2 min-w-[64px] h-7 font-inter data-[state=on]:bg-[#003C7E] data-[state=on]:text-white">Velocity</ToggleGroupItem>
               </ToggleGroup>
+            ) : (
+              <div className="w-[130px] h-[30px]" /> /* Placeholder for the Rate/Velocity toggle group */
             )}
 
-            {/* Flow Display Legend - Styling applied directly */}
-            {inspectionMode === 'flow' && flowDisplayMode === 'velocity' && (minVelocity !== undefined || maxVelocity !== undefined) && (
-              <FlowDisplayLegend
-                minDisplayValue={minVelocity ?? 0}
-                maxDisplayValue={maxVelocity ?? 0.001}
-                displayMode="velocity"
-                getDynamicFlowColor={getDynamicFlowColor}
-                formatValueForDisplay={formatFlowVelocityForDisplay}
-                className="ml-2 bg-white/80 shadow-md rounded-md border border-[#E1E4E8] p-2 text-xs font-sans text-zinc-800 z-30 w-[220px]"
-              />
-            )}
-            {inspectionMode === 'flow' && flowDisplayMode === 'rate' && (minRate !== undefined || maxRate !== undefined) && (
-              <FlowDisplayLegend
-                minDisplayValue={minRate ?? 0}
-                maxDisplayValue={maxRate ?? 0.000001}
-                displayMode="rate"
-                getDynamicFlowColor={getDynamicFlowColor}
-                formatValueForDisplay={formatFlowRateForDisplay}
-                className="ml-2 bg-white/80 shadow-md rounded-md border border-[#E1E4E8] p-2 text-xs font-sans text-zinc-800 z-30 w-[220px]"
-              />
-            )}
-            {/* Added Pressure Display Legend */}
-            {inspectionMode === 'pressure' && (minPressure !== undefined && maxPressure !== undefined) && (
-              <PressureDisplayLegend
-                minPressurePa={minPressure}
-                maxPressurePa={maxPressure}
-                getPressureIndicatorColor={getPressureIndicatorColor}
-                className="ml-2 bg-white/80 shadow-md rounded-md border border-[#E1E4E8] p-2 text-xs font-sans text-zinc-800 z-30 w-auto min-w-[220px]"
-              />
-            )}
+            {/* Legends Container - Renders one legend at a time */}
+            <div className="legend-container"> {/* Rely on parent gap-2. No ml-2 needed. */}
+              {inspectionMode === 'flow' && flowDisplayMode === 'velocity' && (minVelocity !== undefined || maxVelocity !== undefined) && (
+                <FlowDisplayLegend
+                  minDisplayValue={minVelocity ?? 0}
+                  maxDisplayValue={maxVelocity ?? 0.001}
+                  displayMode="velocity"
+                  getDynamicFlowColor={getDynamicFlowColor}
+                  formatValueForDisplay={formatFlowVelocityForDisplay}
+                  className="bg-white/80 shadow-md rounded-md border border-[#E1E4E8] p-2 text-xs font-sans text-zinc-800 z-30 w-[220px]"
+                />
+              )}
+              {inspectionMode === 'flow' && flowDisplayMode === 'rate' && (minRate !== undefined || maxRate !== undefined) && (
+                <FlowDisplayLegend
+                  minDisplayValue={minRate ?? 0}
+                  maxDisplayValue={maxRate ?? 0.000001}
+                  displayMode="rate"
+                  getDynamicFlowColor={getDynamicFlowColor}
+                  formatValueForDisplay={formatFlowRateForDisplay}
+                  className="bg-white/80 shadow-md rounded-md border border-[#E1E4E8] p-2 text-xs font-sans text-zinc-800 z-30 w-[220px]"
+                />
+              )}
+              {inspectionMode === 'pressure' && (minPressure !== undefined && maxPressure !== undefined) && (
+                <PressureDisplayLegend
+                  minPressurePa={minPressure}
+                  maxPressurePa={maxPressure}
+                  getPressureIndicatorColor={getPressureIndicatorColor}
+                  className="bg-white/80 shadow-md rounded-md border border-[#E1E4E8] p-2 text-xs font-sans text-zinc-800 z-30 w-auto min-w-[220px]"
+                />
+              )}
+            </div>
           </div>
         )}
 

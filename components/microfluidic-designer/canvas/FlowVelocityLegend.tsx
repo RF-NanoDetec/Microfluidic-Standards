@@ -3,6 +3,15 @@ import React from 'react';
 
 // NEW: Import FlowDisplayMode type if needed for prop typing, or rely on string
 // import type { FlowDisplayMode } from '../CanvasArea'; // Adjust path if needed
+import { Slider } from '@/components/ui/slider';
+import {
+  formatFlowVelocityForDisplay,
+  formatFlowRateForDisplay,
+  RELATIVE_EPSILON,
+  interpolateColor,
+  hexToRgb,
+} from '@/lib/microfluidic-designer/utils/visualizationUtils';
+import { getDynamicFlowColor } from '@/lib/microfluidic-designer/utils/visualizationUtils';
 
 interface FlowDisplayLegendProps { // Renamed props interface
   minDisplayValue: number; // Generic name
@@ -35,26 +44,33 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({ // Renamed compon
   // Determine thresholds based on display mode. Rates are m3/s, velocities are m/s.
   const nearZeroThreshold = displayMode === 'velocity' ? 1e-9 : 1e-12; 
 
-  const isEffectivelyNoFlow = maxDisplayValue < nearZeroThreshold;
-  const isRangeTooSmall = Math.abs(maxDisplayValue - minDisplayValue) < nearZeroThreshold && !isEffectivelyNoFlow;
+  const isEffectivelyNoFlow = maxDisplayValue < nearZeroThreshold && Math.abs(minDisplayValue) < nearZeroThreshold;
+  const isUniformFlowContext = Math.abs(maxDisplayValue - minDisplayValue) < nearZeroThreshold && !isEffectivelyNoFlow; // Renamed for clarity
   const segmentHeight = '12px'; // Set consistent height
 
-  if (isEffectivelyNoFlow) {
-    // If there's no significant flow, show a single color bar (e.g., zero flow color)
+  let title = displayMode === 'velocity' ? 'Flow Velocity' : 'Flow Rate';
+  if (isUniformFlowContext) {
+    title = displayMode === 'velocity' ? 'Uniform Flow Velocity' : 'Uniform Flow Rate';
+  } else if (isEffectivelyNoFlow) {
+    // If it's effectively no flow and not uniform, we can also reflect this in title if desired
+    // For now, the existing logic handles this by essentially showing a zero-based legend.
+    // Or, we could set title to "No Significant Flow"
+  }
+
+  if (isEffectivelyNoFlow && !isUniformFlowContext) { // Show single color bar only if truly no flow AND not uniform zero
     gradientSegments.push(
       <div
         key="no-flow-segment"
         style={{
           width: '100%',
           height: segmentHeight,
-          backgroundColor: getDynamicFlowColor(0, 0, 0), // Use the color for zero flow
+          backgroundColor: getDynamicFlowColor(0, 0, 0), 
         }}
       />
     );
-  } else {
+  } else { // Handles uniform flow (including uniform zero) and variable flow
     for (let i = 0; i < numberOfSteps; i++) {
-      // fraction calculation, simplified as numberOfSteps is fixed > 1
-      const fraction = i / (numberOfSteps - 1); // from 0 to 1
+      const fraction = numberOfSteps > 1 ? i / (numberOfSteps - 1) : 0; // from 0 to 1
       const currentValue = minDisplayValue + fraction * (maxDisplayValue - minDisplayValue);
       const color = getDynamicFlowColor(
         currentValue,
@@ -74,10 +90,9 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({ // Renamed compon
     }
   }
 
-  const title = displayMode === 'velocity' ? 'Flow Velocity' : 'Flow Rate';
-  // Note: formatValueForDisplay should handle the conversion to µL/min for 'rate' mode if necessary
   const minLabel = formatValueForDisplay(minDisplayValue, displayMode);
-  const maxLabel = maxDisplayValue > nearZeroThreshold ? formatValueForDisplay(maxDisplayValue, displayMode) : "";
+  // Show maxLabel only if there's significant flow or it's a uniform flow
+  const maxLabel = (maxDisplayValue > nearZeroThreshold || isUniformFlowContext) ? formatValueForDisplay(maxDisplayValue, displayMode) : "";
 
   return (
     <div
@@ -91,12 +106,6 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({ // Renamed compon
         <span>{minLabel}</span>
         <span>{maxLabel}</span>
       </div>
-      {isEffectivelyNoFlow && (
-         <div className="text-center mt-1 text-[9px]"> (No significant flow)</div>
-      )}
-       {isRangeTooSmall && (
-         <div className="text-center mt-1 text-[9px]"> (Uniform low flow)</div>
-      )}
     </div>
   );
 };
