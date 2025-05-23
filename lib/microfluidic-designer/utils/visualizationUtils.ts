@@ -75,20 +75,67 @@ export const getDynamicFlowColor = (
   return `rgb(${r},${g},${b})`;
 };
 
+interface ColorStop {
+  color: string; // Hex string e.g., "#FF0000"
+  stop: number;  // Normalized value (0.0 to 1.0)
+}
+
+type Palette = ColorStop[];
+
+const palettes: Record<string, Palette> = {
+  active_blue_yellow_red: [
+    { color: '#003C7E', stop: 0.0 }, // Brand Blue
+    { color: '#FFFACD', stop: 0.5 }, // Lemon Chiffon (Light Yellow)
+    { color: '#B91C1C', stop: 1.0 }  // Scientific Deep Red
+  ],
+  /* OPTION 1: Viridis-like (Simplified) */
+viridis_like: [
+   { color: '#440154', stop: 0.0 },    // Purple
+   { color: '#3B528B', stop: 0.25 },   // Blue
+   { color: '#21908C', stop: 0.5 },    // Teal
+   { color: '#5DC863', stop: 0.75 },   // Green
+   { color: '#FDE725', stop: 1.0 }     // Yellow
+   ],
+  /* OPTION 2: Classic Rainbow (Blue-Green-Red) */
+  // rainbow: [
+  //   { color: '#0000FF', stop: 0.0 },    // Blue
+  //   { color: '#00FFFF', stop: 0.25 },   // Cyan
+  //   { color: '#00FF00', stop: 0.5 },    // Green
+  //   { color: '#FFFF00', stop: 0.75 },   // Yellow
+  //   { color: '#FF0000', stop: 1.0 }     // Red
+  // ],
+  /* OPTION 3: Grayscale */
+  // grayscale: [
+  //   { color: '#000000', stop: 0.0 },    // Black
+  //   { color: '#FFFFFF', stop: 1.0 }     // White
+  // ],
+  /* OPTION 4: Plasma (Purple-Red-Yellow) */
+  // plasma: [
+  //   { color: '#0D0887', stop: 0.0 },    // Dark Purple
+  //   { color: '#CC4778', stop: 0.5 },    // Pink/Red
+  //   { color: '#F0F921', stop: 1.0 }     // Orange
+  // ],
+};
+
+const CURRENT_PALETTE_NAME = 'viridis_like'; // Change this string to switch palettes
+
 export const getPressureIndicatorColor = (
   pressurePa: number | undefined,
-  minOverallPressurePa?: number, // New optional parameter
-  maxOverallPressurePa?: number  // New optional parameter
+  minOverallPressurePa?: number,
+  maxOverallPressurePa?: number
 ): string => {
-  const COLOR_ZERO = 'rgb(138, 146, 155)'; // #8A929B Mid Grey
-  const COLOR_LOW_PRESSURE = 'rgb(0, 60, 126)';  // #003C7E Brand Blue
-  const COLOR_HIGH_PRESSURE = 'rgb(185, 28, 28)'; // #B91C1C Scientific Deep Red
+  const COLOR_ZERO = 'rgb(138, 146, 155)'; // #8A929B Mid Grey for undefined/fallback
+  const selectedPalette = palettes[CURRENT_PALETTE_NAME];
 
-  if (pressurePa === undefined || !isFinite(pressurePa)) {
-    return COLOR_ZERO; // For undefined or non-finite pressure
+  if (!selectedPalette || selectedPalette.length < 2) {
+    console.error(`[getPressureIndicatorColor] Palette "${CURRENT_PALETTE_NAME}" is not defined or has fewer than 2 stops. Falling back to grey.`);
+    return COLOR_ZERO;
   }
 
-  // If min and max overall pressures are provided and valid, use dynamic scaling
+  if (pressurePa === undefined || !isFinite(pressurePa)) {
+    return COLOR_ZERO;
+  }
+
   if (
     minOverallPressurePa !== undefined &&
     maxOverallPressurePa !== undefined &&
@@ -97,30 +144,45 @@ export const getPressureIndicatorColor = (
     maxOverallPressurePa > minOverallPressurePa
   ) {
     const range = maxOverallPressurePa - minOverallPressurePa;
-    // Normalize pressurePa: 0 for minOverallPressurePa, 1 for maxOverallPressurePa
-    // Clamp normalized value between 0 and 1
-    const normalizedPressure = Math.max(0, Math.min((pressurePa - minOverallPressurePa) / range, 1));
+    let normalizedPressure = 0;
+    if (range > 1e-9) { // Avoid division by zero if range is negligible
+        normalizedPressure = Math.max(0, Math.min((pressurePa - minOverallPressurePa) / range, 1));
+    } else { // If range is zero or negligible, all pressures effectively map to the first color or an average
+        normalizedPressure = 0; // Or 0.5 if you prefer mid-color of a 2-stop palette
+    }
 
-    // Linear interpolation between COLOR_LOW_PRESSURE and COLOR_HIGH_PRESSURE
-    const r = Math.round(0 + (185 - 0) * normalizedPressure);       // 0 (blue) to 185 (red)
-    const g = Math.round(60 + (28 - 60) * normalizedPressure);     // 60 (blue) to 28 (red)
-    const b = Math.round(126 + (28 - 126) * normalizedPressure);  // 126 (blue) to 28 (red)
+    // Find the two stops the normalizedPressure falls between
+    let lowerStop = selectedPalette[0];
+    let upperStop = selectedPalette[selectedPalette.length - 1];
+
+    for (let i = 0; i < selectedPalette.length - 1; i++) {
+      if (normalizedPressure >= selectedPalette[i].stop && normalizedPressure <= selectedPalette[i+1].stop) {
+        lowerStop = selectedPalette[i];
+        upperStop = selectedPalette[i+1];
+        break;
+      }
+    }
     
-    return `rgb(${r},${g},${b})`;
+    // Adjust normalizedPressure to be relative to the current segment (lowerStop to upperStop)
+    const segmentRange = upperStop.stop - lowerStop.stop;
+    let t = 0;
+    if (segmentRange > 1e-9) { // Avoid division by zero for segment
+        t = (normalizedPressure - lowerStop.stop) / segmentRange;
+    } else { // If segment range is zero (e.g. duplicate stops or at the very end), use 0 or 1
+        t = normalizedPressure >= upperStop.stop ? 1 : 0;
+    }
+    
+    return interpolateColor(lowerStop.color, upperStop.color, t);
+
   } else {
-    // Fallback to a simplified or fixed scheme if dynamic range is not available/valid
-    // This part can be adjusted. For now, a simple high pressure = red, else blue.
-    // This fallback is less ideal and should ideally be avoided by passing valid ranges.
-    console.warn("[getPressureIndicatorColor] Dynamic range not provided or invalid. Using fallback.");
+    // Fallback if dynamic range is not available/valid - this uses the first and last color of the selected palette for a simple distinction
+    console.warn("[getPressureIndicatorColor] Dynamic range not provided or invalid. Using fallback with selected palette endpoints.");
     const pressureMbar = pressurePa * PASCAL_TO_MBAR;
-    if (pressureMbar > 500) { // Arbitrary threshold for fallback
-      return COLOR_HIGH_PRESSURE;
+    // Simple fallback: if above an arbitrary mbar threshold, use the last color of the palette, else the first.
+    if (pressureMbar > 500) { 
+      return selectedPalette[selectedPalette.length - 1].color;
     }
-    if (pressureMbar < 10) { // Arbitrary threshold for fallback
-        return COLOR_LOW_PRESSURE;
-    }
-    // For intermediate values in fallback, we can return a mid-point or one of the colors
-    return 'rgb(128, 128, 128)'; // Fallback to a neutral grey for intermediate
+    return selectedPalette[0].color;
   }
 };
 

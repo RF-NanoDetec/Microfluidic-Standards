@@ -37,6 +37,7 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({ // Renamed compon
 
   const isEffectivelyNoFlow = maxDisplayValue < nearZeroThreshold;
   const isRangeTooSmall = Math.abs(maxDisplayValue - minDisplayValue) < nearZeroThreshold && !isEffectivelyNoFlow;
+  const segmentHeight = '12px'; // Set consistent height
 
   if (isEffectivelyNoFlow) {
     // If there's no significant flow, show a single color bar (e.g., zero flow color)
@@ -45,7 +46,7 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({ // Renamed compon
         key="no-flow-segment"
         style={{
           width: '100%',
-          height: '20px',
+          height: segmentHeight,
           backgroundColor: getDynamicFlowColor(0, 0, 0), // Use the color for zero flow
         }}
       />
@@ -65,7 +66,7 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({ // Renamed compon
           key={i}
           style={{
             flex: 1,
-            height: '20px',
+            height: segmentHeight,
             backgroundColor: color,
           }}
         />
@@ -83,7 +84,7 @@ const FlowDisplayLegend: React.FC<FlowDisplayLegendProps> = ({ // Renamed compon
       className={className}
     >
       <div className="mb-1 font-semibold text-center text-xs">{title}</div>
-      <div className="flex flex-row mb-1 border border-zinc-100">
+      <div className="flex flex-row mb-1 border border-zinc-100 overflow-hidden" style={{ height: segmentHeight }}>
         {gradientSegments}
       </div>
       <div className="flex justify-between text-[9px]">
