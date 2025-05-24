@@ -5,16 +5,18 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Info, Trash2, ShoppingCart, Package, Zap, Ruler, Circle } from 'lucide-react';
+import { Info, Trash2, ShoppingCart, Package, Ruler, Circle } from 'lucide-react';
+
 import type { CanvasItemData, Connection } from '@/lib/microfluidic-designer/types';
 import { ConnectionDetails } from './ConnectionDetails';
 import { calculateRectangularChannelResistance } from "@/lib/microfluidic-designer/resistanceUtils";
 import { FLUID_VISCOSITY_PAS } from "@/lib/microfluidic-designer/constants";
 import { useCartStore } from '@/store/cartStore';
 import { getVariantById, PARENT_PRODUCTS, getVariantsForProduct } from '@/lib/microfluidic-designer/productData';
+
 
 interface DetailsSidebarProps {
   selectedItem?: CanvasItemData;
@@ -58,13 +60,6 @@ export default function DetailsSidebar({
 }: DetailsSidebarProps) {
   const addToCart = useCartStore((state) => state.addToCart);
 
-  const handleInputChange = (propertyName: keyof CanvasItemData, value: string) => {
-    if (!selectedItem || !onItemPropertyChange) return;
-    const numericValue = parseFloat(value);
-    if (!isNaN(numericValue)) {
-      onItemPropertyChange(selectedItem.id, propertyName, numericValue);
-    }
-  };
 
   const handleVariantChange = (variantId: string) => {
     if (!selectedItem || !onItemPropertyChange) return;
@@ -97,6 +92,18 @@ export default function DetailsSidebar({
       [portIdToUpdate]: newPressure,
     };
     onItemPropertyChange(selectedItem.id, 'portPressures', updatedPortPressures);
+  };
+
+  const handlePortFlowRateChange = (portIdToUpdate: string, newFlowRateString: string) => {
+    if (!selectedItem || !onItemPropertyChange || selectedItem.chipType !== 'pump' || !selectedItem.portFlowRates) return;
+    const newFlowRate = parseFloat(newFlowRateString);
+    if (isNaN(newFlowRate)) return;
+
+    const updatedPortFlowRates = {
+      ...selectedItem.portFlowRates,
+      [portIdToUpdate]: newFlowRate,
+    };
+    onItemPropertyChange(selectedItem.id, 'portFlowRates', updatedPortFlowRates);
   };
 
   // Calculate component summary with categories
@@ -388,37 +395,76 @@ export default function DetailsSidebar({
                 </div>
               )}
 
-              {/* Pump Pressure Controls */}
-              {isPumpComponent && selectedItem.portPressures && onItemPropertyChange && (
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">Port Pressures (mbar)</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(selectedItem.portPressures).map(([portId, pressureInPa], index) => {
-                      const pressureInMbar = pressureInPa / 100;
-                      return (
-                        <div key={portId} className="space-y-1">
-                          <Label htmlFor={`pressure-${portId}`} className="text-xs">
-                            Point {index + 1}
-                          </Label>
-                          <Input
-                            id={`pressure-${portId}`}
-                            type="number"
-                            value={pressureInMbar}
-                            onChange={(e) => {
-                              const pressureMbar = parseFloat(e.target.value);
-                              if (!isNaN(pressureMbar)) {
-                                handlePortPressureChange(portId, (pressureMbar * 100).toString());
-                              } else {
-                                handlePortPressureChange(portId, "0");
-                              }
-                            }}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+              {/* Pump Controls - Different based on pump type */}
+              {isPumpComponent && onItemPropertyChange && (
+                <>
+                  {/* Pressure Pump Controls */}
+                  {selectedItem.pumpType === 'pressure' && selectedItem.portPressures && (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium">Port Pressures (mbar)</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.entries(selectedItem.portPressures).map(([portId, pressureInPa], index) => {
+                          const pressureInMbar = pressureInPa / 100;
+                          return (
+                            <div key={portId} className="space-y-1">
+                              <Label htmlFor={`pressure-${portId}`} className="text-xs">
+                                Port {index + 1}
+                              </Label>
+                              <Input
+                                id={`pressure-${portId}`}
+                                type="number"
+                                value={pressureInMbar}
+                                onChange={(e) => {
+                                  const pressureMbar = parseFloat(e.target.value);
+                                  if (!isNaN(pressureMbar)) {
+                                    handlePortPressureChange(portId, (pressureMbar * 100).toString());
+                                  } else {
+                                    handlePortPressureChange(portId, "0");
+                                  }
+                                }}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Syringe Pump Controls */}
+                  {selectedItem.pumpType === 'syringe' && selectedItem.portFlowRates && (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium">Flow Rate (µL/min)</Label>
+                      <div className="grid grid-cols-1 gap-2">
+                        {Object.entries(selectedItem.portFlowRates).map(([portId, flowRate]) => {
+                          return (
+                            <div key={portId} className="space-y-1">
+                              <Label htmlFor={`flowrate-${portId}`} className="text-xs">
+                                Flow Rate
+                              </Label>
+                              <Input
+                                id={`flowrate-${portId}`}
+                                type="number"
+                                value={flowRate}
+                                onChange={(e) => {
+                                  const flowRateValue = parseFloat(e.target.value);
+                                  if (!isNaN(flowRateValue)) {
+                                    handlePortFlowRateChange(portId, flowRateValue.toString());
+                                  } else {
+                                    handlePortFlowRateChange(portId, "0");
+                                  }
+                                }}
+                                className="h-8 text-xs"
+                                min="0"
+                                step="0.1"
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Delete Button */}

@@ -7,7 +7,6 @@ import {
   Line,
   Circle,
   Group,
-  Path,
   Image
 } from 'react-konva';
 import {
@@ -20,7 +19,8 @@ import {
   CHANNEL_OUTLINE_WIDTH,
   CHANNEL_CAP,
   CHANNEL_JOIN,
-  PUMP_SVG_DATA_URI,
+  SYRINGE_PUMP_SVG_DATA_URI,
+  PRESSURE_PUMP_SVG_DATA_URI,
   OUTLET_SVG_DATA_URI,
   OUTLET_WIDTH,
   OUTLET_HEIGHT,
@@ -31,10 +31,11 @@ import { useEffect, useState } from 'react';
 
 interface KonvaChipPreviewProps {
   chipType: string;
+  productId?: string;
   isHovered?: boolean;
 }
 
-export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaChipPreviewProps) {
+export default function KonvaChipPreview({ chipType, productId, isHovered = false }: KonvaChipPreviewProps) {
   // Increased stage size to accommodate shadows (was 50x50)
   const stageWidth = 70;
   const stageHeight = 70;
@@ -45,8 +46,9 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
   const strokeColor = PREVIEW_RECT_STYLE.stroke;
   const strokeWidth = PREVIEW_RECT_STYLE.strokeWidth;
   
-  // For SVG images
-  const [pumpImage, setPumpImage] = useState<HTMLImageElement | null>(null);
+  // For SVG images - separate state for different pump types
+  const [syringePumpImage, setSyringePumpImage] = useState<HTMLImageElement | null>(null);
+  const [pressurePumpImage, setPressurePumpImage] = useState<HTMLImageElement | null>(null);
   const [outletImage, setOutletImage] = useState<HTMLImageElement | null>(null);
   
   // Calculate scale factor to fit the components within the stage
@@ -61,14 +63,22 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
   const offsetX = (stageWidth - CHIP_WIDTH * scale) / 2;
   const offsetY = (stageHeight - CHIP_HEIGHT * scale) / 2;
   
-  // Load SVG images
+  // Load SVG images based on product type
   useEffect(() => {
     if (chipType === 'pump') {
-      const image = new window.Image();
-      image.src = PUMP_SVG_DATA_URI;
-      image.onload = () => {
-        setPumpImage(image);
-      };
+      if (productId === 'syringe-pump') {
+        const image = new window.Image();
+        image.src = SYRINGE_PUMP_SVG_DATA_URI;
+        image.onload = () => {
+          setSyringePumpImage(image);
+        };
+      } else if (productId === 'pressure-pump') {
+        const image = new window.Image();
+        image.src = PRESSURE_PUMP_SVG_DATA_URI;
+        image.onload = () => {
+          setPressurePumpImage(image);
+        };
+      }
     } else if (chipType === 'outlet') {
       const image = new window.Image();
       image.src = OUTLET_SVG_DATA_URI;
@@ -76,7 +86,7 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
         setOutletImage(image);
       };
     }
-  }, [chipType]);
+  }, [chipType, productId]);
   
   let shapes = null;
 
@@ -102,8 +112,8 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
             points={[0, CHIP_HEIGHT / 2, CHIP_WIDTH, CHIP_HEIGHT / 2]}
             stroke={CHANNEL_OUTLINE_COLOR}
             strokeWidth={CHANNEL_OUTLINE_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as 'butt' | 'round' | 'square'}
+            lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
             {...shadowStyle}
             shadowOpacity={0.1}
           />
@@ -113,8 +123,8 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
             points={[0, CHIP_HEIGHT / 2, CHIP_WIDTH, CHIP_HEIGHT / 2]}
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as 'butt' | 'round' | 'square'}
+            lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
           />
         </Group>
       );
@@ -146,7 +156,7 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
             stroke={CHANNEL_OUTLINE_COLOR}
             strokeWidth={CHANNEL_OUTLINE_WIDTH}
             lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
             {...shadowStyle}
             shadowOpacity={0.1}
           />
@@ -157,7 +167,7 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
             stroke={CHANNEL_OUTLINE_COLOR}
             strokeWidth={CHANNEL_OUTLINE_WIDTH}
             lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
             {...shadowStyle}
             shadowOpacity={0.1}
           />
@@ -178,7 +188,7 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
             lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
           />
           
           {/* Channel fill - vertical */}
@@ -187,7 +197,7 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
             lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
           />
         </Group>
       );
@@ -221,7 +231,7 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
             stroke={CHANNEL_OUTLINE_COLOR}
             strokeWidth={CHANNEL_OUTLINE_WIDTH}
             lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
             {...shadowStyle}
             shadowOpacity={0.1}
           />
@@ -232,7 +242,7 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
             stroke={CHANNEL_OUTLINE_COLOR}
             strokeWidth={CHANNEL_OUTLINE_WIDTH}
             lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
             {...shadowStyle}
             shadowOpacity={0.1}
           />
@@ -253,7 +263,7 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
             lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
           />
           
           {/* Channel fill - horizontal (center to right) */}
@@ -262,7 +272,7 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
             lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
           />
         </Group>
       );
@@ -385,7 +395,7 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
             stroke={CHANNEL_OUTLINE_COLOR}
             strokeWidth={CHANNEL_OUTLINE_WIDTH}
             lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
             {...shadowStyle}
             shadowOpacity={0.1}
           />
@@ -396,7 +406,7 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
             lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
           />
         </Group>
       );
@@ -404,16 +414,26 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
       
     case 'pump':
       // Use the original SVG image but scale it down for preview
-      shapes = pumpImage ? (
+      shapes = syringePumpImage || pressurePumpImage ? (
         <Group x={stageWidth/2} y={stageHeight/2} scaleX={scale} scaleY={scale}>
-          <Image 
-            image={pumpImage} 
+          {syringePumpImage && <Image 
+            image={syringePumpImage} 
             width={stageWidth * 0.7}
             height={stageHeight * 0.7}
             offsetX={stageWidth * 0.7 / 2}
             offsetY={stageHeight * 0.7 / 2}
+            alt="Syringe Pump component preview"
             {...shadowStyle}
-          />
+          />}
+          {pressurePumpImage && <Image 
+            image={pressurePumpImage} 
+            width={stageWidth * 0.7}
+            height={stageHeight * 0.7}
+            offsetX={stageWidth * 0.7 / 2}
+            offsetY={stageHeight * 0.7 / 2}
+            alt="Pressure Pump component preview"
+            {...shadowStyle}
+          />}
         </Group>
       ) : (
         // Fallback while image is loading
@@ -451,6 +471,7 @@ export default function KonvaChipPreview({ chipType, isHovered = false }: KonvaC
             height={OUTLET_HEIGHT * outletImageScaleFactor}
             x={(CHIP_WIDTH - (OUTLET_WIDTH * outletImageScaleFactor)) / 2} // Center the enlarged image within the container Rect
             y={(CHIP_HEIGHT - (OUTLET_HEIGHT * outletImageScaleFactor)) / 2} // Center the enlarged image
+            alt="Outlet component preview"
             {...shadowStyle}
           />
         </Group>

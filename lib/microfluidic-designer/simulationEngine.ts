@@ -26,6 +26,7 @@ import {
 const MICRO_LITERS_PER_MINUTE_FACTOR = M3S_TO_ULMIN;
 const RESISTANCE_SCALE_FACTOR = 1e-12; // Factor to scale resistance for numerical stability
 console.log(`Using Resistance Scale Factor: ${RESISTANCE_SCALE_FACTOR}`);
+console.log(`This scales conductances UP by: ${(1/RESISTANCE_SCALE_FACTOR).toExponential(3)}`);
 
 // --- Global-like state / dependencies ---
 // This might be better managed by the calling component or a state manager
@@ -127,7 +128,7 @@ function buildNetworkGraph(
 
     // Scale the resistance
     const scaledResistance = resistance * RESISTANCE_SCALE_FACTOR;
-    // console.log(`[GraphBuild] Segment ${segmentId} - Scaled R: ${scaledResistance.toExponential(3)} (Original: ${resistance.toExponential(3)})`);
+    // console.log(`[GraphBuild] Segment ${segmentId} - Original R: ${resistance.toExponential(3)} Pa·s/m³, Scaled R: ${scaledResistance.toExponential(3)}`);
 
     graph.segments[segmentId] = { 
         id: segmentId, 
@@ -175,9 +176,7 @@ function buildNetworkGraph(
 
       if (item.chipType === 'pump') {
         nodeType = 'pump';
-        // Pumps apply pressure. item.portPressures is keyed by the original port ID (e.g., 'out1')
-        // port.id on CanvasItemData.ports is the globally unique ID (e.g., 'pumpInstanceId_out1')
-        // We need to extract the original port ID from the unique port.id
+        // Extract the original port ID from the unique port ID
         const uniquePortId = port.id; // e.g., item.id + '_' + original_port_id
         let originalPortId = uniquePortId;
         
@@ -191,13 +190,32 @@ function buildNetworkGraph(
           }
         }
         
-        console.log(`[GraphBuild] Pump port: ${uniquePortId}, Original port ID: ${originalPortId}, Available port pressures:`, item.portPressures);
-        pressure = item.portPressures?.[originalPortId]; 
-        
-        // Add backup value if not found (important for simulations)
-        if (pressure === undefined) {
-          console.warn(`[GraphBuild] No pressure defined for pump port ${originalPortId} on ${item.id}. Using default 200 mbar.`);
-          pressure = 200 * MBAR_TO_PASCAL; // Default to 200 mbar if not specified
+        // Handle different pump types
+        if (item.pumpType === 'syringe') {
+          // Syringe pumps specify flow rate, NOT pressure
+          // Their pressure will be solved for based on the flow constraint
+          console.log(`[GraphBuild] Syringe pump port: ${uniquePortId}, Original port ID: ${originalPortId}, Available port flow rates:`, item.portFlowRates);
+          
+          const flowRateUlMin = item.portFlowRates?.[originalPortId];
+          if (flowRateUlMin !== undefined) {
+            // Store the flow rate in the node for later use
+            // Don't assign a pressure - it will be solved for
+            console.log(`[GraphBuild] Syringe pump ${originalPortId}: ${flowRateUlMin} µL/min`);
+          } else {
+            console.warn(`[GraphBuild] No flow rate defined for syringe pump port ${originalPortId} on ${item.id}.`);
+          }
+          // DON'T set pressure for syringe pumps
+          pressure = undefined;
+        } else {
+          // Pressure pumps specify pressure (existing behavior)
+          console.log(`[GraphBuild] Pressure pump port: ${uniquePortId}, Original port ID: ${originalPortId}, Available port pressures:`, item.portPressures);
+          pressure = item.portPressures?.[originalPortId]; 
+          
+          // Add backup value if not found (important for simulations)
+          if (pressure === undefined) {
+            console.warn(`[GraphBuild] No pressure defined for pressure pump port ${originalPortId} on ${item.id}. Using default 200 mbar.`);
+            pressure = 200 * MBAR_TO_PASCAL; // Default to 200 mbar if not specified
+          }
         }
       } else if (item.chipType === 'outlet') {
         nodeType = 'outlet';
@@ -208,6 +226,7 @@ function buildNetworkGraph(
       addNode({
         id: portNodeId,
         type: nodeType,
+        pumpType: item.chipType === 'pump' ? item.pumpType : undefined,
         canvasItemId: canvasItemId,
         portId: port.id,
         pressure: pressure,
@@ -454,28 +473,53 @@ function calculateCircularTubeResistance(length: number, radius: number, viscosi
 
 /**
  * Solves for unknown node pressures in the hydraulic network graph.
- * Uses a matrix solution method (Ax = B).
+ * Uses Modified Nodal Analysis (MNA) to handle both pressure sources and flow sources.
  * @param graph The SimulationGraph.
  * @param showNotification Callback to display notifications to the user.
+ * @param syringePumpFlows Map of syringe pump node IDs to their target flow rates in m³/s
  * @returns A map of node IDs to their calculated pressures (in Pascals), or null if solving fails.
  */
 function solvePressures(
     graph: SimulationGraph, 
-    showNotification: (message: string, type: 'error' | 'warning' | 'info') => void
+    showNotification: (message: string, type: 'error' | 'warning' | 'info') => void,
+    syringePumpFlows?: Map<string, number>
 ): { [nodeId: string]: number } | null {
     const nodeIds = Object.keys(graph.nodes);
     
-    // Nodes with PREDEFINED pressures (pumps, outlets acting as ground)
-    const knownPressureNodeIds = nodeIds.filter(id => graph.nodes[id].pressure !== undefined || graph.nodes[id].isGround);
+    // Separate nodes into categories
+    const pressurePumpNodes = nodeIds.filter(id => 
+        graph.nodes[id].type === 'pump' && 
+        graph.nodes[id].pumpType === 'pressure' && 
+        graph.nodes[id].pressure !== undefined
+    );
     
-    // Nodes whose pressures need to be SOLVED
-    const unknownPressureNodeIds = nodeIds.filter(id => graph.nodes[id].pressure === undefined && !graph.nodes[id].isGround);
+    const syringePumpNodes = nodeIds.filter(id => 
+        graph.nodes[id].type === 'pump' && 
+        graph.nodes[id].pumpType === 'syringe'
+    );
+    
+    const groundNodes = nodeIds.filter(id => 
+        graph.nodes[id].isGround || graph.nodes[id].type === 'outlet'
+    );
+    
+    // All other nodes have unknown pressures
+    const unknownPressureNodeIds = nodeIds.filter(id => 
+        !pressurePumpNodes.includes(id) && 
+        !groundNodes.includes(id)
+    );
+
+    console.log(`[Solve] Node classification:`, {
+        pressurePumps: pressurePumpNodes.length,
+        syringePumps: syringePumpNodes.length,
+        ground: groundNodes.length,
+        unknown: unknownPressureNodeIds.length
+    });
 
     if (unknownPressureNodeIds.length === 0) {
-        // All node pressures are already known (e.g., fully constrained system or no unknowns)
+        // All node pressures are already known
         const allPressures: { [nodeId: string]: number } = {};
         nodeIds.forEach(id => {
-            allPressures[id] = graph.nodes[id].pressure !== undefined ? graph.nodes[id].pressure! : (graph.nodes[id].isGround ? 0 : NaN);
+            allPressures[id] = graph.nodes[id].pressure !== undefined ? graph.nodes[id].pressure! : 0;
         });
         return allPressures;
     }
@@ -483,19 +527,7 @@ function solvePressures(
     if (Object.keys(graph.segments).length === 0 && unknownPressureNodeIds.length > 0) {
         console.warn("[Solve] Cannot solve: No segments defined, but unknown node pressures exist.");
         showNotification("Cannot simulate: System is not connected or under-constrained.", 'error');
-        // Assign NaN to unknown pressures if there are no segments to propagate pressure.
-        const resultingPressures: { [nodeId: string]: number } = {};
-        nodeIds.forEach(id => {
-            if (graph.nodes[id].pressure !== undefined) {
-                resultingPressures[id] = graph.nodes[id].pressure!;
-            } else if (graph.nodes[id].isGround) {
-                resultingPressures[id] = 0;
-            } else {
-                 console.warn(`[Solve] Node ${id} has unknown pressure and no connections. Setting to NaN.`);
-                 resultingPressures[id] = NaN;
-            }
-        });
-        return resultingPressures;
+        return null;
     }
     
     const n = unknownPressureNodeIds.length;
@@ -504,116 +536,122 @@ function solvePressures(
     const A_data: number[][] = Array(n).fill(null).map(() => Array(n).fill(0));
     const B_data: number[] = Array(n).fill(0);
 
-    unknownPressureNodeIds.forEach((nodeId_i, i) => { // Current unknown node we are building equation for
+    // Build the conductance matrix and source vector
+    unknownPressureNodeIds.forEach((nodeId_i, i) => {
         let diagonalSumConductance = 0;
         
         const connectedSegmentIds = graph.adjacency[nodeId_i] || [];
         if (connectedSegmentIds.length === 0) {
-            // An unknown node not connected to anything. This is an issue.
-            // This situation implies an isolated part of the graph or a dangling node that isn't a boundary condition.
-            // It will likely make the matrix singular if not handled.
-            console.warn(`[Solve] Node ${nodeId_i} has unknown pressure and is not connected to any segments. This can lead to an unstable solution. Assigning arbitrary equation P_i = 0 relative to other unknowns.`);
-            // To prevent singularity, we can set its row to P_i = 0 (or some other constraint if meaningful)
-            // This is a common strategy for floating nodes, but means its pressure is not really "solved" by the network.
+            console.warn(`[Solve] Node ${nodeId_i} has unknown pressure and is not connected to any segments.`);
             A_data[i][i] = 1; 
-            B_data[i] = 0; // Effectively says P_i = 0 if it's not connected to any KNOWN pressures.
-                           // If it were connected only to other UNKNOWNS, this makes the problem ill-posed.
-            return; // Skip to next unknown node
+            B_data[i] = 0;
+            return;
         }
 
+        // Add contributions from connected segments
         connectedSegmentIds.forEach(segmentId => {
             const segment = graph.segments[segmentId];
-            if (!segment || segment.resistance <= 0) { // Skip if segment is invalid or has zero/negative resistance
-                 if (segment && segment.resistance === 0) {
-                    // If zero resistance, these two nodes should ideally be merged.
-                    // This solver formulation (nodal analysis) struggles with true zero resistance.
-                    console.warn(`[Solve] Segment ${segmentId} has zero resistance. The system might be ill-conditioned or nodes should be merged.`);
-                    // For now, treat as very high conductance, but this is problematic.
-                    // A better approach is to pre-process graph to merge nodes connected by zero-resistance paths.
-                 }
-                 // If resistance is invalid (<=0), don't include in matrix.
+            if (!segment || segment.resistance <= 0) {
+                if (segment && segment.resistance === 0) {
+                    console.warn(`[Solve] Segment ${segmentId} has zero resistance.`);
+                }
                 return;
             }
             
             const conductance = 1.0 / segment.resistance;
             diagonalSumConductance += conductance;
 
-            // Determine the "other" node in this segment
             const otherNodeId = segment.node1Id === nodeId_i ? segment.node2Id : segment.node1Id;
             const otherNode = graph.nodes[otherNodeId];
 
-            if (otherNode.pressure !== undefined) { // If connected to a KNOWN pressure node (pump, fixed pressure)
-                B_data[i] += conductance * otherNode.pressure;
-            } else if (otherNode.isGround) { // If connected to a ground node (outlet)
-                 B_data[i] += conductance * 0; // Pressure is 0
-            } else { // Connected to another UNKNOWN pressure node
+            if (pressurePumpNodes.includes(otherNodeId)) {
+                // Connected to a pressure source
+                B_data[i] += conductance * otherNode.pressure!;
+            } else if (groundNodes.includes(otherNodeId)) {
+                // Connected to ground (pressure = 0)
+                B_data[i] += 0; // No contribution
+            } else {
+                // Connected to another unknown node
                 const j = unknownNodeIndexMap.get(otherNodeId);
-                if (j !== undefined) { // Should always be found if it's an unknown node
+                if (j !== undefined) {
                     A_data[i][j] -= conductance;
-                } else {
-                    // This should not happen if unknownNodeIndexMap is built correctly
-                    console.error(`[Solve] Critical error: Neighbor ${otherNodeId} of ${nodeId_i} is unknown but not in index map.`);
                 }
             }
         });
+        
         A_data[i][i] = diagonalSumConductance;
         
-        // Check if row is all zeros (can happen if connected only to zero-resistance segments that were skipped)
+        // Add current source contribution for syringe pumps
+        if (syringePumpNodes.includes(nodeId_i) && syringePumpFlows) {
+            const flowRate = syringePumpFlows.get(nodeId_i);
+            if (flowRate !== undefined) {
+                // Scale the flow rate to match the scaled conductance matrix
+                // Since conductances are scaled up by 1/RESISTANCE_SCALE_FACTOR,
+                // we need to scale currents up by the same factor
+                const scaledFlowRate = flowRate / RESISTANCE_SCALE_FACTOR;
+                B_data[i] += scaledFlowRate;
+                console.log(`[Solve] Syringe pump at node ${nodeId_i}: injecting ${(flowRate * M3S_TO_ULMIN).toFixed(2)} µL/min (scaled: ${scaledFlowRate.toExponential(3)})`);
+            }
+        }
+        
+        // Check for singular rows
         if (diagonalSumConductance === 0 && B_data[i] === 0) {
-            // This node is effectively isolated or only connected via paths that don't contribute to the equations here.
-            // This will lead to a singular matrix.
-            console.warn(`[Solve] Equation for node ${nodeId_i} results in 0 = 0. The node might be isolated or part of a sub-network with no pressure definition. Setting P_i = 0.`);
-            A_data[i][i] = 1; // Avoid singularity, sets this unknown's pressure to 0 relative to solution.
+            console.warn(`[Solve] Equation for node ${nodeId_i} results in 0 = 0.`);
+            A_data[i][i] = 1;
         }
     });
   
     const A = math.matrix(A_data);
     const B = math.matrix(B_data);
 
+    // Log matrix details for debugging
+    console.log(`[Solve] Matrix dimensions: ${n}x${n}`);
+    console.log(`[Solve] Condition number estimate:`, math.norm(A, 2));
+    
+    // Log some sample values to check scaling
+    if (n > 0) {
+        console.log(`[Solve] Sample diagonal conductance (A[0][0]): ${A_data[0][0].toExponential(3)}`);
+        console.log(`[Solve] Sample B vector value (B[0]): ${B_data[0].toExponential(3)}`);
+    }
+
     let solvedPressuresVector: math.Matrix;
     try {
-        // Check for obvious singularity: all-zero rows or columns if not handled above.
-        for (let i = 0; i < n; i++) {
-            if (A.get([i,i]) === 0) {
-                 let rowSumAbs = 0;
-                 for (let j = 0; j < n; j++) rowSumAbs += math.abs(A.get([i,j]));
-                 if (rowSumAbs === 0) {
-                     console.error(`[Solve] Matrix A has an all-zero row at index ${i} (Node: ${unknownPressureNodeIds[i]}). This means the node's pressure is undefined by the system.`);
-                     // Attempt to patch by setting P_i = 0. This might not be correct but avoids crash.
-                     const newAData = A.toArray() as number[][];
-                     newAData[i][i] = 1;
-                     const newBData = B.toArray() as number[];
-                     newBData[i] = 0;
-                     // This is a modification of the problem. User should be warned.
-                     showNotification(`Simulation unstable: Node ${unknownPressureNodeIds[i]} is ill-defined. Its pressure is assumed 0.`, 'warning');
-                     return solvePressures(graph, showNotification); // Recurse with modified problem, DANGEROUS
-                 }
-            }
-        }
         solvedPressuresVector = math.lusolve(A, B) as math.Matrix;
     } catch (error: any) {
         console.error("[Solve] Error during matrix solution: ", error);
+        
+        // Try to diagnose the issue
+        const det = math.det(A);
+        console.error(`[Solve] Matrix determinant: ${det}`);
+        
         const errorMessage = error.message && error.message.toLowerCase().includes("singular") 
-            ? "Simulation failed: Network is unstable or under-constrained (singular matrix). Check connections, pumps, and outlets."
+            ? "Simulation failed: Network is unstable or under-constrained (singular matrix). Check connections and ensure at least one pressure reference (outlet or pressure pump) exists."
             : "Simulation error during pressure calculation.";
         showNotification(errorMessage, 'error');
         return null;
     }
 
+    // Assemble the complete pressure solution
     const allNodePressures: { [nodeId: string]: number } = {};
-    // Start with known pressures
-    knownPressureNodeIds.forEach(id => {
-        allNodePressures[id] = graph.nodes[id].pressure !== undefined ? graph.nodes[id].pressure! : (graph.nodes[id].isGround ? 0 : NaN);
+    
+    // Known pressures
+    pressurePumpNodes.forEach(id => {
+        allNodePressures[id] = graph.nodes[id].pressure!;
     });
-    // Add solved pressures
+    
+    groundNodes.forEach(id => {
+        allNodePressures[id] = 0;
+    });
+    
+    // Solved pressures
     unknownPressureNodeIds.forEach((nodeId, i) => {
         let pressureValueRaw = solvedPressuresVector.get([i, 0]);
         let pressureValue: number;
 
         if (typeof pressureValueRaw === 'object' && pressureValueRaw !== null && 're' in pressureValueRaw && 'im' in pressureValueRaw) {
             const complexVal = pressureValueRaw as math.Complex;
-            if (math.abs(complexVal.im) > 1e-9) { // Allow for small numerical inaccuracies
-                 console.warn(`[Solve] Node ${nodeId} pressure is complex: ${complexVal.toString()}. Using real part. Imaginary part: ${complexVal.im}`);
+            if (math.abs(complexVal.im) > 1e-9) {
+                console.warn(`[Solve] Node ${nodeId} pressure is complex: ${complexVal.toString()}. Using real part.`);
             }
             pressureValue = complexVal.re;
         } else {
@@ -621,12 +659,20 @@ function solvePressures(
         }
 
         if (!isFinite(pressureValue)) {
-            console.error(`[Solve] Node ${nodeId} pressure solution is not finite: ${pressureValue}. Setting to NaN.`);
-            showNotification(`Warning: Unstable pressure calculated for ${graph.nodes[nodeId].canvasItemId || nodeId}. Result may be unreliable.`, 'warning');
+            console.error(`[Solve] Node ${nodeId} pressure solution is not finite: ${pressureValue}.`);
+            showNotification(`Warning: Unstable pressure calculated for ${graph.nodes[nodeId].canvasItemId || nodeId}.`, 'warning');
             pressureValue = NaN;
         }
+        
         allNodePressures[nodeId] = pressureValue;
     });
+    
+    // Log results for syringe pumps
+    syringePumpNodes.forEach(id => {
+        const pressure = allNodePressures[id];
+        console.log(`[Solve] Syringe pump ${id} solved pressure: ${(pressure/100).toFixed(1)} mbar`);
+    });
+    
     return allNodePressures;
 }
 
@@ -695,12 +741,14 @@ function calculateFlows(
             console.warn(`[FlowCalc] Non-finite flow for segment ${segmentId} after unscaling (Scaled: ${flowRateM3s_scaled.toExponential(3)}, Unscaled: ${flowRateM3s_unscaled}). Setting to NaN.`);
             segmentFlows[segmentId] = NaN;
         } else {
-            // console.log(`[FlowCalc] Segment ${segmentId} - Scaled Flow: ${flowRateM3s_scaled.toExponential(3)}, Unscaled Flow: ${flowRateM3s_unscaled.toExponential(3)}`);
+            // console.log(`[FlowCalc] Segment ${segmentId} - Pressure diff: ${(p1-p2).toExponential(3)} Pa, Scaled R: ${resistance.toExponential(3)}, Scaled Flow: ${flowRateM3s_scaled.toExponential(3)}, Unscaled Flow: ${flowRateM3s_unscaled.toExponential(3)} m³/s = ${(flowRateM3s_unscaled * M3S_TO_ULMIN).toFixed(2)} µL/min`);
             segmentFlows[segmentId] = flowRateM3s_unscaled; // Store the unscaled flow rate
         }
     }
     return segmentFlows;
 }
+
+// Removed estimatePressureFromFlowRate and adjustSyringePumpPressures - no longer needed with proper MNA implementation
 
 /**
  * Main function to run the fluid dynamics simulation.
@@ -739,11 +787,35 @@ export function runFluidSimulationLogic(
         triggerShowNotification(message, type);
     };
 
-    const graph = buildNetworkGraph(canvasItems, canvasConnections);
+    let graph = buildNetworkGraph(canvasItems, canvasConnections);
+    
+    // Collect syringe pump targets for flow rate control
+    const syringePumpFlows = new Map<string, number>();
+    canvasItems.forEach(item => {
+        if (item.chipType === 'pump' && item.pumpType === 'syringe' && item.portFlowRates) {
+            item.ports.forEach(port => {
+                // Extract the original port ID from the unique port ID
+                let originalPortId = port.id;
+                if (port.id.startsWith(item.id + '_')) {
+                    originalPortId = port.id.substring(item.id.length + 1);
+                }
+                
+                const targetFlowRateUlMin = item.portFlowRates![originalPortId];
+                if (targetFlowRateUlMin !== undefined) {
+                    // Convert µL/min to m³/s
+                    const targetFlowRateM3s = targetFlowRateUlMin * 1e-6 * 1e-3 / 60;
+                    const nodeId = port.id; // Use the full port ID as node ID
+                    syringePumpFlows.set(nodeId, targetFlowRateM3s);
+                    console.log(`[SimRun] Registered syringe pump flow: ${nodeId} -> ${targetFlowRateUlMin} µL/min (${targetFlowRateM3s.toExponential(3)} m³/s)`);
+                }
+            });
+        }
+    });
     
     // Debug logs for graph analysis
     console.log("[SimRun] Built graph with nodes:", Object.keys(graph.nodes).length);
     console.log("[SimRun] Built graph with segments:", Object.keys(graph.segments).length);
+    console.log("[SimRun] Syringe pump flows:", syringePumpFlows.size);
     
     // Check for isolated components
     let isolatedNodes = 0;
@@ -850,7 +922,7 @@ export function runFluidSimulationLogic(
     }
     // --- End Pre-simulation checks ---
 
-    const solvedNodePressures = solvePressures(graph, notificationCollector);
+    const solvedNodePressures = solvePressures(graph, notificationCollector, syringePumpFlows);
     if (!solvedNodePressures) {
         console.error("[SimRun] Pressure solution failed.");
         // Errors should have been collected by notificationCollector
@@ -996,489 +1068,3 @@ function checkPathExists(graph: SimulationGraph, startNodeId: string, endNodeId:
     console.log(`[PathCheck] Visited nodes:`, Array.from(visited));
     return false;
 }
-
-/**
- * Test function to verify simulation behavior with a simple setup
- */
-export function testSimulationWithSimpleSetup() {
-    console.log("=== Running Simulation Test (Straight Chip - 5mm Length, 100um W/D) ===");
-    
-    // Create a simple setup: Pump -> Straight Chip -> Outlet
-    const testItems: CanvasItemData[] = [
-        {
-            id: 'test-pump-1',
-            productId: 'pump-product',
-            name: 'Test Pump',
-            chipType: 'pump',
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 200,
-            ports: [
-                { id: 'out1', name: 'Port 1', x: 100, y: 40, type: 'universal', orientation: 'right', simulationRole: 'outlet' }
-            ],
-            portPressures: { 'out1': 10000 }, // 10 kPa
-            currentChannelWidthMicrons: 100, // Default, not used by pump for resistance
-            currentChannelDepthMicrons: 50,  // Default, not used by pump for resistance
-            currentChannelLengthMm: 20,   // Default, not used by pump for resistance
-            resistance: 0, 
-        },
-        {
-            id: 'test-chip-1',
-            productId: 'straight-chip-product',
-            name: 'Test Straight Chip',
-            chipType: 'straight',
-            x: 150,
-            y: 0,
-            width: 100,
-            height: 50,
-            ports: [
-                { id: 'port_left', name: 'Left', x: 0, y: 25, type: 'universal', orientation: 'left', simulationRole: 'inlet' },
-                { id: 'port_right', name: 'Right', x: 100, y: 25, type: 'universal', orientation: 'right', simulationRole: 'outlet' }
-            ],
-            currentChannelWidthMicrons: 100,  // 100 µm
-            currentChannelDepthMicrons: 100,   // 100 µm
-            currentChannelLengthMm: 5,       // 5 mm
-            resistance: 0, 
-        },
-        {
-            id: 'test-outlet-1',
-            productId: 'outlet-product',
-            name: 'Test Outlet',
-            chipType: 'outlet',
-            x: 300,
-            y: 0,
-            width: 50,
-            height: 50,
-            ports: [
-                { id: 'in1', name: 'Inlet', x: 25, y: 0, type: 'universal', orientation: 'top', simulationRole: 'inlet' }
-            ],
-            currentChannelWidthMicrons: 100,
-            currentChannelDepthMicrons: 50,
-            currentChannelLengthMm: 5,
-            resistance: 0, // Will be calculated during simulation
-        }
-    ];
-
-    const testConnections: Connection[] = [
-        {
-            id: 'conn-pump-chip',
-            fromItemId: 'test-pump-1',
-            fromPortId: 'out1',
-            toItemId: 'test-chip-1',
-            toPortId: 'port_left',
-            pathData: 'M100,40 L150,25',
-            tubingTypeId: "default_0.02_inch_ID_silicone",
-            lengthMeters: 0.05, // 5 cm tube
-            resistance: 0, // Will be calculated
-        },
-        {
-            id: 'conn-chip-outlet',
-            fromItemId: 'test-chip-1',
-            fromPortId: 'port_right',
-            toItemId: 'test-outlet-1',
-            toPortId: 'in1',
-            pathData: 'M250,25 L325,0',
-            tubingTypeId: "default_0.02_inch_ID_silicone",
-            lengthMeters: 0.05, // 5 cm tube
-            resistance: 0, // Will be calculated
-        }
-    ];
-
-    // Mock callbacks
-    const mockUpdateResults = (results: SimulationResults) => {
-        console.log("=== Test Results ===");
-        console.log("Node Pressures (Pa):", results.nodePressures);
-        console.log("Segment Flows (m³/s):", results.segmentFlows);
-        if (results.warnings?.length) console.log("Warnings:", results.warnings);
-        if (results.errors?.length) console.log("Errors:", results.errors);
-    };
-
-    const mockClearVisuals = () => console.log("Clearing visuals...");
-    const mockVisualizeResults = () => console.log("Visualizing results...");
-    const mockShowNotification = (msg: string, type: 'error' | 'warning' | 'info') => 
-        console.log(`[${type.toUpperCase()}] ${msg}`);
-
-    // Run simulation
-    const results = runFluidSimulationLogic(
-        testItems,
-        testConnections,
-        mockUpdateResults,
-        mockClearVisuals,
-        mockVisualizeResults,
-        mockShowNotification
-    );
-
-    // Verify results
-    if (results) {
-        // Expected: Pressure should drop from 10kPa to 0Pa across the network
-        // Flow should be consistent through all segments
-        let allPressuresValid = true;
-        let allFlowsValid = true;
-        
-        // Check pressures are in range
-        Object.entries(results.nodePressures).forEach(([nodeId, pressure]) => {
-            if (pressure < 0 || pressure > 10000) {
-                console.error(`Invalid pressure at node ${nodeId}: ${pressure} Pa`);
-                allPressuresValid = false;
-            }
-        });
-
-        // Check flows are consistent
-        const flows = Object.values(results.segmentFlows);
-        const firstFlow = flows[0];
-        flows.forEach((flow, i) => {
-            if (Math.abs(flow - firstFlow) > 1e-10) { // Allow for small numerical differences
-                console.error(`Inconsistent flow in segment ${i}: ${flow} m³/s vs ${firstFlow} m³/s`);
-                allFlowsValid = false;
-            }
-        });
-
-        console.log("=== Test Verification ===");
-        console.log("All pressures valid:", allPressuresValid);
-        console.log("All flows consistent:", allFlowsValid);
-    } else {
-        console.error("Simulation failed to produce results");
-    }
-}
-
-/**
- * Test function to verify simulation with three chips in series
- * Setup: Pump -> Chip1 -> Chip2 -> Chip3 -> Outlet
- */
-export function testSimulationWithThreeChips() {
-    console.log("=== Running Three-Chip Series Test ===");
-    
-    // Create test items: 1 pump, 3 identical chips, 1 outlet
-    const testItems: CanvasItemData[] = [
-        {
-            id: 'test-pump-1',
-            productId: 'pump-product',
-            name: 'Test Pump',
-            chipType: 'pump',
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 200,
-            ports: [
-                { id: 'out1', name: 'Port 1', x: 100, y: 40, type: 'universal', orientation: 'right', simulationRole: 'outlet' }
-            ],
-            portPressures: { 'out1': 50000 }, // 50 kPa - higher pressure for multiple chips
-            currentChannelWidthMicrons: 100,
-            currentChannelDepthMicrons: 50,
-            currentChannelLengthMm: 20,
-            resistance: 0,
-        },
-        // First chip
-        {
-            id: 'test-chip-1',
-            productId: 'straight-chip-product',
-            name: 'Chip 1',
-            chipType: 'straight',
-            x: 150,
-            y: 0,
-            width: 100,
-            height: 50,
-            ports: [
-                { id: 'port_left', name: 'Left', x: 0, y: 25, type: 'universal', orientation: 'left', simulationRole: 'inlet' },
-                { id: 'port_right', name: 'Right', x: 100, y: 25, type: 'universal', orientation: 'right', simulationRole: 'outlet' }
-            ],
-            currentChannelWidthMicrons: 100,  // 100 µm
-            currentChannelDepthMicrons: 50,   // 50 µm
-            currentChannelLengthMm: 20,       // 20 mm
-            resistance: 0,
-        },
-        // Second chip
-        {
-            id: 'test-chip-2',
-            productId: 'straight-chip-product',
-            name: 'Chip 2',
-            chipType: 'straight',
-            x: 300,
-            y: 0,
-            width: 100,
-            height: 50,
-            ports: [
-                { id: 'port_left', name: 'Left', x: 0, y: 25, type: 'universal', orientation: 'left', simulationRole: 'inlet' },
-                { id: 'port_right', name: 'Right', x: 100, y: 25, type: 'universal', orientation: 'right', simulationRole: 'outlet' }
-            ],
-            currentChannelWidthMicrons: 100,
-            currentChannelDepthMicrons: 50,
-            currentChannelLengthMm: 20,
-            resistance: 0,
-        },
-        // Third chip
-        {
-            id: 'test-chip-3',
-            productId: 'straight-chip-product',
-            name: 'Chip 3',
-            chipType: 'straight',
-            x: 450,
-            y: 0,
-            width: 100,
-            height: 50,
-            ports: [
-                { id: 'port_left', name: 'Left', x: 0, y: 25, type: 'universal', orientation: 'left', simulationRole: 'inlet' },
-                { id: 'port_right', name: 'Right', x: 100, y: 25, type: 'universal', orientation: 'right', simulationRole: 'outlet' }
-            ],
-            currentChannelWidthMicrons: 100,
-            currentChannelDepthMicrons: 50,
-            currentChannelLengthMm: 20,
-            resistance: 0,
-        },
-        // Outlet
-        {
-            id: 'test-outlet-1',
-            productId: 'outlet-product',
-            name: 'Test Outlet',
-            chipType: 'outlet',
-            x: 600,
-            y: 0,
-            width: 50,
-            height: 50,
-            ports: [
-                { id: 'in1', name: 'Inlet', x: 25, y: 0, type: 'universal', orientation: 'top', simulationRole: 'inlet' }
-            ],
-            currentChannelWidthMicrons: 100,
-            currentChannelDepthMicrons: 50,
-            currentChannelLengthMm: 5,
-            resistance: 0,
-        }
-    ];
-
-    // Create connections between components
-    const testConnections: Connection[] = [
-        // Pump to Chip 1
-        {
-            id: 'conn-pump-chip1',
-            fromItemId: 'test-pump-1',
-            fromPortId: 'out1',
-            toItemId: 'test-chip-1',
-            toPortId: 'port_left',
-            pathData: 'M100,40 L150,25',
-            tubingTypeId: "default_0.02_inch_ID_silicone",
-            lengthMeters: 0.05, // 5 cm tube
-            resistance: 0,
-        },
-        // Chip 1 to Chip 2
-        {
-            id: 'conn-chip1-chip2',
-            fromItemId: 'test-chip-1',
-            fromPortId: 'port_right',
-            toItemId: 'test-chip-2',
-            toPortId: 'port_left',
-            pathData: 'M250,25 L300,25',
-            tubingTypeId: "default_0.02_inch_ID_silicone",
-            lengthMeters: 0.05,
-            resistance: 0,
-        },
-        // Chip 2 to Chip 3
-        {
-            id: 'conn-chip2-chip3',
-            fromItemId: 'test-chip-2',
-            fromPortId: 'port_right',
-            toItemId: 'test-chip-3',
-            toPortId: 'port_left',
-            pathData: 'M400,25 L450,25',
-            tubingTypeId: "default_0.02_inch_ID_silicone",
-            lengthMeters: 0.05,
-            resistance: 0,
-        },
-        // Chip 3 to Outlet
-        {
-            id: 'conn-chip3-outlet',
-            fromItemId: 'test-chip-3',
-            fromPortId: 'port_right',
-            toItemId: 'test-outlet-1',
-            toPortId: 'in1',
-            pathData: 'M550,25 L625,0',
-            tubingTypeId: "default_0.02_inch_ID_silicone",
-            lengthMeters: 0.05,
-            resistance: 0,
-        }
-    ];
-
-    // Mock callbacks
-    const mockUpdateResults = (results: SimulationResults) => {
-        console.log("\n=== Three-Chip Test Results ===");
-        
-        // Log pressures in a more readable format
-        console.log("\nPressure Distribution (mbar):");
-        const pressurePoints = [
-            { id: 'test-pump-1_out1', name: 'Pump Out' },
-            { id: 'test-chip-1_port_left', name: 'Chip 1 In' },
-            { id: 'test-chip-1_port_right', name: 'Chip 1 Out' },
-            { id: 'test-chip-2_port_left', name: 'Chip 2 In' },
-            { id: 'test-chip-2_port_right', name: 'Chip 2 Out' },
-            { id: 'test-chip-3_port_left', name: 'Chip 3 In' },
-            { id: 'test-chip-3_port_right', name: 'Chip 3 Out' },
-            { id: 'test-outlet-1_in1', name: 'Outlet' }
-        ];
-
-        pressurePoints.forEach(point => {
-            const pressure = results.nodePressures[point.id];
-            console.log(`${point.name}: ${(pressure * PASCAL_TO_MBAR).toFixed(2)} mbar`);
-        });
-
-        // Log flow rates
-        console.log("\nFlow Rates (µL/min):");
-        Object.entries(results.segmentFlows).forEach(([segmentId, flowRate]) => {
-            console.log(`${segmentId}: ${(flowRate * M3S_TO_ULMIN).toFixed(2)} µL/min`);
-        });
-
-        if (results.warnings?.length) console.log("\nWarnings:", results.warnings);
-        if (results.errors?.length) console.log("\nErrors:", results.errors);
-    };
-
-    const mockClearVisuals = () => console.log("Clearing visuals...");
-    const mockVisualizeResults = () => console.log("Visualizing results...");
-    const mockShowNotification = (msg: string, type: 'error' | 'warning' | 'info') => 
-        console.log(`[${type.toUpperCase()}] ${msg}`);
-
-    // Run simulation
-    const results = runFluidSimulationLogic(
-        testItems,
-        testConnections,
-        mockUpdateResults,
-        mockClearVisuals,
-        mockVisualizeResults,
-        mockShowNotification
-    );
-
-    // Verify results
-    if (results) {
-        // Expected: Pressure should drop from 50kPa to 0Pa across the network
-        // Each chip should have roughly equal pressure drop (ignoring tube resistance)
-        let allPressuresValid = true;
-        let allFlowsValid = true;
-        
-        // Check pressures are in range and monotonically decreasing
-        let lastPressure = 50000; // Starting pressure
-        Object.entries(results.nodePressures).forEach(([nodeId, pressure]) => {
-            if (pressure < 0 || pressure > 50000) {
-                console.error(`Invalid pressure at node ${nodeId}: ${pressure} Pa`);
-                allPressuresValid = false;
-            }
-            if (pressure > lastPressure && !nodeId.includes('pump')) {
-                console.error(`Non-monotonic pressure: ${nodeId} (${pressure} Pa) > previous (${lastPressure} Pa)`);
-                allPressuresValid = false;
-            }
-            lastPressure = pressure;
-        });
-
-        // Check flows are consistent
-        const flows = Object.values(results.segmentFlows);
-        const firstFlow = flows[0];
-        flows.forEach((flow, i) => {
-            if (Math.abs(flow - firstFlow) > 1e-10) {
-                console.error(`Inconsistent flow in segment ${i}: ${flow} m³/s vs ${firstFlow} m³/s`);
-                allFlowsValid = false;
-            }
-        });
-
-        console.log("\n=== Test Verification ===");
-        console.log("All pressures valid and monotonic:", allPressuresValid);
-        console.log("All flows consistent:", allFlowsValid);
-    } else {
-        console.error("Simulation failed to produce results");
-    }
-}
-
-/**
- * Test function to verify simulation with a meander chip.
- * Setup: Pump -> Meander Chip -> Outlet
- * Meander Chip: Length 1000mm (1m), Width 100µm, Depth 100µm
- */
-export function testSimulationWithMeanderChip() {
-    console.log("=== Running Meander Chip Test (1m Length, 100um W/D) ===");
-
-    const testItems: CanvasItemData[] = [
-        {
-            id: 'test-pump-meander',
-            productId: 'pump-product',
-            name: 'Test Pump for Meander',
-            chipType: 'pump',
-            x: 0, y: 0, width: 100, height: 200,
-            ports: [{ id: 'out1', name: 'Port 1', x: 100, y: 40, type: 'universal', orientation: 'right', simulationRole: 'outlet' }],
-            portPressures: { 'out1': 50000 }, // 50 kPa, higher pressure for longer chip
-            currentChannelWidthMicrons: 100, currentChannelDepthMicrons: 50, currentChannelLengthMm: 20, resistance: 0,
-        },
-        {
-            id: 'test-meander-chip-1',
-            productId: 'meander-chip-product', // Assuming a product ID exists
-            name: 'Test Meander Chip',
-            chipType: 'meander',
-            x: 150, y: 0, width: 100, height: 50,
-            ports: [
-                { id: 'port_left', name: 'Left', x: 0, y: 25, type: 'universal', orientation: 'left', simulationRole: 'inlet' },
-                { id: 'port_right', name: 'Right', x: 100, y: 25, type: 'universal', orientation: 'right', simulationRole: 'outlet' }
-            ],
-            currentChannelWidthMicrons: 100,  // 100 µm
-            currentChannelDepthMicrons: 100,   // 100 µm
-            currentChannelLengthMm: 1000,   // 1000 mm = 1 meter
-            resistance: 0,
-        },
-        {
-            id: 'test-outlet-meander',
-            productId: 'outlet-product',
-            name: 'Test Outlet for Meander',
-            chipType: 'outlet',
-            x: 300, y: 0, width: 50, height: 50,
-            ports: [{ id: 'in1', name: 'Inlet', x: 25, y: 0, type: 'universal', orientation: 'top', simulationRole: 'inlet' }],
-            currentChannelWidthMicrons: 100, currentChannelDepthMicrons: 50, currentChannelLengthMm: 5, resistance: 0,
-        }
-    ];
-
-    const testConnections: Connection[] = [
-        {
-            id: 'conn-pump-meander',
-            fromItemId: 'test-pump-meander',
-            fromPortId: 'out1',
-            toItemId: 'test-meander-chip-1',
-            toPortId: 'port_left',
-            pathData: 'M100,40 L150,25',
-            tubingTypeId: "default_0.02_inch_ID_silicone",
-            lengthMeters: 0.05, // 5 cm tube
-            resistance: 0,
-        },
-        {
-            id: 'conn-meander-outlet',
-            fromItemId: 'test-meander-chip-1',
-            fromPortId: 'port_right',
-            toItemId: 'test-outlet-meander',
-            toPortId: 'in1',
-            pathData: 'M250,25 L325,0',
-            tubingTypeId: "default_0.02_inch_ID_silicone",
-            lengthMeters: 0.05, // 5 cm tube
-            resistance: 0,
-        }
-    ];
-
-    const mockUpdateResults = (results: SimulationResults) => {
-        console.log("\n=== Meander Chip Test Results ===");
-        console.log("Node Pressures (Pa):", results.nodePressures);
-        Object.entries(results.nodePressures).forEach(([key, val]) => {
-             console.log(`${key}: ${(val * PASCAL_TO_MBAR).toFixed(2)} mbar`);
-        });
-        console.log("Segment Flows (m³/s):", results.segmentFlows);
-        Object.entries(results.segmentFlows).forEach(([key, val]) => {
-            console.log(`${key}: ${(val * M3S_TO_ULMIN).toFixed(2)} µL/min`);
-        });
-        if (results.warnings?.length) console.log("\nWarnings:", results.warnings);
-        if (results.errors?.length) console.log("\nErrors:", results.errors);
-    };
-
-    const mockClearVisuals = () => console.log("Clearing visuals...");
-    const mockVisualizeResults = () => console.log("Visualizing results...");
-    const mockShowNotification = (msg: string, type: 'error' | 'warning' | 'info') => 
-        console.log(`[${type.toUpperCase()}] ${msg}`);
-
-    runFluidSimulationLogic(
-        testItems,
-        testConnections,
-        mockUpdateResults,
-        mockClearVisuals,
-        mockVisualizeResults,
-        mockShowNotification
-    );
-} 

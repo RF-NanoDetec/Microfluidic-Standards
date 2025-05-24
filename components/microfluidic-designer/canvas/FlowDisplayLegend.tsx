@@ -1,6 +1,6 @@
 import React from 'react';
 import type { FlowDisplayMode } from '../CanvasArea';
-import { formatFlowRateForDisplay, formatFlowVelocityForDisplay } from '@/lib/microfluidic-designer/utils/visualizationUtils';
+// import { formatFlowRateForDisplay, formatFlowVelocityForDisplay } from '@/lib/microfluidic-designer/utils/visualizationUtils'; // Removed as unused
 
 // Import the epsilon value for consistency
 import { RELATIVE_EPSILON } from '@/lib/microfluidic-designer/utils/visualizationUtils';

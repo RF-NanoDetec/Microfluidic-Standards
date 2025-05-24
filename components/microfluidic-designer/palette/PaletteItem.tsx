@@ -72,7 +72,7 @@ export default function PaletteItem({ item }: PaletteItemProps) {
         }}
         draggable={false}
       >
-        <KonvaChipPreview chipType={item.chipType} isHovered={isHovered} />
+        <KonvaChipPreview chipType={item.chipType} productId={item.id} isHovered={isHovered} />
       </div>
     </div>
   );

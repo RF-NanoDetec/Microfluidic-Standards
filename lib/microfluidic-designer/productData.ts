@@ -23,7 +23,9 @@ export interface ParentProduct {
   defaultWidth: number;
   defaultHeight: number;
   internalConnections?: string[][];
+  pumpType?: 'pressure' | 'syringe';
   defaultPortPressures?: Record<string, number>;
+  defaultPortFlowRates?: Record<string, number>;
 }
 
 // Product variant interface matching the JSON structure
@@ -145,15 +147,16 @@ export const PARENT_PRODUCTS: ParentProduct[] = [
     name: 'Syringe Pump',
     chipType: 'pump',
     category: 'Other',
-    title: 'Precision Syringe Pump: Provides controlled pressure source.',
+    title: 'Precision Syringe Pump: Provides controlled flow rate source.',
     previewImage: '/images/products/syringe-pump-parent.svg',
     variants: syringePumpVariants,
     defaultPorts: [
-      { id: 'out1', name: 'Outlet', x: PUMP_CANVAS_WIDTH, y: PUMP_CANVAS_HEIGHT / 2, type: 'universal', orientation: 'right', simulationRole: 'outlet' },
+      { id: 'out1', name: 'Outlet', x: PUMP_CANVAS_WIDTH - 5, y: PUMP_CANVAS_HEIGHT / 2 - 13, type: 'universal', orientation: 'right', simulationRole: 'outlet' },
     ],
     defaultWidth: PUMP_CANVAS_WIDTH,
     defaultHeight: PUMP_CANVAS_HEIGHT,
-    defaultPortPressures: { 'out1': 1000 },
+    pumpType: 'syringe',
+    defaultPortFlowRates: { 'out1': 10 }, // Default 10 µL/min
   },
   {
     id: 'pressure-pump',
@@ -171,6 +174,7 @@ export const PARENT_PRODUCTS: ParentProduct[] = [
     ],
     defaultWidth: PUMP_CANVAS_WIDTH,
     defaultHeight: PUMP_CANVAS_HEIGHT,
+    pumpType: 'pressure',
     defaultPortPressures: { 'out1': 100, 'out2': 100, 'out3': 100, 'out4': 100 },
   },
   {
@@ -225,7 +229,9 @@ export const PALETTE_ITEMS_FROM_PRODUCTS: PaletteItemData[] = PARENT_PRODUCTS.ma
   temperatureRange: { min: 0, max: 100, unit: '°C' },
   pressureRating: { maxPressure: 5, unit: 'bar' },
   chemicalResistance: ['Water', 'Ethanol'],
+  pumpType: product.pumpType,
   defaultPortPressures: product.defaultPortPressures,
+  defaultPortFlowRates: product.defaultPortFlowRates,
 }));
 
 // Helper function to get a specific variant by ID
@@ -298,8 +304,10 @@ export function createCanvasItemFromVariant(
     isBiocompatible: true, 
     isAutoclavable: true, 
     
+    pumpType: parentProduct.pumpType,
     portPressures: parentProduct.defaultPortPressures, 
-    internalConnections: parentProduct.internalConnections, 
+    portFlowRates: parentProduct.defaultPortFlowRates,
+    internalConnections: parentProduct.internalConnections,
   };
 }
 

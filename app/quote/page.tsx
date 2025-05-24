@@ -34,13 +34,6 @@ const quoteFormSchema = z.object({
   additionalRequirements: z.string().optional(),
 });
 
-type QuoteFormData = z.infer<typeof quoteFormSchema>;
-
-interface CustomRequirement {
-  id: string;
-  description: string;
-}
-
 export default function QuotePage() {
   const {
     items: quoteItems,

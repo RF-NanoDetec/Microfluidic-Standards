@@ -596,7 +596,7 @@ function MicrofluidicsLandingPage() {
               <div className="inline-block rounded-3xl bg-muted px-3 py-1 text-sm">Contact</div>
               <h2 className="text-3xl font-bold tracking-tighter md:text-4xl/tight">Get In Touch</h2>
               <p className="max-w-[600px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                Have questions about our products or technology? We'd love to hear from you.
+                Have questions about our products or technology? We&apos;d love to hear from you.
               </p>
               <div className="mt-8 space-y-4">
                 <motion.div whileHover={{ x: 5 }} className="flex items-start gap-3">

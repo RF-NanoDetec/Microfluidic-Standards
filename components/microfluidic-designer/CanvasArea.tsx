@@ -1,44 +1,39 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Stage, Layer, Line, Path, Group, Circle, Rect, Text } from 'react-konva';
+import { Stage, Layer, Line, Path, Group, Circle, Rect } from 'react-konva';
 import Konva from 'konva';
-import type { 
-  CanvasItemData, 
-  Port, 
+import type { KonvaEventObject } from 'konva/lib/Node';
+
+import KonvaCanvasItem from './canvas/KonvaCanvasItem';
+import TooltipBox from '@/components/ui/TooltipBox';
+import { Popover } from "@/components/ui/popover";
+import { SquareDashedMousePointer } from 'lucide-react';
+import type {
+  CanvasItemData,
+  Port,
   Connection,
   SimulationResults,
-  SimulationNode,
-  SimulationSegment,
-  TubingTypeDefinition
 } from "@/lib/microfluidic-designer/types";
 import { AVAILABLE_TUBING_TYPES } from "@/lib/microfluidic-designer/types";
-import KonvaCanvasItem from './canvas/KonvaCanvasItem';
-import { 
-  CHANNEL_FILL_COLOR, 
+import {
   CHANNEL_OUTLINE_COLOR,
   CHANNEL_OUTLINE_WIDTH,
   CHANNEL_FILL_WIDTH,
   CHANNEL_CAP,
   CHANNEL_JOIN,
-  M3S_TO_ULMIN,
   PASCAL_TO_MBAR,
-  M3S_TO_NLMIN
 } from '@/lib/microfluidic-designer/constants';
-import { calculateTubePathData, calculateTemporaryConnectionPath } from '@/lib/microfluidic-designer/utils/pathUtils';
-import { 
+import {
+  calculateTubePathData,
+  calculateTemporaryConnectionPath
+} from '@/lib/microfluidic-designer/utils/pathUtils';
+import {
   getDynamicFlowColor,
   getPressureIndicatorColor,
   formatFlowRateForDisplay,
-  formatFlowVelocityForDisplay
+  formatFlowVelocityForDisplay,
 } from '@/lib/microfluidic-designer/utils/visualizationUtils';
-import { Button } from '@/components/ui/button';
-import { Trash2, PlayCircle, RotateCcw, SquareDashedMousePointer, Move } from 'lucide-react';
-import { KonvaEventObject } from 'konva/lib/Node';
-import FlowDisplayLegend from './canvas/FlowDisplayLegend';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import TooltipBox from '@/components/ui/TooltipBox';
 
 // NEW: Type for flow display mode
 export type FlowDisplayMode = 'velocity' | 'rate';
@@ -55,8 +50,7 @@ const SNAP_DISTANCE_WORLD = GRID_SIZE * 0.75; // Approx 18.75 world units
 // Drawing area boundary styling
 const CANVAS_BOUNDARY_COLOR = '#94A3B8'; // Slate-400
 const CANVAS_BOUNDARY_WIDTH = 1;
-const CANVAS_SHADOW_BLUR = 20; // Base blur, we are overriding this on the Rect itself
-const CANVAS_SHADOW_COLOR = 'rgba(0, 0, 0, 0.6)';
+
 
 // Connection style constants
 const CONNECTION_OUTLINE_COLOR = '#555555'; // Dark gray, same as channel outline
@@ -68,21 +62,8 @@ const CONNECTION_FILL_WIDTH = 3.5; // Match channel fill width
 
 // Simulation visualization constants
 const PRESSURE_NODE_RADIUS = 4; // Reduced from 6 
-const PRESSURE_TEXT_COLOR = '#333';
-const PRESSURE_FONT_SIZE = 8; // Reduced from 10
-
-// Flow visualization constants (REVISED - MAX_EXPECTED_FLOW_M3S will be replaced by dynamic scaling)
-const FLOW_COLOR_NO_DATA = '#d0d0d0'; // Grey for no data / NaN
-const FLOW_COLOR_ZERO = '#a0a0a0'; // Slightly different grey for zero flow
-const FLOW_COLOR_LOW = '#64b5f6'; // Light Blue
-// const FLOW_COLOR_MEDIUM = '#1e88e5'; // Blue - will be part of gradient
-const FLOW_COLOR_HIGH = '#d32f2f'; // Red
-// MAX_EXPECTED_FLOW_M3S will be determined dynamically
 
 // Zoom configuration
-const MIN_ZOOM = 1; // Updated based on user feedback
-const MAX_ZOOM = 3.0;
-const ZOOM_SENSITIVITY = 0.001; // Adjusted sensitivity
 
 // Extended Canvas Area (the full area including under sidebars)
 const EXTENDED_CANVAS_WIDTH = 3000;
@@ -101,9 +82,9 @@ interface CanvasAreaProps {
   
   // Event handlers from page.tsx
   onStageClick: (event: KonvaEventObject<MouseEvent>, snappedTarget: { item: CanvasItemData; port: Port } | null) => void;
-  onStageContextMenu: (event: any) => void;
-  onPortClick: (itemId: string, port: Port, event: any) => void; // Left-click on port
-  onTubeClick: (connectionId: string, event: any) => void; // Left-click on tube
+  onStageContextMenu: (event: KonvaEventObject<MouseEvent>) => void;
+  onPortClick: (itemId: string, port: Port, event: KonvaEventObject<MouseEvent>) => void; // Left-click on port
+  onTubeClick: (connectionId: string, event: KonvaEventObject<MouseEvent>) => void; // Left-click on tube
   onDeleteConnection: (connectionId: string) => void; // Retained for delete key logic in page
   onStagePointerMove?: (position: {x: number, y:number}) => void; // For updating guiding line
 
@@ -128,37 +109,7 @@ interface CanvasAreaProps {
   maxPressurePa?: number;
 }
 
-// Helper to convert flow rate in m³/s to µL/min for display
-const convertToMicrolitersPerMinute = (flowRateM3s: number): number => {
-  return flowRateM3s * M3S_TO_ULMIN;
-};
 
-// Helper function to generate a segment ID for connections (tubes)
-// This needs to match the logic in simulationEngine.ts's getSegmentId
-const getTubeSegmentId = (fromItemId: string, fromPortId: string, toItemId: string, toPortId: string): string => {
-  const node1Id = `${fromItemId}_${fromPortId.split('_').pop()}`;
-  const node2Id = `${toItemId}_${toPortId.split('_').pop()}`;
-  const [first, second] = [node1Id, node2Id].sort();
-  return `${first}--${second}`;
-};
-
-// Helper function to generate a segment ID for internal chip paths (straight/meander)
-// This needs to match the logic in simulationEngine.ts's getSegmentId
-const getInternalChipSegmentId = (item: CanvasItemData): string | null => {
-  if ((item.chipType === 'straight' || item.chipType === 'meander') && item.ports.length === 2) {
-    // Port IDs on CanvasItemData.ports are already globally unique (e.g., 'itemId_portBaseId')
-    // These are directly used as node IDs in the simulation graph construction for these chip types.
-    const node1Id = item.ports[0].id;
-    const node2Id = item.ports[1].id;
-    const [first, second] = [node1Id, node2Id].sort();
-    return `${first}--${second}`;
-  }
-  // For T/X junctions, flow visualization is more complex due to multiple internal segments.
-  // This helper currently doesn't cover T/X internal segments precisely for individual color mapping.
-  // The current renderInternalSegmentFlows might show an average or dominant flow.
-  // For dynamic scaling, we'll focus on identifiable segments first (tubes, straight/meander internal).
-  return null; 
-};
 
 // Helper to get pressure color
 /* // Moved to visualizationUtils.ts
@@ -197,26 +148,7 @@ function EmptyCanvasPrompt() {
   );
 }
 
-function getContrastTextColor(bgColor: string): string {
-  // Simple luminance check
-  const rgb = hexToRgb(bgColor.replace('rgb(', '').replace(')', ''));
-  if (!rgb) return '#fff';
-  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-  return luminance > 0.6 ? '#003C7E' : '#fff';
-}
 
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  // Remove # if present
-  hex = hex.replace('#', '');
-  if (hex.length === 3) {
-    hex = hex.split('').map(x => x + x).join('');
-  }
-  if (hex.length !== 6) return null;
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  return { r, g, b };
-}
 
 export default function CanvasArea({ 
   droppedItems,
@@ -230,23 +162,16 @@ export default function CanvasArea({
   onStageContextMenu,
   onPortClick,
   onTubeClick,
-  onDeleteConnection,
   onStagePointerMove,
   simulationResults,
   simulationVisualsKey,
-  onClearCanvas,
-  runSimulation,
-  resetSimulation,
-  simulationInProgress,
   inspectionMode,
-  setInspectionMode,
   flowDisplayMode,
-  setFlowDisplayMode,
   onStageResize,
   minPressurePa,
   maxPressurePa,
 }: CanvasAreaProps) {
-  const [isMounted, setIsMounted] = useState(false);
+
   const [currentPixelRatio, setCurrentPixelRatio] = useState(1); // New state for pixelRatio
   const [stageDimensions, setStageDimensions] = useState({ width: 100, height: 100 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -377,7 +302,6 @@ export default function CanvasArea({
   }, [simulationResults, connections, droppedItems, inspectionMode, flowDisplayMode]);
 
   useEffect(() => {
-    setIsMounted(true);
     setCurrentPixelRatio(window.devicePixelRatio || 1); // Set pixelRatio here
     
     const resizeObserver = new ResizeObserver(entries => {
@@ -409,12 +333,12 @@ export default function CanvasArea({
     }
     
     return () => {
-      if (stageContainerRef.current) {
-         resizeObserver.unobserve(stageContainerRef.current);
+      const currentContainer = stageContainerRef.current;
+      if (currentContainer) {
+         resizeObserver.unobserve(currentContainer);
          console.log("[CanvasArea] Stopped observing stageContainerRef");
       }
       resizeObserver.disconnect();
-      setIsMounted(false);
     };
   }, [onStageResize]);
 
@@ -464,15 +388,13 @@ export default function CanvasArea({
     }
   }, [inProgressConnection, droppedItems, stageRef]);
 
-  const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
+  const handleDragOver = useCallback((_event: React.DragEvent<HTMLDivElement>) => {
+    _event.preventDefault();
   }, []);
 
-  const localHandleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    onDrop(event, containerRef);
-  }, [onDrop]);
 
-  const internalHandleStageMouseMove = (e: KonvaEventObject<MouseEvent>) => {
+
+  const internalHandleStageMouseMove = (_e: KonvaEventObject<MouseEvent>) => {
     if (!stageRef.current) return;
     const stage = stageRef.current;
     const pointerPosition = stage.getPointerPosition();
@@ -588,7 +510,7 @@ export default function CanvasArea({
     return calculateTemporaryConnectionPath(sourceItem, sourcePort, worldMousePos);
   };
 
-  const getRelativeMousePos = (evt: any) => {
+  const getRelativeMousePos = (evt: KonvaEventObject<MouseEvent>) => {
     if (!containerRef.current) return { x: 0, y: 0 };
     const rect = containerRef.current.getBoundingClientRect();
     return {
@@ -598,37 +520,24 @@ export default function CanvasArea({
   };
 
   const renderInternalSegmentFlows = () => {
-    if (inspectionMode !== 'flow') return [];
     const flowElements: React.ReactNode[] = [];
-    if (!simulationResults || !simulationResults.segmentFlows) return flowElements;
+    if (!simulationResults || !simulationResults.segmentFlows || !stageRef.current) {
+      return flowElements;
+    }
 
-    const overlapAmount = 1.0; // Small overlap in pixels for the fill to cover seams
-    
+    const stage = stageRef.current; // Get the stage for finding nodes
+
+    // Small overlap for fill lines to ensure they meet connections cleanly
+    const overlapAmount = 0.5; // pixels, adjust as needed
+
     droppedItems.forEach(item => {
-      if ((item.chipType === 'straight' || item.chipType === 'meander') && item.ports.length === 2) {
-        const port1 = item.ports[0];
-        const port2 = item.ports[1];
-        let p1_original = { x: item.x + port1.x, y: item.y + port1.y }; // Original port position
-        let p2_original = { x: item.x + port2.x, y: item.y + port2.y }; // Original port position
-        
-        const segmentIdKey = [port1.id, port2.id].sort().join('--');
+      if (item.ports.length === 2) { // Applies to straight and meander
+        const node1Id = item.ports[0].id;
+        const node2Id = item.ports[1].id;
+        const segmentIdKey = [node1Id, node2Id].sort().join('--');
         const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
 
         if (flowRateM3s !== undefined && isFinite(flowRateM3s)) {
-          const vecX = p2_original.x - p1_original.x;
-          const vecY = p2_original.y - p1_original.y;
-          const len = Math.sqrt(vecX * vecX + vecY * vecY);
-          let p1_for_fill = { ...p1_original };
-          let p2_for_fill = { ...p2_original };
-
-          if (len > 0) {
-            const normVecX = vecX / len;
-            const normVecY = vecY / len;
-            // Extended coordinates for FILL line only
-            p1_for_fill = { x: p1_original.x - normVecX * overlapAmount, y: p1_original.y - normVecY * overlapAmount };
-            p2_for_fill = { x: p2_original.x + normVecX * overlapAmount, y: p2_original.y + normVecY * overlapAmount };
-          }
-
           let displayValue: number | undefined = undefined;
           if (flowDisplayMode === 'velocity') {
             if (item.currentChannelWidthMicrons > 0 && item.currentChannelDepthMicrons > 0) {
@@ -640,7 +549,7 @@ export default function CanvasArea({
           } else if (flowDisplayMode === 'rate') {
             displayValue = flowRateM3s;
           }
-          
+
           const color = getDynamicFlowColor(displayValue, minMaxFlowValues.min, minMaxFlowValues.max, flowDisplayMode);
           const tooltipText = displayValue !== undefined 
             ? (flowDisplayMode === 'velocity' 
@@ -648,45 +557,100 @@ export default function CanvasArea({
                 : formatFlowRateForDisplay(flowRateM3s))
             : 'No flow data';
 
-          // Outline uses ORIGINAL points
-          flowElements.push(
-            <Line
-              key={`${item.id}-internal-flow-outline`}
-              points={[p1_original.x, p1_original.y, p2_original.x, p2_original.y]}
-              stroke={CHANNEL_OUTLINE_COLOR}
-              strokeWidth={CHANNEL_OUTLINE_WIDTH}
-              lineCap={CHANNEL_CAP as any}
-              lineJoin={CHANNEL_JOIN as any}
-              listening={false}
-            />,
-            // Fill uses EXTENDED points for overlap
-            <Line
-              key={`${item.id}-internal-flow-fill`}
-              points={[p1_for_fill.x, p1_for_fill.y, p2_for_fill.x, p2_for_fill.y]}
-              stroke={color}
-              strokeWidth={CHANNEL_FILL_WIDTH}
-              lineCap={CHANNEL_CAP as any}
-              lineJoin={CHANNEL_JOIN as any}
-              listening={false}
-            />,
-            // Hover line uses ORIGINAL points for accurate tooltip trigger
-            <Line
-              key={`${item.id}-internal-hover`}
-              points={[p1_original.x, p1_original.y, p2_original.x, p2_original.y]}
-              stroke={"transparent"}
-              strokeWidth={Math.max(10, CHANNEL_OUTLINE_WIDTH)}
-              listening={true}
-              onMouseEnter={e => {
-                const pos = getRelativeMousePos(e);
-                setTooltip({ visible: true, x: pos.x, y: pos.y, content: tooltipText });
-              }}
-              onMouseMove={e => {
-                const pos = getRelativeMousePos(e);
-                setTooltip(t => t ? { ...t, x: pos.x, y: pos.y } : null);
-              }}
-              onMouseLeave={() => setTooltip(null)}
-            />
-          );
+          if (item.chipType === 'straight') {
+            const port1Abs = { x: item.x + item.ports[0].x, y: item.y + item.ports[0].y };
+            const port2Abs = { x: item.x + item.ports[1].x, y: item.y + item.ports[1].y };
+
+            // Overlap adjustment for FILL line only
+            const vecX = port2Abs.x - port1Abs.x;
+            const vecY = port2Abs.y - port1Abs.y;
+            const len = Math.sqrt(vecX * vecX + vecY * vecY);
+            let port1Abs_for_fill = { ...port1Abs };
+            let port2Abs_for_fill = { ...port2Abs };
+
+            if (len > 0) {
+              const normVecX = vecX / len;
+              const normVecY = vecY / len;
+              // Extend FILL line start and end points slightly outwards
+              port1Abs_for_fill = { x: port1Abs.x - normVecX * overlapAmount, y: port1Abs.y - normVecY * overlapAmount };
+              port2Abs_for_fill = { x: port2Abs.x + normVecX * overlapAmount, y: port2Abs.y + normVecY * overlapAmount };
+            }
+            
+            // Outline uses ORIGINAL port positions
+            flowElements.push(
+              <Line
+                key={`${item.id}-internal-flow-outline`}
+                points={[port1Abs.x, port1Abs.y, port2Abs.x, port2Abs.y]}
+                stroke={CHANNEL_OUTLINE_COLOR}
+                strokeWidth={CHANNEL_OUTLINE_WIDTH}
+                lineCap={CHANNEL_CAP as 'butt' | 'round' | 'square'}
+                lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
+                listening={false}
+              />,
+              // Fill uses EXTENDED port positions for overlap
+              <Line
+                key={`${item.id}-internal-flow-fill`}
+                points={[port1Abs_for_fill.x, port1Abs_for_fill.y, port2Abs_for_fill.x, port2Abs_for_fill.y]}
+                stroke={color}
+                strokeWidth={CHANNEL_FILL_WIDTH}
+                lineCap={CHANNEL_CAP as 'butt' | 'round' | 'square'}
+                lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
+                listening={false}
+              />,
+              // Hover line uses ORIGINAL port positions
+              <Line
+                key={`${item.id}-internal-hover`}
+                points={[port1Abs.x, port1Abs.y, port2Abs.x, port2Abs.y]}
+                stroke={"transparent"}
+                strokeWidth={Math.max(10, CHANNEL_OUTLINE_WIDTH)} // Make hover area generous
+                listening={true}
+                onMouseEnter={e => {
+                  const pos = getRelativeMousePos(e);
+                  setTooltip({ visible: true, x: pos.x, y: pos.y, content: tooltipText });
+                }}
+                onMouseMove={e => {
+                  const pos = getRelativeMousePos(e);
+                  setTooltip(t => t ? { ...t, x: pos.x, y: pos.y } : null);
+                }}
+                onMouseLeave={() => setTooltip(null)}
+              />
+            );
+          } else if (item.chipType === 'meander') {
+            const meanderFillShape = stage.findOne(`#${item.id}_internalChannelFill`);
+            if (meanderFillShape instanceof Konva.Line) {
+              meanderFillShape.stroke(color);
+              // No new elements pushed to flowElements for meander fill, as we're modifying the existing one.
+              // We could potentially add a hover Line here if needed, similar to straight channels,
+              // but it would need to follow the meander path as well.
+              // For now, let's rely on the hover effects directly on KonvaCanvasItem if any.
+              // Or, if a separate hover indication for flow is needed on meanders,
+              // that would be a new Line with meanderPoints and transparent stroke.
+            } else {
+              console.warn(`[CanvasArea] Could not find meander fill shape for item ${item.id}`);
+            }
+            // The outline for meander is already drawn by KonvaCanvasItem.
+            // If we want a hover effect for the flow value display on meanders,
+            // we would need to create a new Konva.Line with the meanderPoints here,
+            // similar to the transparent hover line for straight channels.
+            // This would require accessing or recalculating meanderPoints for the item.
+            // For simplicity, this is omitted for now. The tooltip can be triggered by other means
+            // or this can be added later if essential.
+          }
+        } else if (item.chipType === 'meander') {
+          // If there's no flow data for a meander, ensure its color is reset to default (or transparent)
+          // This assumes KonvaCanvasItem handles the non-simulation state color.
+          // If simulation is active but this specific meander has no flow, we might want to explicitly set its color.
+          const meanderFillShape = stage.findOne(`#${item.id}_internalChannelFill`);
+          if (meanderFillShape instanceof Konva.Line) {
+            // What should the color be if simulation is on, but THIS segment has no flow?
+            // Option 1: Transparent (if KonvaCanvasItem has a base fill color that shows through)
+            // meanderFillShape.stroke("transparent");
+            // Option 2: Default channel fill color
+            // meanderFillShape.stroke(CHANNEL_FILL_COLOR); // Assuming CHANNEL_FILL_COLOR is imported
+            // For now, let's assume KonvaCanvasItem's original fill handles this.
+            // Or, if simulation is active, it should perhaps take a "no flow in simulation" color.
+            // This part might need refinement based on desired visual behavior.
+          }
         }
       } else if (item.chipType === 't-type' || item.chipType === 'x-type') {
         const centralJunctionNodeId = `${item.id}_internal_junction`;
@@ -694,7 +658,7 @@ export default function CanvasArea({
         const approxJunctionCenterY = item.y + item.height / 2;
 
         item.ports.forEach(port => {
-          let pAbs_original = { x: item.x + port.x, y: item.y + port.y }; // Original port position
+          const pAbs_original = { x: item.x + port.x, y: item.y + port.y }; // Original port position
           const segmentIdKey = [port.id, centralJunctionNodeId].sort().join('--');
           const flowRateM3s = simulationResults.segmentFlows[segmentIdKey];
           
@@ -737,8 +701,8 @@ export default function CanvasArea({
                 points={[pAbs_original.x, pAbs_original.y, approxJunctionCenterX, approxJunctionCenterY]}
                 stroke={CHANNEL_OUTLINE_COLOR}
                 strokeWidth={CHANNEL_OUTLINE_WIDTH}
-                lineCap={CHANNEL_CAP as any}
-                lineJoin={CHANNEL_JOIN as any}
+                lineCap={CHANNEL_CAP as 'butt' | 'round' | 'square'}
+                lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
                 listening={false}
               />,
               // Fill uses EXTENDED port position for overlap
@@ -747,8 +711,8 @@ export default function CanvasArea({
                 points={[pAbs_for_fill.x, pAbs_for_fill.y, approxJunctionCenterX, approxJunctionCenterY]}
                 stroke={color}
                 strokeWidth={CHANNEL_FILL_WIDTH}
-                lineCap={CHANNEL_CAP as any}
-                lineJoin={CHANNEL_JOIN as any}
+                lineCap={CHANNEL_CAP as 'butt' | 'round' | 'square'}
+                lineJoin={CHANNEL_JOIN as 'miter' | 'round' | 'bevel'}
                 listening={false}
               />,
               // Hover line uses ORIGINAL port position
@@ -1021,7 +985,7 @@ export default function CanvasArea({
                 const isSelected = conn.id === selectedConnectionId;
                 
                 let tubeFillColor = isSelected ? CONNECTION_SELECTED_FILL_COLOR : CONNECTION_FILL_COLOR;
-                let tubeOutlineColor = isSelected ? CONNECTION_SELECTED_OUTLINE_COLOR : CONNECTION_OUTLINE_COLOR;
+                const tubeOutlineColor = isSelected ? CONNECTION_SELECTED_OUTLINE_COLOR : CONNECTION_OUTLINE_COLOR;
 
                 // Get flow data for tooltip
                 let flowTooltipText = 'No flow data';
@@ -1134,8 +1098,6 @@ export default function CanvasArea({
                     connections={connections} 
                     isSimulationActive={hasActiveSimulationResults}
                     conceptualCanvasDimensions={{ width: stageDimensions.width, height: stageDimensions.height }}
-                    itemRotation={item.rotation || 0}
-                    snappedPortTarget={snappedPortTarget}
                   />
                 );
               })}

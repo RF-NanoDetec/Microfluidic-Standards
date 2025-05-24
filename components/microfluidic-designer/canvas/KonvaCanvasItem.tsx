@@ -1,7 +1,7 @@
 'use client';
 
 import type { CanvasItemData, Port, Connection } from "@/lib/microfluidic-designer/types";
-import { Rect, Line, Circle, Group, Path, Image } from 'react-konva';
+import { Rect, Line, Circle, Group, Image } from 'react-konva';
 import { useState, useEffect, useRef } from 'react';
 import Konva from 'konva';
 import {
@@ -16,15 +16,14 @@ import {
   CHANNEL_JOIN,
   PORT_RADIUS,
   PORT_COLOR,
-  PORT_SELECTED_COLOR,
   PORT_STROKE_COLOR,
   PORT_STROKE_WIDTH,
   PORT_HIT_RADIUS,
-  SHADOW_STYLE_DEFAULT,
-  SHADOW_STYLE_STRONG,
-  PUMP_SVG_DATA_URI,
+  SYRINGE_PUMP_SVG_DATA_URI,
+  SYRINGE_PUMP_SVG_DATA_URI_SELECTED,
+  PRESSURE_PUMP_SVG_DATA_URI,
+  PRESSURE_PUMP_SVG_DATA_URI_SELECTED,
   OUTLET_SVG_DATA_URI,
-  PUMP_SVG_DATA_URI_SELECTED,
   OUTLET_SVG_DATA_URI_SELECTED,
   OUTLET_WIDTH,
   OUTLET_HEIGHT,
@@ -37,12 +36,12 @@ interface KonvaCanvasItemProps {
   onDragEnd: (itemId: string, x: number, y: number) => void;
   // onSelect is removed, selection handled by stage
   isSelected: boolean; // Still needed for visual styling if selected
-  onPortClick?: (itemId: string, port: Port, event: any) => void; // For left-click on port
+  onPortClick?: (itemId: string, port: Port, event: Konva.KonvaEventObject<MouseEvent>) => void; // Typed event
   connections?: Connection[]; 
   isSimulationActive: boolean;
   conceptualCanvasDimensions: { width: number; height: number };
-  itemRotation: number;
-  snappedPortTarget?: { item: CanvasItemData; port: Port } | null; // Added for snap highlighting
+  // itemRotation: number; // Removed as unused
+  // snappedPortTarget?: { item: CanvasItemData; port: Port } | null; // Removed as unused
 }
 
 export default function KonvaCanvasItem({ 
@@ -53,12 +52,12 @@ export default function KonvaCanvasItem({
   connections,
   isSimulationActive,
   conceptualCanvasDimensions,
-  itemRotation,
-  snappedPortTarget,
+  // itemRotation, // Removed as unused
+  // snappedPortTarget, // Removed as unused
 }: KonvaCanvasItemProps) {
   const groupRef = useRef<Konva.Group>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+  // const [isHovered, setIsHovered] = useState(false); // Removed as unused
   
   // For SVG images
   const [pumpImage, setPumpImage] = useState<HTMLImageElement | null>(null);
@@ -73,7 +72,19 @@ export default function KonvaCanvasItem({
       // Set width and height before src for better rasterization
       image.width = PUMP_CANVAS_WIDTH;
       image.height = PUMP_CANVAS_HEIGHT;
-      image.src = isSelected ? PUMP_SVG_DATA_URI_SELECTED : PUMP_SVG_DATA_URI;
+      
+      // Choose the correct SVG based on the product ID
+      let pumpSvgUri, pumpSvgUriSelected;
+      if (item.productId === 'syringe-pump') {
+        pumpSvgUri = SYRINGE_PUMP_SVG_DATA_URI;
+        pumpSvgUriSelected = SYRINGE_PUMP_SVG_DATA_URI_SELECTED;
+      } else {
+        // Default to pressure pump for 'pressure-pump' or any other pump type
+        pumpSvgUri = PRESSURE_PUMP_SVG_DATA_URI;
+        pumpSvgUriSelected = PRESSURE_PUMP_SVG_DATA_URI_SELECTED;
+      }
+      
+      image.src = isSelected ? pumpSvgUriSelected : pumpSvgUri;
       image.onload = () => {
         if (isMounted) { // Only update state if still mounted
           setPumpImage(image);
@@ -99,9 +110,9 @@ export default function KonvaCanvasItem({
   
   // Apply a constant, small shadow to all components on the main canvas
   // Special case: Outlet components get a stronger shadow
-  const shadowProps = item.chipType === 'outlet' 
-    ? { ...SHADOW_STYLE_STRONG } 
-    : { ...SHADOW_STYLE_DEFAULT };
+  // const shadowProps = item.chipType === 'outlet' // Removed as unused
+  //   ? { ...SHADOW_STYLE_STRONG } 
+  //   : { ...SHADOW_STYLE_DEFAULT };
 
   // Use the visual styles from the original implementation
   const fillColor = isSelected ? '#b0becb' : CHIP_RECT_STYLE.fill;
@@ -136,8 +147,8 @@ export default function KonvaCanvasItem({
             points={[0, CHIP_HEIGHT / 2, CHIP_WIDTH, CHIP_HEIGHT / 2]}
             stroke={CHANNEL_OUTLINE_COLOR}
             strokeWidth={CHANNEL_OUTLINE_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="channelOutline"
             listening={false}
           />
@@ -147,8 +158,8 @@ export default function KonvaCanvasItem({
             points={[0, CHIP_HEIGHT / 2, CHIP_WIDTH, CHIP_HEIGHT / 2]}
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="internalChannelFill"
             id={`${item.id}_internalChannelFill`}
             listening={false}
@@ -171,8 +182,8 @@ export default function KonvaCanvasItem({
             points={[0, centerY, CHIP_WIDTH, centerY]}
             stroke={CHANNEL_OUTLINE_COLOR}
             strokeWidth={CHANNEL_OUTLINE_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="channelOutline"
             listening={false}
           />
@@ -182,8 +193,8 @@ export default function KonvaCanvasItem({
             points={[centerX, 0, centerX, CHIP_HEIGHT]}
             stroke={CHANNEL_OUTLINE_COLOR}
             strokeWidth={CHANNEL_OUTLINE_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="channelOutline"
             listening={false}
           />
@@ -202,8 +213,8 @@ export default function KonvaCanvasItem({
             points={[0, centerY, centerX, centerY]}
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="internalSegmentFill"
             id={`${item.id}_segmentLeftCenter`}
             listening={false}
@@ -214,8 +225,8 @@ export default function KonvaCanvasItem({
             points={[centerX, centerY, CHIP_WIDTH, centerY]}
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="internalSegmentFill"
             id={`${item.id}_segmentRightCenter`}
             listening={false}
@@ -226,8 +237,8 @@ export default function KonvaCanvasItem({
             points={[centerX, 0, centerX, centerY]}
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="internalSegmentFill"
             id={`${item.id}_segmentTopCenter`}
             listening={false}
@@ -238,8 +249,8 @@ export default function KonvaCanvasItem({
             points={[centerX, centerY, centerX, CHIP_HEIGHT]}
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="internalSegmentFill"
             id={`${item.id}_segmentBottomCenter`}
             listening={false}
@@ -264,8 +275,8 @@ export default function KonvaCanvasItem({
             points={[tCenterX, 0, tCenterX, CHIP_HEIGHT]}
             stroke={CHANNEL_OUTLINE_COLOR}
             strokeWidth={CHANNEL_OUTLINE_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="channelOutline"
             listening={false}
           />
@@ -275,8 +286,8 @@ export default function KonvaCanvasItem({
             points={[tCenterX, tCenterY, CHIP_WIDTH, tCenterY]}
             stroke={CHANNEL_OUTLINE_COLOR}
             strokeWidth={CHANNEL_OUTLINE_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="channelOutline"
             listening={false}
           />
@@ -295,8 +306,8 @@ export default function KonvaCanvasItem({
             points={[tCenterX, 0, tCenterX, tCenterY]}
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="internalSegmentFill"
             id={`${item.id}_segmentTopCenter`}
             listening={false}
@@ -307,8 +318,8 @@ export default function KonvaCanvasItem({
             points={[tCenterX, tCenterY, CHIP_WIDTH, tCenterY]}
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="internalSegmentFill"
             id={`${item.id}_segmentCenterRight`}
             listening={false}
@@ -319,8 +330,8 @@ export default function KonvaCanvasItem({
             points={[tCenterX, tCenterY, tCenterX, CHIP_HEIGHT]}
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="internalSegmentFill"
             id={`${item.id}_segmentCenterBottom`}
             listening={false}
@@ -426,7 +437,7 @@ export default function KonvaCanvasItem({
       ];
 
       // Convert points array to SVG path data
-      const meanderPathData = 'M ' + meanderPoints.join(' ');
+      // const meanderPathData = 'M ' + meanderPoints.join(' '); // Removed as unused
 
       shapes = (
         <Group>
@@ -437,8 +448,8 @@ export default function KonvaCanvasItem({
             points={meanderPoints}
             stroke={CHANNEL_OUTLINE_COLOR}
             strokeWidth={CHANNEL_OUTLINE_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="channelOutline"
             listening={false}
           />
@@ -448,8 +459,8 @@ export default function KonvaCanvasItem({
             points={meanderPoints}
             stroke={CHANNEL_FILL_COLOR}
             strokeWidth={CHANNEL_FILL_WIDTH}
-            lineCap={CHANNEL_CAP as any}
-            lineJoin={CHANNEL_JOIN as any}
+            lineCap={CHANNEL_CAP as CanvasLineCap}
+            lineJoin={CHANNEL_JOIN as CanvasLineJoin}
             name="internalChannelFill"
             id={`${item.id}_internalChannelFill`}
             listening={false}
@@ -470,6 +481,7 @@ export default function KonvaCanvasItem({
             x={(CHIP_WIDTH - PUMP_CANVAS_WIDTH) / 2} // Center based on CHIP_WIDTH
             y={(CHIP_HEIGHT - PUMP_CANVAS_HEIGHT) / 2} // Center based on CHIP_HEIGHT
             imageSmoothingEnabled={true} // Explicitly enable image smoothing
+            alt={isSelected ? "Selected Pump" : "Pump"} // Added alt text
           />
         </Group>
       ) : (
@@ -502,6 +514,7 @@ export default function KonvaCanvasItem({
             x={(CHIP_WIDTH - OUTLET_WIDTH) / 2} // Centered within CHIP_WIDTH
             y={(CHIP_HEIGHT - OUTLET_HEIGHT) / 2 + 2} // Centered within CHIP_HEIGHT, kept +2 offset
             imageSmoothingEnabled={true} // Explicitly enable image smoothing
+            alt={isSelected ? "Selected Outlet" : "Outlet"} // Added alt text
           />
         </Group>
       ) : (
@@ -583,8 +596,8 @@ export default function KonvaCanvasItem({
         setIsDragging(false);
         onDragEnd(item.id, e.target.x(), e.target.y());
       }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      // onMouseEnter={() => setIsHovered(true)} // Removed as unused
+      // onMouseLeave={() => setIsHovered(false)} // Removed as unused
       opacity={isDragging ? 0.6 : 1}
     >
       {shapes}

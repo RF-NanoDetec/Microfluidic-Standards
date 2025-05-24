@@ -3,15 +3,15 @@ import React from 'react';
 
 // NEW: Import FlowDisplayMode type if needed for prop typing, or rely on string
 // import type { FlowDisplayMode } from '../CanvasArea'; // Adjust path if needed
-import { Slider } from '@/components/ui/slider';
-import {
-  formatFlowVelocityForDisplay,
-  formatFlowRateForDisplay,
-  RELATIVE_EPSILON,
-  interpolateColor,
-  hexToRgb,
-} from '@/lib/microfluidic-designer/utils/visualizationUtils';
-import { getDynamicFlowColor } from '@/lib/microfluidic-designer/utils/visualizationUtils';
+// import { Slider } from '@/components/ui/slider'; // Removed as unused
+// import { // Removed as unused
+//   formatFlowVelocityForDisplay,
+//   formatFlowRateForDisplay,
+//   RELATIVE_EPSILON,
+//   interpolateColor,
+//   hexToRgb,
+// } from '@/lib/microfluidic-designer/utils/visualizationUtils';
+// import { getDynamicFlowColor } from '@/lib/microfluidic-designer/utils/visualizationUtils'; // Removed as unused
 
 interface FlowDisplayLegendProps { // Renamed props interface
   minDisplayValue: number; // Generic name

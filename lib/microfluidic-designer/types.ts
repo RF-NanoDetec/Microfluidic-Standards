@@ -46,7 +46,9 @@ export interface MicrofluidicProductData {
   internalConnections?: string[][]; // Needed for simulation graph for complex chips
 
   // Pump specific
-  defaultPortPressures?: { [portId: string]: number }; // Initial pressures in Pascals for pump ports
+  pumpType?: 'pressure' | 'syringe'; // Type of pump - determines the control method
+  defaultPortPressures?: { [portId: string]: number }; // Initial pressures in Pascals for pressure pump ports
+  defaultPortFlowRates?: { [portId: string]: number }; // Initial flow rates in µL/min for syringe pump ports
 }
 
 
@@ -92,7 +94,9 @@ export interface CanvasItemData {
   resistance: number; // Calculated resistance for this specific instance, in Pa·s/m³
 
   // Pump specific properties for this instance
-  portPressures?: { [portId: string]: number }; // Pressures in Pascals for each of its ports, if it's a pump
+  pumpType?: 'pressure' | 'syringe'; // Type of pump - determines the control method
+  portPressures?: { [portId: string]: number }; // Pressures in Pascals for each of its ports, if it's a pressure pump
+  portFlowRates?: { [portId: string]: number }; // Flow rates in µL/min for each of its ports, if it's a syringe pump
 
   // Needed by simulation engine to know how internal ports connect
   internalConnections?: string[][]; // Array of [portId1, portId2] pairs for internal paths
@@ -178,6 +182,10 @@ export interface SimulationNode {
   portId?: string; // Reference to the Port.id if this node represents a specific port
   pressure?: number; // Applied pressure in Pascals (e.g., for pumps or fixed pressure outlets)
   isGround?: boolean; // True if this node is a ground/reference pressure (e.g., atmospheric outlet)
+  
+  // Syringe pump specific properties
+  pumpType?: 'pressure' | 'syringe'; // Type of pump this node represents
+  flowRateM3s?: number; // Flow rate constraint in m³/s for syringe pumps
 }
 
 /**

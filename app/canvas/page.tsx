@@ -16,7 +16,7 @@ import { AVAILABLE_TUBING_TYPES, PALETTE_ITEMS } from "@/lib/microfluidic-design
 import { calculateTubePathData } from "@/lib/microfluidic-designer/utils/pathUtils";
 import { 
   calculateRectangularChannelResistance,
-  calculateTubingResistance 
+  // calculateTubingResistance // Removed as it's unused
 } from "@/lib/microfluidic-designer/resistanceUtils";
 import {
   FLUID_VISCOSITY_PAS,
@@ -469,7 +469,9 @@ export default function MicrofluidicDesignerPage() {
             currentChannelDepthMicrons: DEFAULT_CHANNEL_DEPTH_MICRONS, 
             currentChannelLengthMm: 5, 
             material: 'Glass', 
+            pumpType: parentProduct.pumpType,
             portPressures: parentProduct.defaultPortPressures, 
+            portFlowRates: parentProduct.defaultPortFlowRates,
             internalConnections: parentProduct.internalConnections,
             temperatureRange: { min: 0, max: 100, unit: '°C' },
             pressureRating: { maxPressure: 5, unit: 'bar' },
@@ -791,10 +793,10 @@ export default function MicrofluidicDesignerPage() {
               updatedItem.currentChannelDepthMicrons * 1e-6,
               FLUID_VISCOSITY_PAS
             );
-          } else if (propertyName === 'portPressures' && item.chipType === 'pump') {
-            // No specific recalculation needed here as portPressures is directly used
-            // but this confirms we are handling it.
-            // The simulation engine will use the new portPressures object directly.
+          } else if ((propertyName === 'portPressures' || propertyName === 'portFlowRates') && item.chipType === 'pump') {
+            // No specific recalculation needed here as pump properties are directly used
+            // but this confirms we are handling them.
+            // The simulation engine will use the new pump properties directly.
           }
           
           console.log(`[PropertyChange] Item ${itemId} updated. Property: ${propertyName}, New Value:`, value, "Updated Item:", updatedItem);
