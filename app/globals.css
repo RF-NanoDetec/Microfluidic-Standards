@@ -44,7 +44,9 @@
 }
 
 :root {
-  --accent: #2a9aa2;
+  --accent: #C51A2D; /* Accent Red 600 */
+  --accent-500: #E0212F; /* Accent Red 500 */
+  --accent-100: #FCEBED; /* Accent Red 100 */
   --radius: 0.625rem;
   --background: oklch(0.972 0.005 255);
   --foreground: oklch(0.145 0 0);
@@ -58,7 +60,7 @@
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.906 0.005 255);
   --muted-foreground: oklch(0.627 0.006 255);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent-foreground: oklch(0.985 0 0); /* Light text for on accent backgrounds */
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.906 0.005 255);
   --input: oklch(0.922 0 0);
@@ -79,7 +81,9 @@
 }
 
 .dark {
-  --accent: #2a9aa2;
+  --accent: #C51A2D; /* Accent Red 600 */
+  --accent-500: #E0212F; /* Accent Red 500 */
+  --accent-100: #FCEBED; /* Accent Red 100 */
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -92,7 +96,7 @@
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent-foreground: oklch(0.985 0 0); /* Light text for on accent backgrounds */
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);

@@ -23,9 +23,12 @@ const config = {
         'light-grey-1': '#F5F7FA',
         'light-grey-2': '#E1E4E8',
         'mid-grey': '#8A929B',
-        'accent-red': '#B91C1C', // New Scientific Deep Red
-        'accent-cyan': '#00D7FF', // Default Accent: Electric Cyan
-        'accent-lime-yellow': '#D3FF00', // Alternative Accent
+        'accent-red-600': '#C51A2D', // Accent Red 600
+        'accent-red-700': '#A10D26', // Accent Red 700
+        'accent-red-500': '#E0212F', // Accent Red 500
+        'accent-red-100': '#FCEBED', // Accent Red 100
+        'accent-cyan': '#00D7FF', // Default Accent: Electric Cyan (keeping for now, might be legacy)
+        'accent-lime-yellow': '#D3FF00', // Alternative Accent (keeping for now, might be legacy)
 
 
 

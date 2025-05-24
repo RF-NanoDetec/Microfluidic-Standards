@@ -688,7 +688,8 @@ function MicrofluidicsLandingPage() {
         </section>
       </main>
 
-      {/* Footer */}
+      {/* Footer Commented Out - Global footer from layout.tsx will be used */}
+      {/*
       <footer className="w-full border-t">
         <motion.div
           initial="hidden"
@@ -794,6 +795,7 @@ function MicrofluidicsLandingPage() {
           </div>
         </div>
       </footer>
+      */}
     </div>
   )
 }

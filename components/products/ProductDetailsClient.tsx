@@ -4,12 +4,13 @@ import Image from 'next/image';
 import { Product, ProductVariant } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PlusSquare, ShoppingCart } from 'lucide-react';
+import { PlusSquare, ShoppingCart, Thermometer, Droplets, Zap, Shield, FlaskConical, Layers, Ruler, Mountain, CheckCircle, Info } from 'lucide-react';
 import { toast } from "sonner";
 import { useCartStore } from '@/store/cartStore';
-import ProductVariantSelector from '@/components/products/ProductVariantSelector';
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface ProductDetailsClientProps {
   product: Product;
@@ -35,22 +36,100 @@ const itemFadeIn = {
   },
 };
 
+// Helper function to get unique values for a specific attribute
+const getUniqueAttributeValues = (variants: ProductVariant[], attributeName: string): (string | number)[] => {
+  const values = new Set<string | number>();
+  variants.forEach(variant => {
+    const attr = variant.attributes.find(a => a.name.toLowerCase() === attributeName.toLowerCase());
+    if (attr && typeof attr.value !== 'boolean' && attr.value !== undefined && attr.value !== null) {
+      values.add(attr.value);
+    }
+  });
+  return Array.from(values).sort((a, b) => {
+    if (typeof a === 'number' && typeof b === 'number') return a - b;
+    if (typeof a === 'string' && typeof b === 'string') return a.localeCompare(b);
+    return 0;
+  });
+};
+
 export default function ProductDetailsClient({ product, variants }: ProductDetailsClientProps) {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [useImageFallback, setUseImageFallback] = useState(false);
   const { addToCart } = useCartStore();
 
-  useEffect(() => {
-    // Pre-select the first variant if available and not already selected
-    if (variants && variants.length > 0 && !selectedVariant) {
-      setSelectedVariant(variants[0]);
-    }
-  }, [variants, selectedVariant]);
+  // State for selectable attributes: channel width and depth
+  const [selectedChannelWidth, setSelectedChannelWidth] = useState<string | number | undefined>(undefined);
+  const [selectedChannelDepth, setSelectedChannelDepth] = useState<string | number | undefined>(undefined);
+
+  const channelWidthOptions = useMemo(() => getUniqueAttributeValues(variants, 'channelWidth'), [variants]);
+  const channelDepthOptions = useMemo(() => getUniqueAttributeValues(variants, 'channelDepth'), [variants]);
 
   useEffect(() => {
-    // Reset image fallback when selected variant or product changes
-    setUseImageFallback(false);
-  }, [selectedVariant, product]);
+    // Pre-select the first available variant or a default based on initial selections
+    if (variants && variants.length > 0) {
+      let initialVariant = variants[0]; // Default to the first one
+
+      // If some options are pre-selected (e.g. from URL params in future), find a matching variant
+      // For now, we can try to find one if channelWidthOptions/DepthOptions have a single value
+      let bestMatch: ProductVariant | null = null;
+
+      if (channelWidthOptions.length > 0 && selectedChannelWidth === undefined) {
+        // setSelectedChannelWidth(channelWidthOptions[0]); // Optionally pre-select first width
+      }
+      if (channelDepthOptions.length > 0 && selectedChannelDepth === undefined) {
+        // setSelectedChannelDepth(channelDepthOptions[0]); // Optionally pre-select first depth
+      }
+      
+      // Find a variant that matches the selected width and depth
+      bestMatch = variants.find(v => {
+        const widthAttr = v.attributes.find(a => a.name.toLowerCase() === 'channelwidth');
+        const depthAttr = v.attributes.find(a => a.name.toLowerCase() === 'channeldepth');
+        
+        const widthMatch = selectedChannelWidth === undefined || (widthAttr && widthAttr.value == selectedChannelWidth);
+        const depthMatch = selectedChannelDepth === undefined || (depthAttr && depthAttr.value == selectedChannelDepth);
+        
+        return widthMatch && depthMatch;
+      }) || variants[0]; // Fallback to first variant if no exact match
+
+      setSelectedVariant(bestMatch);
+      // Ensure selected attributes are set based on the bestMatch
+      const sw = bestMatch?.attributes.find(a => a.name.toLowerCase() === 'channelwidth')?.value;
+      const sd = bestMatch?.attributes.find(a => a.name.toLowerCase() === 'channeldepth')?.value;
+      if (sw !== undefined && typeof sw !== 'boolean') setSelectedChannelWidth(sw);
+      if (sd !== undefined && typeof sd !== 'boolean') setSelectedChannelDepth(sd);
+
+    } else {
+      setSelectedVariant(null);
+      setSelectedChannelWidth(undefined);
+      setSelectedChannelDepth(undefined);
+    }
+  }, [variants]); // Removed selectedVariant from dependencies to avoid loops with internal updates
+
+  useEffect(() => {
+    // Update selectedVariant when channel width or depth changes
+    if (!selectedChannelWidth && !selectedChannelDepth && variants.length > 0) {
+      // If nothing is selected, default to the first variant and update selections
+      const firstVariant = variants[0];
+      setSelectedVariant(firstVariant);
+      const firstWidth = firstVariant.attributes.find(a => a.name.toLowerCase() === 'channelwidth')?.value;
+      const firstDepth = firstVariant.attributes.find(a => a.name.toLowerCase() === 'channeldepth')?.value;
+      if (firstWidth !== undefined && typeof firstWidth !== 'boolean') setSelectedChannelWidth(firstWidth);
+      if (firstDepth !== undefined && typeof firstDepth !== 'boolean') setSelectedChannelDepth(firstDepth);
+      return;
+    }
+
+    const matchedVariant = variants.find(variant => {
+      const widthAttr = variant.attributes.find(a => a.name.toLowerCase() === 'channelwidth');
+      const depthAttr = variant.attributes.find(a => a.name.toLowerCase() === 'channeldepth');
+
+      const widthMatch = selectedChannelWidth === undefined || (widthAttr && widthAttr.value == selectedChannelWidth);
+      const depthMatch = selectedChannelDepth === undefined || (depthAttr && depthAttr.value == selectedChannelDepth);
+      
+      return widthMatch && depthMatch;
+    });
+    setSelectedVariant(matchedVariant || null);
+    setUseImageFallback(false); // Reset image fallback on variant change
+  }, [selectedChannelWidth, selectedChannelDepth, variants]);
 
   const handleAddToCart = () => {
     if (!selectedVariant || !product) {
@@ -67,7 +146,7 @@ export default function ProductDetailsClient({ product, variants }: ProductDetai
       sku: selectedVariant.sku,
     }, 1);
     
-    toast.success(`${selectedVariant.variantName || product.name} added to cart!`);
+    toast.success(`${selectedVariant.variantName || product.name} added to cart`);
   };
 
   const imageSrc = useMemo(() => {
@@ -75,21 +154,91 @@ export default function ProductDetailsClient({ product, variants }: ProductDetai
     return selectedVariant?.imageUrl || product.baseImage || '/images/product_placeholder.png';
   }, [useImageFallback, selectedVariant, product.baseImage]);
 
-  const attributeOptions = useMemo(() => {
-    const attributes: Record<string, Set<any>> = {};
-    variants.forEach(variant => {
-      variant.attributes.forEach(attr => {
-        if (!attributes[attr.name]) {
-          attributes[attr.name] = new Set();
-        }
-        attributes[attr.name].add(attr.value);
-      });
-    });
-    return Object.entries(attributes).map(([name, values]) => ({
-      name,
-      values: Array.from(values),
-    }));
-  }, [variants]);
+  const getAttributeValue = (variant: ProductVariant | null, attributeName: string): string | number | undefined => {
+    const attr = variant?.attributes.find(attr => attr.name.toLowerCase() === attributeName.toLowerCase());
+    return (typeof attr?.value === 'boolean' ? undefined : attr?.value);
+  };
+
+  const getAttributeUnit = (variant: ProductVariant | null, attributeName: string): string | undefined => {
+    return variant?.attributes.find(attr => attr.name.toLowerCase() === attributeName.toLowerCase())?.unit;
+  };
+  
+  const renderChipProperties = () => (
+    <Card className="mt-8 rounded-2xl">
+      <CardHeader className="p-6">
+        <CardTitle className="text-xl font-semibold flex items-center">
+          <Info className="mr-3 h-7 w-7 text-primary" />
+          Chip Information & Properties
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6 text-md p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="font-semibold text-lg mb-2 text-primary">Material: Glass</h4>
+            <ul className="list-none space-y-2 pl-0">
+              <li className="flex items-start">
+                <Shield className="h-5 w-5 mr-2 mt-0.5 text-green-500 flex-shrink-0" />
+                <span>
+                  <span className="font-medium text-foreground">Superior Chemical Resistance:</span>
+                  <span className="text-muted-foreground"> Ideal for a wide range of solvents and reagents.</span>
+                </span>
+              </li>
+              <li className="flex items-start">
+                <Thermometer className="h-5 w-5 mr-2 mt-0.5 text-red-500 flex-shrink-0" />
+                <span>
+                  <span className="font-medium text-foreground">Wide Temperature Range:</span>
+                  <span className="text-muted-foreground"> Stable across significant temperature variations.</span>
+                </span>
+              </li>
+              <li className="flex items-start">
+                <Zap className="h-5 w-5 mr-2 mt-0.5 text-purple-500 flex-shrink-0" />
+                <span>
+                  <span className="font-medium text-foreground">Excellent Optical Properties:</span>
+                  <span className="text-muted-foreground"> Low auto-fluorescence, high transparency for imaging and detection.</span>
+                </span>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-semibold text-lg mb-2 text-primary">Compatibility & Use</h4>
+            <ul className="list-none space-y-2 pl-0">
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5 text-green-500 flex-shrink-0" />
+                <span>
+                  <span className="font-medium text-foreground">Perfect Fit:</span>
+                  <span className="text-muted-foreground"> Designed for seamless integration with standard chip holders.</span>
+                </span>
+              </li>
+              <li className="flex items-start">
+                <Layers className="h-5 w-5 mr-2 mt-0.5 text-blue-500 flex-shrink-0" />
+                <span>
+                  <span className="font-medium text-foreground">Reliable Sealing:</span>
+                  <span className="text-muted-foreground"> Achieves a robust seal when used with chip ferrules and nuts in corresponding ports.</span>
+                </span>
+              </li>
+              <li className="flex items-start">
+                <FlaskConical className="h-5 w-5 mr-2 mt-0.5 text-teal-500 flex-shrink-0" />
+                <span>
+                  <span className="font-medium text-foreground">Reusable:</span>
+                  <span className="text-muted-foreground"> Can be cleaned and reused multiple times if not contaminated, offering cost-effectiveness.</span>
+                </span>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div className="pt-4 border-t">
+          <h4 className="font-semibold text-lg mb-2 text-primary">Chip Type: {product.name || 'Microfluidic Chip'}</h4>
+          <p className="text-muted-foreground">
+            {/* Placeholder for dynamic chip type description - this should come from product data */}
+            {product.name.toLowerCase().includes('straight channel') && "Straight channel chips are fundamental for various microfluidic applications, including laminar flow studies, particle/cell focusing, and simple reactions. Their defined geometry allows for predictable flow profiles and easy observation."}
+            {product.name.toLowerCase().includes('droplet generator') && "Droplet generator chips are designed for producing monodisperse droplets, crucial for applications like digital PCR, single-cell analysis, and micro-reactors. They typically feature a T-junction or flow-focusing geometry."}
+            {/* Add more descriptions based on product.name or category */}
+            {!product.name.toLowerCase().includes('straight channel') && !product.name.toLowerCase().includes('droplet generator') && "This versatile microfluidic chip enables precise fluid control for a variety of research and development applications. Please refer to its specific geometry for detailed use cases."}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   if (!product) {
     // This should ideally be handled by the parent Server Component with notFound()
@@ -142,12 +291,58 @@ export default function ProductDetailsClient({ product, variants }: ProductDetai
           {product.baseDescription}
         </motion.p>
 
+        {/* Simplified Variant Selection for Channel Width & Depth */}
+        <motion.div variants={itemFadeIn} className="space-y-4 pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {channelWidthOptions.length > 0 && (
+              <div>
+                <label htmlFor="channelWidth" className="block text-sm font-medium text-muted-foreground mb-1">Channel Width ({getAttributeUnit(selectedVariant, 'channelWidth') || 'µm'})</label>
+                <Select
+                  value={selectedChannelWidth?.toString()}
+                  onValueChange={(value) => setSelectedChannelWidth(value === 'none' ? undefined : Number(value))}
+                >
+                  <SelectTrigger id="channelWidth" className="w-full rounded-xl py-3 text-md">
+                    <SelectValue placeholder="Select width..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {channelWidthOptions.map(width => (
+                      <SelectItem key={width.toString()} value={width.toString()}>
+                        {width} {getAttributeUnit(selectedVariant, 'channelWidth') || 'µm'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {channelDepthOptions.length > 0 && (
+              <div>
+                <label htmlFor="channelDepth" className="block text-sm font-medium text-muted-foreground mb-1">Channel Depth ({getAttributeUnit(selectedVariant, 'channelDepth') || 'µm'})</label>
+                <Select
+                  value={selectedChannelDepth?.toString()}
+                  onValueChange={(value) => setSelectedChannelDepth(value === 'none' ? undefined : Number(value))}
+                >
+                  <SelectTrigger id="channelDepth" className="w-full rounded-xl py-3 text-md">
+                    <SelectValue placeholder="Select depth..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {channelDepthOptions.map(depth => (
+                      <SelectItem key={depth.toString()} value={depth.toString()}>
+                        {depth} {getAttributeUnit(selectedVariant, 'channelDepth') || 'µm'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+        </motion.div>
+
         {selectedVariant && (
           <motion.div 
             variants={itemFadeIn} 
-            className="p-6 border rounded-3xl bg-card shadow-sm space-y-3"
+            className="p-6 border rounded-2xl bg-card shadow-sm space-y-3 mt-6"
           >
-            <h3 className="text-2xl font-semibold mb-3 text-foreground">Variant Details</h3>
+            <h3 className="text-xl font-semibold mb-3 text-foreground">Variant Details</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-md">
               <div className="flex justify-between">
                 <span className="font-medium text-muted-foreground">Price:</span>
@@ -178,15 +373,6 @@ export default function ProductDetailsClient({ product, variants }: ProductDetai
           </motion.div>
         )}
 
-        <motion.div variants={itemFadeIn} className="flex-grow">
-          <ProductVariantSelector
-            variants={variants}
-            attributeOptions={attributeOptions}
-            onVariantChange={setSelectedVariant}
-            // selectedVariant={selectedVariant} // Temporarily commented out
-          />
-        </motion.div>
-
         <motion.div variants={itemFadeIn} className="flex flex-col sm:flex-row gap-3 pt-4">
           <Button 
             size="lg" 
@@ -209,13 +395,16 @@ export default function ProductDetailsClient({ product, variants }: ProductDetai
           </Button>
         </motion.div>
 
-        {selectedVariant && selectedVariant.attributes && selectedVariant.attributes.length > 0 && (
+        {/* Display other attributes of the selected variant if they exist */}
+        {selectedVariant && selectedVariant.attributes.filter(attr => !['channelwidth', 'channeldepth'].includes(attr.name.toLowerCase()) && attr.value !== null && attr.value !== undefined).length > 0 && (
           <motion.div variants={itemFadeIn} className="mt-10 pt-6 border-t">
-            <h2 className="text-3xl font-bold tracking-tight text-foreground mb-6">Technical Specifications</h2>
+            <h2 className="text-3xl font-bold tracking-tight text-foreground mb-6">Additional Specifications</h2>
             <div className="space-y-3">
-              {selectedVariant.attributes.map(attr => (
+              {selectedVariant.attributes
+                .filter(attr => !['channelwidth', 'channeldepth'].includes(attr.name.toLowerCase()) && attr.value !== null && attr.value !== undefined) // Filter out width/depth and null/undefined values
+                .map(attr => (
                 <div key={attr.name} className="flex justify-between items-center p-4 bg-muted/40 rounded-xl text-md">
-                  <span className="font-medium text-foreground">{attr.name}</span>
+                  <span className="font-medium text-foreground capitalize">{attr.name.replace(/([A-Z])/g, ' $1').trim()}</span>
                   <span className="text-muted-foreground">
                     {attr.value} {attr.unit || ''}
                   </span>
@@ -224,6 +413,9 @@ export default function ProductDetailsClient({ product, variants }: ProductDetai
             </div>
           </motion.div>
         )}
+        
+        {/* Render the new chip properties section */}
+        {renderChipProperties()}
       </motion.div>
     </motion.div>
   );
