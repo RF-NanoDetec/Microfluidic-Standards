@@ -8,7 +8,6 @@ import type { KonvaEventObject } from 'konva/lib/Node';
 import KonvaCanvasItem from './canvas/KonvaCanvasItem';
 import TooltipBox from '@/components/ui/TooltipBox';
 import { Popover } from "@/components/ui/popover";
-import { SquareDashedMousePointer } from 'lucide-react';
 import type {
   CanvasItemData,
   Port,
@@ -131,24 +130,6 @@ const formatFlowVelocityForDisplay = (flowVelocityMps: number): string => {
   // ... function body ...
 };
 */
-
-function EmptyCanvasPrompt() {
-  return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none bg-transparent z-10">
-      <div className="bg-[#E1E4E8]/70 px-6 py-5 rounded-lg shadow-lg border border-[#E1E4E8]">
-        <div className="mb-2 flex justify-center">
-          <SquareDashedMousePointer size={32} className="text-[#003C7E]" />
-        </div>
-        <h2 className="font-roboto-condensed font-bold text-base text-[#003C7E] mb-1 text-center">Start Designing</h2>
-        <p className="font-inter text-sm text-slate-500 text-center max-w-xs">
-          Drag components from the palette to build your circuit.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-
 
 export default function CanvasArea({ 
   droppedItems,
@@ -937,8 +918,6 @@ export default function CanvasArea({
 
   return (
     <div ref={containerRef} className="relative w-full h-full overflow-hidden" onDragOver={e => e.preventDefault()}>
-      {droppedItems.length === 0 && <EmptyCanvasPrompt />}
-      
       <div 
         ref={stageContainerRef}
         className="absolute inset-0 w-full h-full overflow-hidden"

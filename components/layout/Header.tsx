@@ -1,13 +1,46 @@
+'use client'; // Add 'use client' at the top for hooks
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, FileText } from 'lucide-react';
+import { useCartStore } from '@/store/cartStore'; // Import cart store
+import { useQuoteStore } from '@/store/quoteStore'; // Import quote store
+import HeaderIconWithFeedback from './HeaderIconWithFeedback'; // Import the new component
+import { useEffect, useState } from 'react'; // Import useEffect and useState for hydration fix
 
 /**
  * Represents the header of the website.
  * It includes the site logo and primary navigation links according to the Microfluidic Standards Style Guide.
  */
 const Header = () => {
+  // States to hold counts after hydration
+  const [cartItemCount, setCartItemCount] = useState(0);
+  const [quoteItemCount, setQuoteItemCount] = useState(0);
+
+  // Get store methods
+  const getCartItemCount = useCartStore((state) => state.getItemCount);
+  const getQuoteItemCount = useQuoteStore((state) => state.getItemCount);
+
+  useEffect(() => {
+    // Update counts on client-side after hydration
+    setCartItemCount(getCartItemCount());
+    setQuoteItemCount(getQuoteItemCount());
+
+    // Subscribe to store changes to keep counts updated
+    const unsubscribeCart = useCartStore.subscribe(
+      (state) => setCartItemCount(state.getItemCount())
+    );
+    const unsubscribeQuote = useQuoteStore.subscribe(
+      (state) => setQuoteItemCount(state.getItemCount())
+    );
+
+    return () => {
+      unsubscribeCart();
+      unsubscribeQuote();
+    };
+  }, [getCartItemCount, getQuoteItemCount]);
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 dark:bg-zinc-950/95 dark:supports-[backdrop-filter]:bg-zinc-950/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
@@ -38,22 +71,30 @@ const Header = () => {
           </Button>
           <Button variant="ghost" size="icon" asChild className="group text-primary hover:text-white dark:text-slate-50 dark:hover:text-primary">
             <Link href="/quote">
-              {/* Style Guide: Icons: Line icons (2px stroke) from lucide-react. Use Primary Blue; fill on hover. */}
-              <FileText
-                className="h-5 w-5 stroke-current group-hover:fill-white/10 dark:group-hover:fill-primary/10"
-                strokeWidth={2} // Style guide: 2px stroke
+              <HeaderIconWithFeedback
+                icon={
+                  <FileText
+                    className="h-5 w-5 stroke-current group-hover:fill-white/10 dark:group-hover:fill-primary/10"
+                    strokeWidth={2} // Style guide: 2px stroke
+                  />
+                }
+                count={quoteItemCount}
+                iconLabel="Quote"
               />
-              <span className="sr-only">Quote</span>
             </Link>
           </Button>
           <Button variant="ghost" size="icon" asChild className="group text-primary hover:text-white dark:text-slate-50 dark:hover:text-primary">
             <Link href="/cart">
-              {/* Style Guide: Icons: Line icons (2px stroke) from lucide-react. Use Primary Blue; fill on hover. */}
-              <ShoppingCart
-                className="h-5 w-5 stroke-current group-hover:fill-white/10 dark:group-hover:fill-primary/10"
-                strokeWidth={2} // Style guide: 2px stroke
+              <HeaderIconWithFeedback
+                icon={
+                  <ShoppingCart
+                    className="h-5 w-5 stroke-current group-hover:fill-white/10 dark:group-hover:fill-primary/10"
+                    strokeWidth={2} // Style guide: 2px stroke
+                  />
+                }
+                count={cartItemCount}
+                iconLabel="Cart"
               />
-              <span className="sr-only">Cart</span>
             </Link>
           </Button>
         </nav>

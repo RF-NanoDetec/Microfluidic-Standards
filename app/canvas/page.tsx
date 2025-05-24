@@ -31,14 +31,14 @@ import FlowDisplayLegend from '@/components/microfluidic-designer/canvas/FlowVel
 import PressureDisplayLegend from '@/components/microfluidic-designer/canvas/PressureDisplayLegend';
 import { getDynamicFlowColor, formatFlowVelocityForDisplay, formatFlowRateForDisplay, getPressureIndicatorColor } from '@/lib/microfluidic-designer/utils/visualizationUtils';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, SquareDashedMousePointer, Hand, ArrowRight, MousePointer2, Layers, Zap, Trash2, PlayCircle, RotateCcw, Search } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Trash2, PlayCircle, RotateCcw, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { KonvaEventObject } from 'konva/lib/Node';
 import Konva from 'konva'; // Import Konva namespace
 import { VariantSelector } from '@/components/microfluidic-designer/VariantSelector';
 import { PARENT_PRODUCTS, ParentProduct, ProductVariant, getDefaultVariant, createCanvasItemFromVariant, getTubingTypeByMaterial, calculateTubingResistanceByMaterial, getConnectionLength } from '@/lib/microfluidic-designer/productData';
+import { useCanvasStore } from '@/store/canvasStore'; // Added import
 
 const CanvasArea = dynamic(() => import('@/components/microfluidic-designer/CanvasArea'), {
   ssr: false,
@@ -89,13 +89,121 @@ const MIN_CANVAS_WIDTH = 900; // Minimum width for the canvas content area
 const DEFAULT_SIDE_PADDING = 100; // Default padding on each side when space allows
 const TOP_BOTTOM_PADDING = 20; // Fixed top and bottom padding
 
+// Welcome Overlay Component
+function WelcomeOverlay() {
+  return (
+    <div className="fixed inset-x-0 top-16 bottom-0 bg-gray-400/40 backdrop-blur-[1px] z-30 flex items-center justify-center pointer-events-none select-none">
+      <div className="bg-background/90 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/50 p-8 max-w-lg mx-4">
+        {/* Header Section */}
+        <div className="text-center mb-8">
+          <h2 className="font-roboto-condensed font-bold text-2xl text-gray-900 mb-2">
+            Welcome to the Designer
+          </h2>
+          <p className="font-inter text-gray-600 text-base">
+            Start building your microfluidic application
+          </p>
+        </div>
+
+        {/* Instructions */}
+        <div className="space-y-6">
+          {/* Step 1 */}
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 mt-1">
+              <div className="w-8 h-8 bg-[#003C7E] rounded-full flex items-center justify-center text-white font-bold text-sm">
+                1
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <Hand size={20} className="text-[#003C7E] animate-pulse" />
+                <span className="font-inter font-semibold text-gray-800">Drag Components</span>
+              </div>
+              <p className="font-inter text-sm text-gray-600">
+                Drag components from the left sidebar to start building
+              </p>
+            </div>
+          </div>
+
+          {/* Arrow Animation */}
+          <div className="flex justify-center">
+            <div className="flex items-center gap-2 text-gray-400">
+              <div className="animate-bounce">
+                <ArrowRight size={20} />
+              </div>
+              <div className="animate-pulse">
+                <MousePointer2 size={16} />
+              </div>
+            </div>
+          </div>
+
+          {/* Step 2 */}
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 mt-1">
+              <div className="w-8 h-8 bg-[#003C7E] rounded-full flex items-center justify-center text-white font-bold text-sm">
+                2
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <SquareDashedMousePointer size={20} className="text-[#003C7E]" />
+                <span className="font-inter font-semibold text-gray-800">Connect & Design</span>
+              </div>
+              <p className="font-inter text-sm text-gray-600">
+                Click on ports to create connections between components
+              </p>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 mt-1">
+              <div className="w-8 h-8 bg-[#003C7E] rounded-full flex items-center justify-center text-white font-bold text-sm">
+                3
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <PlayCircle size={20} className="text-[#003C7E]" />
+                <span className="font-inter font-semibold text-gray-800">Simulate</span>
+              </div>
+              <p className="font-inter text-sm text-gray-600">
+                Run simulations to analyze flow and pressure in your design
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom hint */}
+        <div className="mt-8 pt-6 border-t border-gray-200/50">
+          <p className="text-center font-inter text-xs text-gray-500">
+            This overlay will disappear once you start designing
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MicrofluidicDesignerPage() {
   const mainContainerRef = useRef<HTMLDivElement>(null);
 
-  const [droppedItems, setDroppedItems] = useState<CanvasItemData[]>([]);
+  const { 
+    droppedItems, 
+    connections, 
+    addItem: addDroppedItem,
+    updateItemPosition,
+    addConnection,
+    removeConnection,
+    resetCanvas: clearAllCanvasItems,
+    setDroppedItems, 
+    setConnections,
+    removeItem,
+    updateItemDetails,
+    updateConnectionDetails
+  } = useCanvasStore();
+
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
-  const [connections, setConnections] = useState<Connection[]>([]);
   const [inProgressConnection, setInProgressConnection] = useState<{
     sourceItem: CanvasItemData;
     sourcePort: Port;
@@ -293,13 +401,12 @@ export default function MicrofluidicDesignerPage() {
 
   const handleClearCanvas = useCallback(() => {
     console.log("Clearing canvas...");
-    setDroppedItems([]);
-    setConnections([]);
+    clearAllCanvasItems(); // Use the action from the store
     setInProgressConnection(null);
     setSelectedItemId(null);
     setSelectedConnectionId(null);
     handleResetSimulation(); // Also reset simulation state
-  }, [handleResetSimulation]);
+  }, [clearAllCanvasItems, handleResetSimulation]); // Added clearAllCanvasItems to dependency array
 
   // Variant selection handlers
   const handleVariantSelect = useCallback((variant: ProductVariant) => {
@@ -344,10 +451,10 @@ export default function MicrofluidicDesignerPage() {
       selectedVariantId: variant.id,
     };
 
-    setDroppedItems(prevItems => [...prevItems, finalItem]);
+    addDroppedItem(finalItem);
     setPendingDrop(null);
     setIsVariantSelectorOpen(false);
-  }, [pendingDrop]);
+  }, [pendingDrop, addDroppedItem]);
 
   const handleVariantSelectorClose = useCallback(() => {
     setIsVariantSelectorOpen(false);
@@ -449,7 +556,7 @@ export default function MicrofluidicDesignerPage() {
             resistance: calculatedResistance,
             // selectedVariantId is already set by createCanvasItemFromVariant
           };
-          setDroppedItems(prevItems => [...prevItems, finalItem]);
+          addDroppedItem(finalItem);
 
         } else if (!parentProduct.variants || parentProduct.variants.length === 0) {
           // For items like 'outlet-tool' that have no variants defined in PARENT_PRODUCTS
@@ -480,7 +587,7 @@ export default function MicrofluidicDesignerPage() {
             isAutoclavable: true,
             // selectedVariantId remains undefined for these tool-type items
           };
-          setDroppedItems(prevItems => [...prevItems, newItem]);
+          addDroppedItem(newItem);
         } else {
            console.warn("Could not determine variant for product:", parentProduct.name, "and no direct creation path.");
         }
@@ -489,36 +596,50 @@ export default function MicrofluidicDesignerPage() {
         console.error("Failed to parse or process dropped item data:", error);
       }
     }
-  }, []);
+  }, [addDroppedItem]);
 
   const handleItemDragEnd = useCallback((itemId: string, newX: number, newY: number) => {
     // Snapping logic removed
     // const snappedX = Math.round(newX / GRID_SIZE) * GRID_SIZE;
     // const snappedY = Math.round(newY / GRID_SIZE) * GRID_SIZE;
 
-    const updatedDroppedItems = droppedItems.map(item =>
-      item.id === itemId ? { ...item, x: newX, y: newY } : item // Use newX and newY directly
-    );
-    setDroppedItems(updatedDroppedItems);
+    updateItemPosition(itemId, newX, newY);
+
+    const currentDroppedItems = useCanvasStore.getState().droppedItems;
 
     const affectedConnections = connections.filter(conn => conn.fromItemId === itemId || conn.toItemId === itemId);
     if (affectedConnections.length > 0) {
       const updatedConnections = connections.map(conn => {
         if (conn.fromItemId === itemId || conn.toItemId === itemId) {
-          const fromItem = updatedDroppedItems.find(i => i.id === conn.fromItemId);
-          const fromPort = fromItem?.ports.find(p => p.id === conn.fromPortId);
-          const toItem = updatedDroppedItems.find(i => i.id === conn.toItemId);
-          const toPort = toItem?.ports.find(p => p.id === conn.toPortId);
-          if (fromItem && fromPort && toItem && toPort) {
-            const newPathData = calculateTubePathData(fromItem, fromPort, toItem, toPort);
+          const fromItem = currentDroppedItems.find(i => i.id === conn.fromItemId);
+          const toItem = currentDroppedItems.find(i => i.id === conn.toItemId);
+          
+          const movedItem = currentDroppedItems.find(i => i.id === itemId);
+          let item1: CanvasItemData | undefined, item2: CanvasItemData | undefined;
+          let port1: Port | undefined, port2: Port | undefined;
+
+          if (conn.fromItemId === itemId) {
+            item1 = movedItem;
+            port1 = item1?.ports.find(p => p.id === conn.fromPortId);
+            item2 = currentDroppedItems.find(i => i.id === conn.toItemId);
+            port2 = item2?.ports.find(p => p.id === conn.toPortId);
+          } else {
+            item1 = currentDroppedItems.find(i => i.id === conn.fromItemId);
+            port1 = item1?.ports.find(p => p.id === conn.fromPortId);
+            item2 = movedItem;
+            port2 = item2?.ports.find(p => p.id === conn.toPortId);
+          }
+          
+          if (item1 && port1 && item2 && port2) {
+            const newPathData = calculateTubePathData(item1, port1, item2, port2);
             return { ...conn, pathData: newPathData };
           }
         }
-        return conn; 
-      });
+        return conn;
+      }).filter(Boolean) as Connection[];
       setConnections(updatedConnections);
     }
-  }, [droppedItems, connections]);
+  }, [connections, updateItemPosition, setConnections]);
 
   const handlePortClick = useCallback((itemId: string, port: Port, konvaEvent: KonvaEventObject<MouseEvent>) => {
     konvaEvent.cancelBubble = true;
@@ -578,10 +699,10 @@ export default function MicrofluidicDesignerPage() {
         tubingTypeId: tubingType.id,
       };
       
-      setConnections(prev => [...prev, newConnection]);
+      addConnection(newConnection);
       setInProgressConnection(null); 
     }
-  }, [inProgressConnection, droppedItems, connections]);
+  }, [inProgressConnection, droppedItems, connections, addConnection]);
 
   const handleStageClick = useCallback(
   (
@@ -640,7 +761,7 @@ export default function MicrofluidicDesignerPage() {
           tubingTypeId: tubingType.id,
         };
 
-        setConnections(prev => [...prev, newConnection]);
+        addConnection(newConnection);
         setInProgressConnection(null);
         console.log('Connection formed to SNAPPED target via stage click:', newConnection);
         setSelectedItemId(null); // Deselect source item after connection
@@ -688,7 +809,7 @@ export default function MicrofluidicDesignerPage() {
       // If click was on something else non-identifiable on the stage, it effectively does nothing here.
     }
   },
-  [inProgressConnection, droppedItems, connections, setInProgressConnection, setConnections, setSelectedItemId, setSelectedConnectionId]
+  [inProgressConnection, droppedItems, connections, setInProgressConnection, addConnection, setSelectedItemId, setSelectedConnectionId]
 );
 
   const handleStageContextMenu = useCallback((konvaEvent: KonvaEventObject<MouseEvent>) => {
@@ -706,36 +827,27 @@ export default function MicrofluidicDesignerPage() {
   }, []);
 
   const handleDeleteItem = useCallback((itemIdToDelete: string) => {
-    setDroppedItems(prev => prev.filter(item => item.id !== itemIdToDelete));
-    setConnections(prev => prev.filter(conn => conn.fromItemId !== itemIdToDelete && conn.toItemId !== itemIdToDelete));
+    removeItem(itemIdToDelete);
     if (selectedItemId === itemIdToDelete) {
       setSelectedItemId(null);
     }
-  }, [selectedItemId]);
+  }, [selectedItemId, removeItem]);
 
   const handleDeleteConnection = useCallback((connectionIdToDelete: string) => {
-    setConnections(prev => prev.filter(conn => conn.id !== connectionIdToDelete));
+    removeConnection(connectionIdToDelete);
     if (selectedConnectionId === connectionIdToDelete) {
       setSelectedConnectionId(null);
     }
-  }, [selectedConnectionId]);
+  }, [selectedConnectionId, removeConnection]);
   
   const handleConnectionPropertyChange = useCallback((connectionId: string, property: keyof Connection, value: unknown) => {
-    setConnections(prevConnections =>
-      prevConnections.map(conn => {
-        if (conn.id === connectionId) {
-          const updatedConnection = { ...conn, [property]: value };
-          console.log(`[ConnectionPropertyChange] Connection ${connectionId} updated. Property: ${property}, New Value:`, value, "Updated Connection:", updatedConnection);
-          return updatedConnection;
-        }
-        return conn;
-      })
-    );
+    updateConnectionDetails(connectionId, { [property]: value });
+
     // Clear simulation results when connection properties change
     setSimulationResults(initialSimulationResults);
     setSimulationVisualsKey(prev => prev + 1);
     setInspectionMode('none');
-  }, []);
+  }, [updateConnectionDetails, setSimulationResults, setInspectionMode]);
 
   const handleStageMouseMove = useCallback((stagePointerPos: {x: number, y:number}) => {
     // This handler is now ONLY for the inProgressConnection line preview.
@@ -775,42 +887,41 @@ export default function MicrofluidicDesignerPage() {
   }, [selectedItemId, selectedConnectionId, inProgressConnection, handleDeleteItem, handleDeleteConnection]);
 
   const handleItemPropertyChange = useCallback((itemId: string, propertyName: keyof CanvasItemData, value: unknown) => {
-    setDroppedItems(prevItems =>
-      prevItems.map(item => {
-        if (item.id === itemId) {
-          const updatedItem = { ...item, [propertyName]: value };
+    // Find the item first to calculate potential resistance changes before updating the store
+    const itemToUpdate = droppedItems.find(item => item.id === itemId);
+    if (!itemToUpdate) return;
 
-          // Recalculate resistance if a relevant dimension changed for certain chip types
-          if (
-            (propertyName === 'currentChannelWidthMicrons' ||
-             propertyName === 'currentChannelDepthMicrons' ||
-             propertyName === 'currentChannelLengthMm') &&
-            (item.chipType === 'straight' || item.chipType === 'meander')
-          ) {
-            updatedItem.resistance = calculateRectangularChannelResistance(
-              updatedItem.currentChannelLengthMm * 1e-3, 
-              updatedItem.currentChannelWidthMicrons * 1e-6, 
-              updatedItem.currentChannelDepthMicrons * 1e-6,
-              FLUID_VISCOSITY_PAS
-            );
-          } else if ((propertyName === 'portPressures' || propertyName === 'portFlowRates') && item.chipType === 'pump') {
-            // No specific recalculation needed here as pump properties are directly used
-            // but this confirms we are handling them.
-            // The simulation engine will use the new pump properties directly.
-          }
-          
-          console.log(`[PropertyChange] Item ${itemId} updated. Property: ${propertyName}, New Value:`, value, "Updated Item:", updatedItem);
-          return updatedItem;
-        }
-        return item;
-      })
-    );
+    const updatedItemPartial: Partial<CanvasItemData> = { [propertyName]: value };
+
+    // Recalculate resistance if a relevant dimension changed for certain chip types
+    if (
+      (propertyName === 'currentChannelWidthMicrons' ||
+        propertyName === 'currentChannelDepthMicrons' ||
+        propertyName === 'currentChannelLengthMm') &&
+      (itemToUpdate.chipType === 'straight' || itemToUpdate.chipType === 'meander')
+    ) {
+      // Ensure all necessary properties are available for calculation, using current or new values
+      const length = propertyName === 'currentChannelLengthMm' ? value as number : itemToUpdate.currentChannelLengthMm;
+      const width = propertyName === 'currentChannelWidthMicrons' ? value as number : itemToUpdate.currentChannelWidthMicrons;
+      const depth = propertyName === 'currentChannelDepthMicrons' ? value as number : itemToUpdate.currentChannelDepthMicrons;
+      
+      updatedItemPartial.resistance = calculateRectangularChannelResistance(
+        length * 1e-3, 
+        width * 1e-6, 
+        depth * 1e-6,
+        FLUID_VISCOSITY_PAS
+      );
+    } else if ((propertyName === 'portPressures' || propertyName === 'portFlowRates') && itemToUpdate.chipType === 'pump') {
+      // No specific recalculation needed here as pump properties are directly used by the simulation engine.
+    }
+
+    updateItemDetails(itemId, updatedItemPartial);
+    
     // If properties that affect simulation are changed, consider resetting or indicating simulation is stale
-    // For now, we can clear previous results to prompt a re-run
     setSimulationResults(initialSimulationResults);
     setSimulationVisualsKey(prev => prev + 1);
     setInspectionMode('none'); 
-  }, []);
+  }, [droppedItems, updateItemDetails, setSimulationResults, setInspectionMode]);
 
   const currentSelectedItem = droppedItems.find(item => item.id === selectedItemId);
 
@@ -926,65 +1037,58 @@ export default function MicrofluidicDesignerPage() {
   }, [simulationResults, connections, droppedItems]);
 
   const handleStageResize = useCallback((newDimensions: { width: number; height: number }) => {
-    // Check if any items are out of bounds and adjust them
-    setDroppedItems(prevItems => {
-      let itemsChanged = false;
-      const updatedItems = prevItems.map(item => {
-        let newX = item.x;
-        let newY = item.y;
-        let itemModified = false;
+    let itemsChanged = false;
+    const currentDroppedItems = useCanvasStore.getState().droppedItems;
+    const updatedItems = currentDroppedItems.map(item => {
+      let newX = item.x;
+      let newY = item.y;
+      let itemModified = false;
 
-        // Check and clamp right boundary
-        if (item.x + item.width > newDimensions.width) {
-          newX = newDimensions.width - item.width;
-          itemModified = true;
-        }
-        // Check and clamp left boundary (shouldn't happen if x is always >= 0, but good practice)
-        if (newX < 0) {
-          newX = 0;
-          itemModified = true;
-        }
-
-        // Check and clamp bottom boundary
-        if (item.y + item.height > newDimensions.height) {
-          newY = newDimensions.height - item.height;
-          itemModified = true;
-        }
-        // Check and clamp top boundary (shouldn't happen if y is always >= 0, but good practice)
-        if (newY < 0) {
-          newY = 0;
-          itemModified = true;
-        }
-
-        if (itemModified) {
-          itemsChanged = true;
-          return { ...item, x: newX, y: newY };
-        }
-        return item;
-      });
-
-      if (itemsChanged) {
-        // If items moved, connections might need updating
-        setConnections(prevConnections => 
-          prevConnections.map(conn => {
-            const fromItem = updatedItems.find(i => i.id === conn.fromItemId);
-            const toItem = updatedItems.find(i => i.id === conn.toItemId);
-            if (fromItem && toItem) {
-              const fromPort = fromItem.ports.find(p => p.id === conn.fromPortId || `${fromItem.id}_${p.id}` === conn.fromPortId );
-              const toPort = toItem.ports.find(p => p.id === conn.toPortId || `${toItem.id}_${p.id}` === conn.toPortId);
-              if (fromPort && toPort) {
-                const newPathData = calculateTubePathData(fromItem, fromPort, toItem, toPort);
-                return { ...conn, pathData: newPathData };
-              }
-            }
-            return conn;
-          })
-        );
-        return updatedItems;
+      if (item.x + item.width > newDimensions.width) {
+        newX = newDimensions.width - item.width;
+        itemModified = true;
       }
-      return prevItems; // No changes, return original items
+      if (newX < 0) {
+        newX = 0;
+        itemModified = true;
+      }
+      if (item.y + item.height > newDimensions.height) {
+        newY = newDimensions.height - item.height;
+        itemModified = true;
+      }
+      if (newY < 0) {
+        newY = 0;
+        itemModified = true;
+      }
+
+      if (itemModified) {
+        itemsChanged = true;
+        return { ...item, x: newX, y: newY };
+      }
+      return item;
     });
-  }, []); // No specific dependencies here as it only sets state or uses latest state in setDroppedItems
+
+    if (itemsChanged) {
+      setDroppedItems(updatedItems);
+
+      const currentConnections = useCanvasStore.getState().connections;
+      const updatedConnections = currentConnections.map(conn => {
+        const fromItem = updatedItems.find(i => i.id === conn.fromItemId);
+        const toItem = updatedItems.find(i => i.id === conn.toItemId);
+        if (fromItem && toItem) {
+          const fromPort = fromItem.ports.find(p => p.id === conn.fromPortId || `${fromItem.id}_${p.id}` === conn.fromPortId );
+          const toPort = toItem.ports.find(p => p.id === conn.toPortId || `${toItem.id}_${p.id}` === conn.toPortId);
+          if (fromPort && toPort) {
+            const newPathData = calculateTubePathData(fromItem, fromPort, toItem, toPort);
+            return { ...conn, pathData: newPathData };
+          }
+        }
+        return conn;
+      });
+      setConnections(updatedConnections);
+    }
+    // If no items changed, original items remain, and no need to update connections based on resize.
+  }, [setDroppedItems, setConnections]); // Dependencies are the store setters
 
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 0);
   const [sidePadding, setSidePadding] = useState(DEFAULT_SIDE_PADDING);
@@ -1033,6 +1137,9 @@ export default function MicrofluidicDesignerPage() {
         paddingBottom: `${TOP_BOTTOM_PADDING}px`,
       }}
     >
+      {/* Welcome Overlay - Rendered on top of everything else except sidebars */}
+      {droppedItems.length === 0 && <WelcomeOverlay />}
+
       {/* This div establishes the padded area below the header */}
       <div className="relative w-full h-full flex-1">
         {/* CanvasArea and its sibling controls (buttons, inspection toggles) will be positioned within this relative container */}
