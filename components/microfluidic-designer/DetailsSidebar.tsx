@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,6 +22,8 @@ import { getVariantById, PARENT_PRODUCTS, getVariantsForProduct } from '@/lib/mi
 interface DetailsSidebarProps {
   selectedItem?: CanvasItemData;
   selectedConnection?: Connection;
+  configuringItem?: CanvasItemData;
+  onClearConfiguringItem?: () => void;
   droppedItems: CanvasItemData[];
   connections: Connection[];
   onItemPropertyChange?: (itemId: string, propertyName: keyof CanvasItemData, value: unknown) => void;
@@ -51,6 +54,8 @@ interface TubingSummary {
 export default function DetailsSidebar({ 
   selectedItem, 
   selectedConnection, 
+  configuringItem,
+  onClearConfiguringItem,
   droppedItems, 
   connections, 
   onItemPropertyChange, 
@@ -60,9 +65,56 @@ export default function DetailsSidebar({
 }: DetailsSidebarProps) {
   const addToCart = useCartStore((state) => state.addToCart);
 
+  const itemToDisplay = configuringItem || selectedItem;
+
+  const handleChannelWidthChange = (newValue: string) => {
+    if (!configuringItem || !onItemPropertyChange) return;
+
+    const newWidthMicrons = parseFloat(newValue);
+    // Do not clear or return if newWidthMicrons is invalid yet, allow temporary states
+    // if (isNaN(newWidthMicrons) || newWidthMicrons <= 0) {
+    //   return;
+    // }
+
+    onItemPropertyChange(configuringItem.id, 'currentChannelWidthMicrons', isNaN(newWidthMicrons) || newWidthMicrons <=0 ? 0 : newWidthMicrons);
+
+    const {
+      currentChannelLengthMm,
+      currentChannelDepthMicrons,
+      chipType,
+      currentJunctionSegmentLengthMm,
+      resistance: oldResistance // Store old resistance for fallback
+    } = configuringItem;
+
+    if (currentChannelLengthMm && currentChannelDepthMicrons && newWidthMicrons > 0) {
+        let calculatedResistance: number;
+        if (chipType === 'straight' || chipType === 'meander') {
+            calculatedResistance = calculateRectangularChannelResistance(
+                currentChannelLengthMm * 1e-3, 
+                newWidthMicrons * 1e-6,       
+                currentChannelDepthMicrons * 1e-6, 
+                FLUID_VISCOSITY_PAS
+            );
+        } else if (chipType === 't-type' || chipType === 'x-type') {
+            const effectiveLengthMm = currentJunctionSegmentLengthMm || currentChannelLengthMm || 2.5;
+            calculatedResistance = calculateRectangularChannelResistance(
+                effectiveLengthMm * 1e-3,
+                newWidthMicrons * 1e-6,
+                currentChannelDepthMicrons * 1e-6,
+                FLUID_VISCOSITY_PAS
+            );
+        } else {
+            calculatedResistance = oldResistance || 0; 
+        }
+        onItemPropertyChange(configuringItem.id, 'resistance', calculatedResistance);
+    } else if (newWidthMicrons <= 0 || isNaN(newWidthMicrons)) {
+        // If width is invalid, set a very high resistance or revert to a previous valid one if possible
+        onItemPropertyChange(configuringItem.id, 'resistance', 1e18); // Indicate non-functional
+    }
+  };
 
   const handleVariantChange = (variantId: string) => {
-    if (!selectedItem || !onItemPropertyChange) return;
+    if (!itemToDisplay || !onItemPropertyChange) return;
     const variant = getVariantById(variantId);
     if (!variant) return;
 
@@ -71,39 +123,39 @@ export default function DetailsSidebar({
     const channelDepthAttr = variant.attributes.find(attr => attr.name === 'channelDepth');
     
     if (channelWidthAttr && typeof channelWidthAttr.value === 'number') {
-      onItemPropertyChange(selectedItem.id, 'currentChannelWidthMicrons', channelWidthAttr.value);
+      onItemPropertyChange(itemToDisplay.id, 'currentChannelWidthMicrons', channelWidthAttr.value);
     }
     if (channelDepthAttr && typeof channelDepthAttr.value === 'number') {
-      onItemPropertyChange(selectedItem.id, 'currentChannelDepthMicrons', channelDepthAttr.value);
+      onItemPropertyChange(itemToDisplay.id, 'currentChannelDepthMicrons', channelDepthAttr.value);
     }
     
     // Update selected variant
-    onItemPropertyChange(selectedItem.id, 'selectedVariantId', variantId);
-    onItemPropertyChange(selectedItem.id, 'name', variant.variantName);
+    onItemPropertyChange(itemToDisplay.id, 'selectedVariantId', variantId);
+    onItemPropertyChange(itemToDisplay.id, 'name', variant.variantName);
   };
 
   const handlePortPressureChange = (portIdToUpdate: string, newPressureString: string) => {
-    if (!selectedItem || !onItemPropertyChange || selectedItem.chipType !== 'pump' || !selectedItem.portPressures) return;
+    if (!itemToDisplay || !onItemPropertyChange || itemToDisplay.chipType !== 'pump' || !itemToDisplay.portPressures) return;
     const newPressure = parseFloat(newPressureString);
     if (isNaN(newPressure)) return;
 
     const updatedPortPressures = {
-      ...selectedItem.portPressures,
+      ...itemToDisplay.portPressures,
       [portIdToUpdate]: newPressure,
     };
-    onItemPropertyChange(selectedItem.id, 'portPressures', updatedPortPressures);
+    onItemPropertyChange(itemToDisplay.id, 'portPressures', updatedPortPressures);
   };
 
   const handlePortFlowRateChange = (portIdToUpdate: string, newFlowRateString: string) => {
-    if (!selectedItem || !onItemPropertyChange || selectedItem.chipType !== 'pump' || !selectedItem.portFlowRates) return;
+    if (!itemToDisplay || !onItemPropertyChange || itemToDisplay.chipType !== 'pump' || !itemToDisplay.portFlowRates) return;
     const newFlowRate = parseFloat(newFlowRateString);
     if (isNaN(newFlowRate)) return;
 
     const updatedPortFlowRates = {
-      ...selectedItem.portFlowRates,
+      ...itemToDisplay.portFlowRates,
       [portIdToUpdate]: newFlowRate,
     };
-    onItemPropertyChange(selectedItem.id, 'portFlowRates', updatedPortFlowRates);
+    onItemPropertyChange(itemToDisplay.id, 'portFlowRates', updatedPortFlowRates);
   };
 
   // Calculate component summary with categories
@@ -243,13 +295,13 @@ export default function DetailsSidebar({
   };
 
   const getSelectedVariant = () => {
-    if (!selectedItem?.selectedVariantId) return null;
-    return getVariantById(selectedItem.selectedVariantId);
+    if (!itemToDisplay?.selectedVariantId) return null;
+    return getVariantById(itemToDisplay.selectedVariantId);
   };
 
   const getAvailableVariants = () => {
-    if (!selectedItem?.productId) return [];
-    return getVariantsForProduct(selectedItem.productId);
+    if (!itemToDisplay?.productId) return [];
+    return getVariantsForProduct(itemToDisplay.productId);
   };
 
   const getChannelWidthOptions = () => {
@@ -267,15 +319,15 @@ export default function DetailsSidebar({
   };
 
   let displayedResistance = 0;
-  if (selectedItem && (selectedItem.chipType === 'straight' || selectedItem.chipType === 'meander')) {
+  if (itemToDisplay && (itemToDisplay.chipType === 'straight' || itemToDisplay.chipType === 'meander')) {
     displayedResistance = calculateRectangularChannelResistance(
-      selectedItem.currentChannelLengthMm * 1e-3,
-      selectedItem.currentChannelWidthMicrons * 1e-6,
-      selectedItem.currentChannelDepthMicrons * 1e-6,
+      itemToDisplay.currentChannelLengthMm * 1e-3,
+      itemToDisplay.currentChannelWidthMicrons * 1e-6,
+      itemToDisplay.currentChannelDepthMicrons * 1e-6,
       FLUID_VISCOSITY_PAS
     );
-  } else if (selectedItem && selectedItem.chipType !== 'pump') {
-    displayedResistance = selectedItem.resistance || 0;
+  } else if (itemToDisplay && itemToDisplay.chipType !== 'pump') {
+    displayedResistance = itemToDisplay.resistance || 0;
   }
 
   // If no items are on the canvas at all, show the initial prompt
@@ -293,41 +345,80 @@ export default function DetailsSidebar({
 
   const canAddToCart = componentSummary.some(comp => comp.variantId && comp.price);
   const selectedVariant = getSelectedVariant();
-  const isChipComponent = selectedItem && ['straight', 'meander', 't-type', 'x-type'].includes(selectedItem.chipType);
-  const isPumpComponent = selectedItem && selectedItem.chipType === 'pump';
+  const isChipComponent = itemToDisplay && ['straight', 'meander', 't-type', 'x-type'].includes(itemToDisplay.chipType);
+  const isPumpComponent = itemToDisplay && itemToDisplay.chipType === 'pump';
 
   return (
-    <div className="h-full w-full flex flex-col font-inter">
-      {/* Selected Item/Connection Details */}
-      {(selectedItem || selectedConnection) && (
-        <div className="px-4 py-4 border-b">
-          {selectedConnection && onConnectionPropertyChange ? (
-            <>
-              <h2 className="text-sm font-semibold text-primary tracking-tight mb-3">
-                Tubing
-              </h2>
-              <ConnectionDetails 
-                connection={selectedConnection}
-                onConnectionPropertyChange={onConnectionPropertyChange}
-              />
-              {onDeleteConnection && (
-                <Button
-                  variant="destructive"
-                  onClick={() => onDeleteConnection(selectedConnection.id)}
-                  className="w-full mt-3"
-                  size="sm"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Connection
-                </Button>
-              )}
-            </>
-          ) : selectedItem ? (
+    <ScrollArea className="h-full w-full">
+      <div className="p-3 space-y-4">
+        
+        {/* Initial Configuration Section for configuringItem */}
+        {configuringItem && (
+          <div className="p-3 border-2 border-blue-500 rounded-lg bg-blue-50 mb-4 shadow-md animate-fadeIn">
+            <h3 className="text-md font-semibold text-blue-700 mb-1">
+              Configure New: <span className="font-normal">{configuringItem.name}</span>
+            </h3>
+             <p className="text-xs text-blue-600 mb-3">
+                Please set the required properties for the new component.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="channelWidthConfig" className="text-xs font-medium text-gray-700 flex items-center">
+                  Channel Width (µm)
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info size={12} className="inline ml-1.5 text-gray-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">
+                        <p>Set the primary internal channel width for this component in micrometers.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </Label>
+                <Input
+                  id="channelWidthConfig"
+                  type="number"
+                  value={configuringItem.currentChannelWidthMicrons > 0 ? configuringItem.currentChannelWidthMicrons : ''} // Show empty if 0
+                  onChange={(e) => handleChannelWidthChange(e.target.value)}
+                  onBlur={() => {
+                    if (configuringItem.currentChannelWidthMicrons && configuringItem.currentChannelWidthMicrons > 0 && onClearConfiguringItem) {
+                       onClearConfiguringItem();
+                    }
+                  }}
+                  placeholder="e.g., 100"
+                  min="1" // Basic HTML5 validation
+                  className={`mt-1 h-8 text-sm ${(!configuringItem.currentChannelWidthMicrons || configuringItem.currentChannelWidthMicrons <=0) ? 'border-red-500 focus:border-red-600 ring-red-500 focus:ring-red-600' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
+                />
+                {(!configuringItem.currentChannelWidthMicrons || configuringItem.currentChannelWidthMicrons <=0) && (
+                    <p className="text-xs text-red-600 mt-1">Channel width must be a positive number.</p>
+                )}
+              </div>
+              {/* You can add a button here if onBlur feels too abrupt */}
+              {/* <Button 
+                size="sm" 
+                className="mt-2 h-8 text-xs"
+                onClick={() => {
+                  if (configuringItem.currentChannelWidthMicrons && configuringItem.currentChannelWidthMicrons > 0 && onClearConfiguringItem) {
+                    onClearConfiguringItem();
+                  }
+                }}
+                disabled={!configuringItem.currentChannelWidthMicrons || configuringItem.currentChannelWidthMicrons <=0}
+              >
+                Set Width & Continue
+              </Button> */}
+            </div>
+          </div>
+        )}
+
+        {/* Display Item or Connection Details (only if not configuring a new item) */}
+        {!configuringItem && itemToDisplay && (
+          <div className="border-b pb-4 mb-4"> {/* Item details section wrapper */}
             <div className="space-y-3">
               {/* Component Type and Name */}
               <div>
                 <h2 className="text-sm font-semibold text-primary tracking-tight">
-                  {getParentProductName(selectedItem.productId)}
+                  {getParentProductName(itemToDisplay.productId)}
                 </h2>
                 {selectedVariant?.sku && (
                   <p className="text-xs text-muted-foreground">SKU: {selectedVariant.sku}</p>
@@ -339,7 +430,7 @@ export default function DetailsSidebar({
                 <div>
                   <p className="text-xs text-muted-foreground">
                     Hydrodynamic Resistance: {displayedResistance.toExponential(2)} Pa·s/m³
-                    {(selectedItem.chipType === 't-type' || selectedItem.chipType === 'x-type') && (
+                    {(itemToDisplay.chipType === 't-type' || itemToDisplay.chipType === 'x-type') && (
                       <span className="italic"> (composite)</span>
                     )}
                   </p>
@@ -351,7 +442,7 @@ export default function DetailsSidebar({
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Channel Width</Label>
                   <Select
-                    value={selectedItem.currentChannelWidthMicrons?.toString() || ''}
+                    value={itemToDisplay.currentChannelWidthMicrons?.toString() || ''}
                     onValueChange={(value) => {
                       const variants = getAvailableVariants();
                       const targetVariant = variants.find(v => {
@@ -399,11 +490,11 @@ export default function DetailsSidebar({
               {isPumpComponent && onItemPropertyChange && (
                 <>
                   {/* Pressure Pump Controls */}
-                  {selectedItem.pumpType === 'pressure' && selectedItem.portPressures && (
+                  {itemToDisplay.pumpType === 'pressure' && itemToDisplay.portPressures && (
                     <div className="space-y-2">
                       <Label className="text-xs font-medium">Port Pressures (mbar)</Label>
                       <div className="grid grid-cols-2 gap-2">
-                        {Object.entries(selectedItem.portPressures).map(([portId, pressureInPa], index) => {
+                        {Object.entries(itemToDisplay.portPressures).map(([portId, pressureInPa], index) => {
                           const pressureInMbar = pressureInPa / 100;
                           return (
                             <div key={portId} className="space-y-1">
@@ -432,11 +523,11 @@ export default function DetailsSidebar({
                   )}
 
                   {/* Syringe Pump Controls */}
-                  {selectedItem.pumpType === 'syringe' && selectedItem.portFlowRates && (
+                  {itemToDisplay.pumpType === 'syringe' && itemToDisplay.portFlowRates && (
                     <div className="space-y-2">
                       <Label className="text-xs font-medium">Flow Rate (µL/min)</Label>
                       <div className="grid grid-cols-1 gap-2">
-                        {Object.entries(selectedItem.portFlowRates).map(([portId, flowRate]) => {
+                        {Object.entries(itemToDisplay.portFlowRates).map(([portId, flowRate]) => {
                           return (
                             <div key={portId} className="space-y-1">
                               <Label htmlFor={`flowrate-${portId}`} className="text-xs">
@@ -471,7 +562,7 @@ export default function DetailsSidebar({
               {onDeleteItem && (
                 <Button
                   variant="destructive"
-                  onClick={() => onDeleteItem(selectedItem.id)}
+                  onClick={() => onDeleteItem(itemToDisplay.id)}
                   className="w-full"
                   size="sm"
                 >
@@ -480,13 +571,11 @@ export default function DetailsSidebar({
                 </Button>
               )}
             </div>
-          ) : null}
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* Used Components List */}
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full">
+        {/* Used Components List */}
+        <div className="flex-1 overflow-hidden">
           <div className="px-4 py-4">
             <div className="flex items-center gap-2 mb-3">
               <Package className="h-4 w-4 text-primary" />
@@ -775,8 +864,8 @@ export default function DetailsSidebar({
               </p>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </div>
-    </div>
+    </ScrollArea>
   );
 } 

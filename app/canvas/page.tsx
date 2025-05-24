@@ -251,6 +251,9 @@ export default function MicrofluidicDesignerPage() {
     itemId: string;
   } | null>(null);
 
+  // NEW: State for item being configured in sidebar
+  const [configuringItemId, setConfiguringItemId] = useState<string | null>(null);
+
   // Grouped and ordered items logic (lifted and adapted from PaletteSidebar)
   const groupedPaletteItems = useMemo(() => PALETTE_ITEMS.reduce((acc, item) => {
     let categoryKey: CategoryKey = "Other";
@@ -491,30 +494,92 @@ export default function MicrofluidicDesignerPage() {
         const clampedY = Math.max(0, Math.min(initialY, containerRect.height - itemHeight));
         const newItemId = `${parentProduct.chipType || 'item'}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
-        // Determine if VariantSelector should be shown
-        const chipTypesRequiringSelector = ['straight', 'x-type', 't-type', 'meander'];
-        const requiresVariantSelector = 
-          chipTypesRequiringSelector.includes(parentProduct.chipType) && 
-          parentProduct.variants && 
-          parentProduct.variants.length > 1; // Only show if multiple variants exist
+        // Determine if VariantSelector should be shown (NOW: Determine if sidebar configuration is needed)
+        const chipTypesRequiringSidebarConfig = ['straight', 'x-type', 't-type', 'meander']; // Chips needing channel width
+        const requiresSidebarConfig =
+          chipTypesRequiringSidebarConfig.includes(parentProduct.chipType);
+          // We can refine this condition later if variants still matter for initial properties
+          // && parentProduct.variants && parentProduct.variants.length > 0;
 
-        if (requiresVariantSelector) {
-          setPendingDrop({
-            parentProduct,
-            x: clampedX,
-            y: clampedY,
-            itemId: newItemId,
-          });
-          setIsVariantSelectorOpen(true);
-          return;
+
+        if (requiresSidebarConfig) {
+          // Item requires configuration in the sidebar (e.g., channel width)
+          // Add item to canvas immediately with default/first variant properties
+          let variantToUse: ProductVariant | undefined = undefined;
+          if (parentProduct.variants && parentProduct.variants.length > 0) {
+            variantToUse = getDefaultVariant(parentProduct.id);
+            if (!variantToUse) {
+              variantToUse = parentProduct.variants[0];
+            }
+          }
+
+          if (variantToUse) {
+            const baseNewItem = createCanvasItemFromVariant(parentProduct, variantToUse, newItemId, clampedX, clampedY);
+            
+            // Calculate initial resistance (can be updated later when channel width is set)
+            const channelWidth = baseNewItem.currentChannelWidthMicrons;
+            const channelDepth = baseNewItem.currentChannelDepthMicrons;
+            const channelLength = baseNewItem.currentChannelLengthMm;
+            let calculatedResistance: number;
+
+            if (parentProduct.chipType === 'straight' || parentProduct.chipType === 'meander') {
+              calculatedResistance = calculateRectangularChannelResistance(
+                channelLength * 1e-3, channelWidth * 1e-6, channelDepth * 1e-6, FLUID_VISCOSITY_PAS
+              );
+            } else if (parentProduct.chipType === 't-type' || parentProduct.chipType === 'x-type') {
+              const effectiveLengthMm = baseNewItem.currentJunctionSegmentLengthMm || channelLength || 2.5;
+              calculatedResistance = calculateRectangularChannelResistance(
+                effectiveLengthMm * 1e-3, channelWidth * 1e-6, channelDepth * 1e-6, FLUID_VISCOSITY_PAS
+              );
+            } else { // Pumps, outlets, holders, etc.
+              calculatedResistance = (parentProduct.chipType === 'pump' || parentProduct.chipType === 'outlet' || parentProduct.chipType === 'holder') ? 0 : 1e18;
+            }
+
+            const finalItem = {
+              ...baseNewItem,
+              resistance: calculatedResistance,
+              // selectedVariantId is already set by createCanvasItemFromVariant
+            };
+            addDroppedItem(finalItem);
+            setConfiguringItemId(newItemId); // Set the item to be configured
+            setSelectedItemId(newItemId);   // ALSO select the item
+            setRightPanelOpen(true);      // Open the sidebar
+          } else {
+            // This case should ideally not be hit if chipTypesRequiringSidebarConfig have variants.
+            // Fallback: Add a generic item or show an error.
+            // For now, let's log and potentially add a very basic item.
+            console.warn(`Product ${parentProduct.name} requires sidebar config but has no variants defined.`);
+            // Add a placeholder item if necessary, or handle error
+             const newItem: CanvasItemData = {
+                id: newItemId,
+                productId: parentProduct.id,
+                name: parentProduct.name,
+                chipType: parentProduct.chipType,
+                x: clampedX, y: clampedY,
+                width: itemWidth, height: itemHeight,
+                ports: parentProduct.defaultPorts.map((p: Port) => ({...p, id: `${newItemId}_${p.id}`})),
+                resistance: 1e18,
+                currentChannelWidthMicrons: DEFAULT_CHANNEL_WIDTH_MICRONS,
+                currentChannelDepthMicrons: DEFAULT_CHANNEL_DEPTH_MICRONS,
+                currentChannelLengthMm: 5, // Default length
+                material: 'PDMS', // Default material
+             };
+            addDroppedItem(newItem);
+            setConfiguringItemId(newItemId);
+            setSelectedItemId(newItemId); // ALSO select the item
+            setRightPanelOpen(true);
+          }
+          // NOTE: We are no longer calling setPendingDrop or setIsVariantSelectorOpen(true) here.
+          return; // Item processed, exit handleDrop
         }
         
-        // If no selector needed, or only one variant, create item directly
+        // Original logic for items NOT requiring sidebar config (or variant selector previously)
+        // This part remains largely the same:
         let variantToUse: ProductVariant | undefined = undefined;
         if (parentProduct.variants && parentProduct.variants.length > 0) {
           variantToUse = getDefaultVariant(parentProduct.id);
-          if (!variantToUse) { 
-             variantToUse = parentProduct.variants[0];
+          if (!variantToUse) {
+            variantToUse = parentProduct.variants[0];
           }
         }
 
@@ -530,19 +595,13 @@ export default function MicrofluidicDesignerPage() {
 
           if (parentProduct.chipType === 'straight' || parentProduct.chipType === 'meander') {
             calculatedResistance = calculateRectangularChannelResistance(
-              channelLength * 1e-3, // mm to m
-              channelWidth * 1e-6,  // µm to m
-              channelDepth * 1e-6,  // µm to m
-              FLUID_VISCOSITY_PAS
+              channelLength * 1e-3, channelWidth * 1e-6, channelDepth * 1e-6, FLUID_VISCOSITY_PAS
             );
           } else if (parentProduct.chipType === 't-type' || parentProduct.chipType === 'x-type') {
             // For T/X junctions, ensure junction segment length is used if available
             const effectiveLengthMm = baseNewItem.currentJunctionSegmentLengthMm || channelLength || 2.5; // Default if all else fails
             calculatedResistance = calculateRectangularChannelResistance(
-              effectiveLengthMm * 1e-3, 
-              channelWidth * 1e-6,
-              channelDepth * 1e-6,
-              FLUID_VISCOSITY_PAS
+              effectiveLengthMm * 1e-3, channelWidth * 1e-6, channelDepth * 1e-6, FLUID_VISCOSITY_PAS
             );
           } else if (parentProduct.chipType === 'pump' || parentProduct.chipType === 'outlet') {
             calculatedResistance = 0; // Pumps and outlets have no internal resistance for this model
@@ -923,7 +982,20 @@ export default function MicrofluidicDesignerPage() {
     setInspectionMode('none'); 
   }, [droppedItems, updateItemDetails, setSimulationResults, setInspectionMode]);
 
-  const currentSelectedItem = droppedItems.find(item => item.id === selectedItemId);
+  const currentSelectedItem = useMemo(() => {
+    if (!selectedItemId) return undefined;
+    return droppedItems.find(item => item.id === selectedItemId);
+  }, [selectedItemId, droppedItems]);
+
+  const currentConfiguringItem = useMemo(() => {
+    if (!configuringItemId) return undefined;
+    return droppedItems.find(item => item.id === configuringItemId);
+  }, [configuringItemId, droppedItems]);
+
+  const selectedConnection = useMemo(() => {
+    if (!selectedConnectionId) return undefined;
+    return connections.find(conn => conn.id === selectedConnectionId);
+  }, [selectedConnectionId, connections]);
 
   useEffect(() => {
     if (mainContainerRef.current) {
@@ -1359,7 +1431,9 @@ export default function MicrofluidicDesignerPage() {
             <>
               <DetailsSidebar
                 selectedItem={currentSelectedItem}
-                selectedConnection={selectedConnectionId ? connections.find(conn => conn.id === selectedConnectionId) : undefined}
+                selectedConnection={selectedConnection}
+                configuringItem={currentConfiguringItem}
+                onClearConfiguringItem={() => setConfiguringItemId(null)}
                 droppedItems={droppedItems}
                 connections={connections}
                 onItemPropertyChange={handleItemPropertyChange}
